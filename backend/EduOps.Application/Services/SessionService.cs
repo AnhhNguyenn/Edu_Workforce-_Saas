@@ -11,11 +11,6 @@ using EduOps.Domain.Interfaces;
 
 namespace EduOps.Application.Services
 {
-    public interface ISessionService
-    {
-        Task<SessionDto> CreateSessionAsync(Guid organizationId, SessionRequestDto request);
-    }
-
     public class SessionService : ISessionService
     {
         private readonly IUnitOfWork _unitOfWork;

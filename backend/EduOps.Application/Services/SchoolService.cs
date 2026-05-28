@@ -24,18 +24,18 @@ namespace EduOps.Application.Services
 
         public async Task<IEnumerable<SchoolDto>> GetSchoolsAsync(Guid organizationId)
         {
-            try
-            {
-                var repo = _unitOfWork.Repository<School>();
-                var schools = await repo.FindAsync(s => s.OrganizationId == organizationId);
-                
-                return schools.Select(s => s.ToDto());
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to get schools for Org: {OrgId}", organizationId);
-                throw;
-            }
+            var schools = await _unitOfWork.Repository<School>()
+                .FindAsync(s => s.OrganizationId == organizationId);
+            return schools.Select(s => s.ToDto());
+        }
+
+        public async Task<SchoolDto> GetByIdAsync(Guid id, Guid organizationId)
+        {
+            var school = await _unitOfWork.Repository<School>().GetByIdAsync(id);
+            if (school == null || school.OrganizationId != organizationId)
+                throw new NotFoundException("School", id);
+
+            return school.ToDto();
         }
 
         public async Task<SchoolDto> CreateAsync(Guid organizationId, SchoolRequestDto request)
@@ -70,9 +70,7 @@ namespace EduOps.Application.Services
 
         public async Task UpdateAsync(Guid id, Guid organizationId, SchoolRequestDto request)
         {
-            var repo = _unitOfWork.Repository<School>();
-            var school = await repo.GetByIdAsync(id);
-
+            var school = await _unitOfWork.Repository<School>().GetByIdAsync(id);
             if (school == null || school.OrganizationId != organizationId)
                 throw new NotFoundException("School", id);
 
@@ -83,6 +81,18 @@ namespace EduOps.Application.Services
             school.AttendanceRadius = request.AttendanceRadius;
             school.LateThresholdMinutes = request.LateThresholdMinutes;
 
+            _unitOfWork.Repository<School>().Update(school);
+            await _unitOfWork.CommitAsync();
+        }
+
+        public async Task DeleteAsync(Guid id, Guid organizationId)
+        {
+            var repo = _unitOfWork.Repository<School>();
+            var school = await repo.GetByIdAsync(id);
+            if (school == null || school.OrganizationId != organizationId)
+                throw new NotFoundException("School", id);
+
+            school.DeletedAt = DateTime.UtcNow;
             repo.Update(school);
             await _unitOfWork.CommitAsync();
         }

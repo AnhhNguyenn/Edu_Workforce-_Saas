@@ -88,7 +88,7 @@ namespace EduOps.Infrastructure.Data
             System.Linq.Expressions.Expression<Func<TInterface, bool>> filterExpression, Type entityType)
         {
             var newParam = System.Linq.Expressions.Expression.Parameter(entityType);
-            var newBody = System.Linq.Expressions.ReplacingExpressionVisitor.Replace(filterExpression.Parameters.Single(), newParam, filterExpression.Body);
+            var newBody = Microsoft.EntityFrameworkCore.Query.ReplacingExpressionVisitor.Replace(filterExpression.Parameters.Single(), newParam, filterExpression.Body);
             return System.Linq.Expressions.Expression.Lambda(newBody, newParam);
         }
     }

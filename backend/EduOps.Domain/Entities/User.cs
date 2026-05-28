@@ -23,5 +23,8 @@ namespace EduOps.Domain.Entities
         public string Status { get; set; } = "ACTIVE";
         
         public DateTime? LastLoginAt { get; set; }
+        
+        // Thời gian kết thúc khóa tài khoản. Nếu là DateTime.MaxValue nghĩa là khóa vĩnh viễn.
+        public DateTime? LockEndAt { get; set; }
     }
 }

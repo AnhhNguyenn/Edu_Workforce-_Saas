@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs.Academic;
 using EduOps.Application.Services;
+using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,8 +22,9 @@ namespace EduOps.Api.Controllers
 
         private Guid GetOrganizationId()
         {
-            // TODO: Lấy từ Claims của JWT Token
-            return Guid.Empty;
+            var claim = User.FindFirst("OrganizationId")?.Value;
+            if (string.IsNullOrEmpty(claim)) return Guid.Empty; // Fallback
+            return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
         }
 
         [HttpGet]
@@ -30,6 +32,14 @@ namespace EduOps.Api.Controllers
         {
             var orgId = GetOrganizationId();
             var result = await _schoolService.GetSchoolsAsync(orgId);
+            return Ok(result);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(Guid id)
+        {
+            var orgId = GetOrganizationId();
+            var result = await _schoolService.GetByIdAsync(id, orgId);
             return Ok(result);
         }
 
@@ -46,6 +56,14 @@ namespace EduOps.Api.Controllers
         {
             var orgId = GetOrganizationId();
             await _schoolService.UpdateAsync(id, orgId, request);
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            var orgId = GetOrganizationId();
+            await _schoolService.DeleteAsync(id, orgId);
             return NoContent();
         }
     }

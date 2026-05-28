@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs.Academic;
 using EduOps.Application.Services;
+using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

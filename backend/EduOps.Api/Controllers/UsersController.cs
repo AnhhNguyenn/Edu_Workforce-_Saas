@@ -19,11 +19,17 @@ namespace EduOps.Api.Controllers
             _userService = userService;
         }
 
+        private Guid? GetOrganizationId()
+        {
+            var claim = User.FindFirst("OrganizationId")?.Value;
+            if (string.IsNullOrEmpty(claim)) return null;
+            return Guid.TryParse(claim, out var id) ? id : null;
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetUsers()
         {
-            // TODO: Lấy OrganizationId từ JWT Token
-            Guid? orgId = Guid.Empty; // Mock
+            var orgId = GetOrganizationId();
             var result = await _userService.GetUsersAsync(orgId);
             return Ok(result);
         }
@@ -38,7 +44,7 @@ namespace EduOps.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateUser([FromBody] UserRequestDto request)
         {
-            Guid? orgId = Guid.Empty; // Mock
+            var orgId = GetOrganizationId();
             var result = await _userService.CreateUserAsync(request, orgId);
             return CreatedAtAction(nameof(GetUser), new { id = result.Id }, result);
         }
@@ -56,5 +62,30 @@ namespace EduOps.Api.Controllers
             await _userService.DeactivateUserAsync(id);
             return NoContent();
         }
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser(Guid id)
+        {
+            await _userService.DeleteUserAsync(id);
+            return NoContent();
+        }
+
+        [HttpPost("{id}/lock")]
+        public async Task<IActionResult> LockUser(Guid id, [FromBody] LockUserRequest request)
+        {
+            await _userService.LockUserAsync(id, request.LockEndAt);
+            return NoContent();
+        }
+
+        [HttpPost("{id}/unlock")]
+        public async Task<IActionResult> UnlockUser(Guid id)
+        {
+            await _userService.UnlockUserAsync(id);
+            return NoContent();
+        }
+    }
+
+    public class LockUserRequest
+    {
+        public DateTime? LockEndAt { get; set; }
     }
 }

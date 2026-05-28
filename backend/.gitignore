@@ -1,3 +1,6 @@
+# ==============================
+# Backend (.NET/C#)
+# ==============================
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
@@ -13,28 +16,25 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
-# Visual Studio / IDE
-.vs/
-*.user
-*.userosscache
-*.sln.docstates
-*.suo
-*.userprefs
-*.ide
-*.vscode/
-
-# Environment and Secrets (BẢO MẬT TỐI ĐA)
-.env
-.env.local
-.env.development
-.env.test
-.env.production
+# ==============================
+# Environment and Secrets (BẢO MẬT)
+# ==============================
+# Backend env vars & settings
 appsettings.json
 appsettings.Development.json
 appsettings.Production.json
 secrets.json
 
+# Certificates & keys
+*.pem
+*.key
+*.cert
+*.pfx
+*.jks
+
+# ==============================
 # OS generated files
+# ==============================
 .DS_Store
 .DS_Store?
 ._*
@@ -43,8 +43,25 @@ secrets.json
 ehthumbs.db
 Thumbs.db
 
+# ==============================
+# IDEs and Editors
+# ==============================
+.vscode/
+.idea/
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.userprefs
+*.ide
+*.swp
+*.swo
+
+# ==============================
 # Others
-*.log
+# ==============================
 *.sqlite
 *.sqlite3
 *.db
+coverage/

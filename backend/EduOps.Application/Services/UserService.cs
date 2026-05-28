@@ -88,9 +88,45 @@ namespace EduOps.Application.Services
         {
             var repo = _unitOfWork.Repository<User>();
             var user = await repo.GetByIdAsync(id);
-            if (user == null) throw new NotFoundException("User", id);
+            if (user == null || user.DeletedAt != null) throw new NotFoundException("User", id);
 
             user.Status = "INACTIVE";
+            repo.Update(user);
+            await _unitOfWork.CommitAsync();
+        }
+
+        public async Task DeleteUserAsync(Guid id)
+        {
+            var repo = _unitOfWork.Repository<User>();
+            var user = await repo.GetByIdAsync(id);
+            if (user == null || user.DeletedAt != null) throw new NotFoundException("User", id);
+
+            user.DeletedAt = DateTime.UtcNow;
+            user.Status = "SUSPENDED";
+            repo.Update(user);
+            await _unitOfWork.CommitAsync();
+        }
+
+        public async Task LockUserAsync(Guid id, DateTime? lockEndAt)
+        {
+            var repo = _unitOfWork.Repository<User>();
+            var user = await repo.GetByIdAsync(id);
+            if (user == null || user.DeletedAt != null) throw new NotFoundException("User", id);
+
+            user.Status = "SUSPENDED";
+            user.LockEndAt = lockEndAt ?? DateTime.MaxValue; // Default to permanent lock if null
+            repo.Update(user);
+            await _unitOfWork.CommitAsync();
+        }
+
+        public async Task UnlockUserAsync(Guid id)
+        {
+            var repo = _unitOfWork.Repository<User>();
+            var user = await repo.GetByIdAsync(id);
+            if (user == null || user.DeletedAt != null) throw new NotFoundException("User", id);
+
+            user.Status = "ACTIVE";
+            user.LockEndAt = null;
             repo.Update(user);
             await _unitOfWork.CommitAsync();
         }

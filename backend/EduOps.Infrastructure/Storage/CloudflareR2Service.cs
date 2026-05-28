@@ -3,15 +3,10 @@ using System.IO;
 using System.Threading.Tasks;
 using Amazon.S3;
 using Amazon.S3.Transfer;
+using EduOps.Application.Interfaces;
 
 namespace EduOps.Infrastructure.Storage
 {
-    public interface IStorageService
-    {
-        Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType);
-        Task DeleteFileAsync(string fileUrl);
-    }
-
     public class CloudflareR2Service : IStorageService
     {
         private readonly IAmazonS3 _s3Client;

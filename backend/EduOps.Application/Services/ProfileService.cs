@@ -5,7 +5,6 @@ using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
-using EduOps.Infrastructure.Storage;
 
 namespace EduOps.Application.Services
 {

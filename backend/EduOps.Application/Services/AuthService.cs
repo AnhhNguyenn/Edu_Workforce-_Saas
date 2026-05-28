@@ -33,12 +33,20 @@ namespace EduOps.Application.Services
 
             var userRepository = _unitOfWork.Repository<User>();
             
-            var users = await userRepository.FindAsync(u => u.Email == request.Email && u.Status == "ACTIVE");
+            var users = await userRepository.FindAsync(u => u.Email == request.Email);
             var user = users.FirstOrDefault();
 
             if (user == null)
             {
                 throw new NotFoundException("User", request.Email);
+            }
+
+            if (user.Status != "ACTIVE" || (user.LockEndAt.HasValue && user.LockEndAt.Value > DateTime.UtcNow))
+            {
+                var lockMessage = user.LockEndAt == DateTime.MaxValue 
+                    ? "Tài khoản của bạn đã bị khóa vĩnh viễn." 
+                    : $"Tài khoản của bạn bị khóa đến {user.LockEndAt?.ToLocalTime():dd/MM/yyyy HH:mm}.";
+                throw new Exception(lockMessage); // Use generic exception for simple error passing or a custom one
             }
 
             // MOCK PASSWORD VERIFICATION (Thay bằng BCrypt thực tế)

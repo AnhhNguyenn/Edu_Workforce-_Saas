@@ -8,7 +8,9 @@ namespace EduOps.Application.Interfaces
     public interface ISchoolService
     {
         Task<IEnumerable<SchoolDto>> GetSchoolsAsync(Guid organizationId);
+        Task<SchoolDto> GetByIdAsync(Guid id, Guid organizationId);
         Task<SchoolDto> CreateAsync(Guid organizationId, SchoolRequestDto request);
         Task UpdateAsync(Guid id, Guid organizationId, SchoolRequestDto request);
+        Task DeleteAsync(Guid id, Guid organizationId);
     }
 }

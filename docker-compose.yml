@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eduops_backend
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      # Ví dụ cấu hình DB nếu có DB container:
+      # - ConnectionStrings__DefaultConnection=Host=db;Database=eduops;Username=postgres;Password=postgres
+    networks:
+      - eduops_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: eduops_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:5001/api # Cloudflare sẽ map API này
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=eduops-secret-key-2024
+    depends_on:
+      - backend
+    networks:
+      - eduops_network
+
+networks:
+  eduops_network:
+    driver: bridge

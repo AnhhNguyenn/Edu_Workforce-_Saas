@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs.Academic;
+using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
@@ -30,6 +31,14 @@ namespace EduOps.Application.Services
             return classes.Select(c => c.ToDto());
         }
 
+        public async Task<ClassDto> GetByIdAsync(Guid id, Guid organizationId)
+        {
+            var classEntity = await _unitOfWork.Repository<Class>().GetByIdAsync(id);
+            if (classEntity == null || classEntity.OrganizationId != organizationId)
+                throw new NotFoundException("Class", id);
+            return classEntity.ToDto();
+        }
+
         public async Task<ClassDto> CreateAsync(Guid organizationId, ClassRequestDto request)
         {
             var schoolRepo = _unitOfWork.Repository<School>();
@@ -53,6 +62,41 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             return newClass.ToDto();
+        }
+
+        public async Task UpdateAsync(Guid id, Guid organizationId, ClassRequestDto request)
+        {
+            var classEntity = await _unitOfWork.Repository<Class>().GetByIdAsync(id);
+            if (classEntity == null || classEntity.OrganizationId != organizationId)
+                throw new NotFoundException("Class", id);
+
+            if (classEntity.SchoolId != request.SchoolId)
+            {
+                var school = await _unitOfWork.Repository<School>().GetByIdAsync(request.SchoolId);
+                if (school == null || school.OrganizationId != organizationId)
+                    throw new Exception("Invalid School ID");
+                classEntity.SchoolId = request.SchoolId;
+            }
+
+            classEntity.Name = request.Name;
+            classEntity.Grade = request.Grade;
+            classEntity.Subject = request.Subject;
+            classEntity.Description = request.Description;
+
+            _unitOfWork.Repository<Class>().Update(classEntity);
+            await _unitOfWork.CommitAsync();
+        }
+
+        public async Task DeleteAsync(Guid id, Guid organizationId)
+        {
+            var repo = _unitOfWork.Repository<Class>();
+            var classEntity = await repo.GetByIdAsync(id);
+            if (classEntity == null || classEntity.OrganizationId != organizationId)
+                throw new NotFoundException("Class", id);
+
+            classEntity.DeletedAt = DateTime.UtcNow;
+            repo.Update(classEntity);
+            await _unitOfWork.CommitAsync();
         }
     }
 }

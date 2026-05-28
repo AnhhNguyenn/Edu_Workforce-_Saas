@@ -16,7 +16,10 @@ namespace EduOps.Application.Mappings
                 FullName = user.FullName,
                 Email = user.Email,
                 Role = user.Role,
-                AvatarUrl = user.AvatarUrl
+                AvatarUrl = user.AvatarUrl,
+                Status = user.Status,
+                LastLoginAt = user.LastLoginAt,
+                LockEndAt = user.LockEndAt
             };
         }
     }

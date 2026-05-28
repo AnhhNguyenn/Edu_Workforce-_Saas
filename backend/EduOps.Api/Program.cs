@@ -20,6 +20,19 @@ builder.Services.AddApplication();
 // 2. Cấu hình Controllers
 builder.Services.AddControllers();
 
+// Cấu hình CORS cho Frontend
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        builder =>
+        {
+            builder.WithOrigins("http://localhost:3000", "http://localhost:3001")
+                   .AllowAnyHeader()
+                   .AllowAnyMethod()
+                   .AllowCredentials();
+        });
+});
+
 // 3. Cấu hình Swagger kèm chức năng nhập JWT Bearer Token
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -87,7 +100,7 @@ builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddHangfireServer();
 
@@ -101,6 +114,8 @@ app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "EduOps API 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();

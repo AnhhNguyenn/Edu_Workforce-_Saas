@@ -1,4 +1,5 @@
 using EduOps.Application.Interfaces;
+using EduOps.Domain.Interfaces;
 using EduOps.Infrastructure.Data;
 using EduOps.Infrastructure.Logging;
 using EduOps.Infrastructure.Repositories;
@@ -22,10 +23,6 @@ namespace EduOps.Infrastructure
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             // Logging
-            services.AddSingleton(typeof(ICustomLogger<>), typeof(CustomLogger<>));
-            // Chú ý: Dùng ICustomLogger thay vì ICustomLogger<> cho các class không Generic nếu cần, 
-            // hoặc chuyển Interface ICustomLogger thành non-generic và inject qua Factory. 
-            // Tạm thời đăng ký map cho ICustomLogger chung:
             services.AddSingleton<ICustomLogger, CustomLogger<object>>();
 
             // Cloudflare R2 (S3 API)
