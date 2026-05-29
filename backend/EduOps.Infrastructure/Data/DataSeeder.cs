@@ -34,7 +34,7 @@ namespace EduOps.Infrastructure.Data
             }
 
             // 2. Seed Organization
-            Organization org = await context.Organizations.IgnoreQueryFilters().FirstOrDefaultAsync(o => o.Code == "TESTORG");
+            Organization? org = await context.Organizations.IgnoreQueryFilters().FirstOrDefaultAsync(o => o.Code == "TESTORG");
             if (org == null)
             {
                 org = new Organization
@@ -97,18 +97,16 @@ namespace EduOps.Infrastructure.Data
             }
 
             // 6. Seed Gói cước (Để test mua bán)
-            if (!context.Set<SubscriptionPlan>().IgnoreQueryFilters().Any(p => p.Code == "PRO"))
+            if (!context.Set<SubscriptionPlan>().IgnoreQueryFilters().Any(p => p.Name == "Gói Pro"))
             {
                 context.Set<SubscriptionPlan>().Add(new SubscriptionPlan
                 {
                     Name = "Gói Pro",
-                    Code = "PRO",
-                    Description = "Gói cao cấp cho trung tâm",
+                    Description = "Gói cao cấp cho trung tâm - Tất cả tính năng",
                     PricePerMonth = 500000,
                     PricePerYear = 5000000,
                     MaxUsers = 100,
-                    Features = "Tất cả tính năng",
-                    IsActive = true
+                    Status = AccountStatus.ACTIVE
                 });
             }
 

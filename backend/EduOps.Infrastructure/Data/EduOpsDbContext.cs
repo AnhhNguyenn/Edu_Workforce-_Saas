@@ -41,6 +41,8 @@ namespace EduOps.Infrastructure.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<FileRecord> Files { get; set; }
         public DbSet<BillingTransaction> BillingTransactions { get; set; }
+        public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
+        public DbSet<Promotion> Promotions { get; set; }
         
         // --- AUTH ---
         public DbSet<RefreshToken> RefreshTokens { get; set; }

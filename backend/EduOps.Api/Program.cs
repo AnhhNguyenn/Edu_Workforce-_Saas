@@ -209,6 +209,15 @@ try
                 new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
             );
 
+            // Đăng ký Job kiểm tra gia hạn Gói cước (Chạy lúc 8:00 sáng mỗi ngày)
+            var expiryCron = builder.Configuration["HangfireSettings:SubscriptionExpiryCron"] ?? "0 8 * * *";
+            recurringJobManager.AddOrUpdate<EduOps.Application.BackgroundJobs.NotificationJobs>(
+                "Subscription_Expiry_Job",
+                job => job.CheckSubscriptionExpiryAsync(),
+                expiryCron,
+                new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
+            );
+
             // Tự động Seed Dữ liệu Test
             EduOps.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         }
