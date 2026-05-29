@@ -34,7 +34,8 @@ namespace EduOps.Application.Services
 
             var userRepository = _unitOfWork.Repository<User>();
             
-            var users = await userRepository.FindAsync(u => u.Email == request.Email);
+            // Phải IgnoreQueryFilters vì lúc đăng nhập chưa có Token, không thể qua được bộ lọc Multi-tenant
+            var users = await userRepository.FindAsync(u => u.Email == request.Email, ignoreQueryFilters: true);
             var user = users.FirstOrDefault();
 
             if (user == null)

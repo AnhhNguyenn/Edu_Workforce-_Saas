@@ -21,7 +21,7 @@ namespace EduOps.Infrastructure.Data
             }
 
             // 1. Seed Super Admin
-            if (!context.Users.IgnoreQueryFilters().Any(u => u.Role == "SUPER_ADMIN"))
+            if (!context.Users.IgnoreQueryFilters().Any(u => u.Email == "superadmin@test.com"))
             {
                 context.Users.Add(new User
                 {
@@ -55,7 +55,7 @@ namespace EduOps.Infrastructure.Data
             }
 
             // 3. Seed Center Admin
-            if (!context.Users.IgnoreQueryFilters().Any(u => u.Role == "CENTER_ADMIN" && u.OrganizationId == org.Id))
+            if (!context.Users.IgnoreQueryFilters().Any(u => u.Email == "centeradmin@test.com"))
             {
                 context.Users.Add(new User
                 {
@@ -69,7 +69,7 @@ namespace EduOps.Infrastructure.Data
             }
 
             // 4. Seed Teacher
-            if (!context.Users.IgnoreQueryFilters().Any(u => u.Role == "TEACHER" && u.OrganizationId == org.Id))
+            if (!context.Users.IgnoreQueryFilters().Any(u => u.Email == "teacher@test.com"))
             {
                 context.Users.Add(new User
                 {
@@ -83,7 +83,7 @@ namespace EduOps.Infrastructure.Data
             }
             
             // 5. Seed Assistant
-            if (!context.Users.IgnoreQueryFilters().Any(u => u.Role == "ASSISTANT" && u.OrganizationId == org.Id))
+            if (!context.Users.IgnoreQueryFilters().Any(u => u.Email == "assistant@test.com"))
             {
                 context.Users.Add(new User
                 {
