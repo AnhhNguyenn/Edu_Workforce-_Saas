@@ -4,12 +4,14 @@ using EduOps.Application.DTOs.User;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Filters;
 
 namespace EduOps.Api.Controllers
 {
     [Route("api/users")]
     [ApiController]
     [Authorize]
+    [RequirePaidSubscription]
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;

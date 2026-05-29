@@ -10,5 +10,6 @@ namespace EduOps.Application.Interfaces
         Task<AttendanceDto> CheckInAsync(Guid userId, AttendanceRequestDto request);
         Task<AttendanceDto> CheckOutAsync(Guid userId, AttendanceRequestDto request);
         Task<PagedResult<AttendanceDto>> GetMyAttendancesAsync(Guid userId, int pageNumber, int pageSize);
+        Task SubmitStudentAttendancesAsync(Guid sessionId, Guid organizationId, Guid userId, StudentAttendanceSubmitDto request);
     }
 }

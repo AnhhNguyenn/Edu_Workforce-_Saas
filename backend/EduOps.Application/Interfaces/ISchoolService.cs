@@ -8,7 +8,7 @@ namespace EduOps.Application.Interfaces
 {
     public interface ISchoolService
     {
-        Task<PagedResult<SchoolDto>> GetSchoolsAsync(Guid organizationId, int pageNumber, int pageSize);
+        Task<PagedResult<SchoolDto>> GetSchoolsAsync(Guid organizationId, int pageNumber, int pageSize, string? searchKeyword = null);
         Task<SchoolDto> GetByIdAsync(Guid id, Guid organizationId);
         Task<SchoolDto> CreateAsync(Guid organizationId, SchoolRequestDto request);
         Task UpdateAsync(Guid id, Guid organizationId, SchoolRequestDto request);

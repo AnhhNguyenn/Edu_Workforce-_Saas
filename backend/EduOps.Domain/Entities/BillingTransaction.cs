@@ -6,7 +6,10 @@ namespace EduOps.Domain.Entities
     public class BillingTransaction : TenantEntity
     {
         public decimal Amount { get; set; }
-        public string PlanName { get; set; } = string.Empty;
+        public string? PlanName { get; set; }
+        
+        public Guid PlanId { get; set; }
+        public int MonthsToAdd { get; set; }
         public DateTime PaymentDate { get; set; }
         
         // SUCCESS, FAILED, PENDING

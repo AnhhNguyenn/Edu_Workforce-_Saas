@@ -7,7 +7,7 @@ namespace EduOps.Application.Interfaces
 {
     public interface ISessionService
     {
-        Task<PagedResult<SessionDto>> GetSessionsAsync(Guid organizationId, Guid? classId, Guid? teacherId, DateTime? date, int pageNumber, int pageSize);
+        Task<PagedResult<SessionDto>> GetSessionsAsync(Guid organizationId, Guid? classId, Guid? teacherId, DateTime? date, int pageNumber, int pageSize, string? searchKeyword = null);
         Task<SessionDto> CreateSessionAsync(Guid organizationId, SessionRequestDto request);
     }
 }

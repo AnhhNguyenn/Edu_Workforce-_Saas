@@ -68,7 +68,7 @@ namespace EduOps.Application.Services
                 var existings = await repo.FindAsync(x => x.Code == request.Code);
                 if (existings.Any())
                 {
-                    throw new Exception($"Organization code '{request.Code}' already exists.");
+                    throw new BadRequestException($"Organization code '{request.Code}' already exists.");
                 }
 
                 var org = new Organization

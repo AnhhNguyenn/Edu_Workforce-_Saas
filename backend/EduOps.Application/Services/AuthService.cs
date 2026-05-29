@@ -47,8 +47,8 @@ namespace EduOps.Application.Services
             {
                 var lockMessage = user.LockEndAt == DateTime.MaxValue 
                     ? "Tài khoản của bạn đã bị khóa vĩnh viễn." 
-                    : $"Tài khoản của bạn bị khóa đến {user.LockEndAt?.ToLocalTime():dd/MM/yyyy HH:mm}.";
-                throw new Exception(lockMessage); // Use generic exception for simple error passing or a custom one
+                    : $"Tài khoản của bạn bị khóa đến {user.LockEndAt:dd/MM/yyyy HH:mm}.";
+                throw new BadRequestException(lockMessage); 
             }
 
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))

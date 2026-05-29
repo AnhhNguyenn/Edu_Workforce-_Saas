@@ -24,7 +24,7 @@ namespace EduOps.Application.Services
             _logger = logger;
         }
 
-        public async Task<PagedResult<SessionDto>> GetSessionsAsync(Guid organizationId, Guid? classId, Guid? teacherId, DateTime? date, int pageNumber, int pageSize)
+        public async Task<PagedResult<SessionDto>> GetSessionsAsync(Guid organizationId, Guid? classId, Guid? teacherId, DateTime? date, int pageNumber, int pageSize, string? searchKeyword = null)
         {
             var repo = _unitOfWork.Repository<Session>();
             
@@ -32,7 +32,8 @@ namespace EduOps.Application.Services
                 s.OrganizationId == organizationId &&
                 (!classId.HasValue || s.ClassId == classId.Value) &&
                 (!teacherId.HasValue || s.TeacherId == teacherId.Value) &&
-                (!date.HasValue || s.SessionDate.Date == date.Value.Date), 
+                (!date.HasValue || s.SessionDate.Date == date.Value.Date) &&
+                (string.IsNullOrEmpty(searchKeyword) || s.LessonTitle.Contains(searchKeyword)), 
                 pageNumber, pageSize);
 
             return new PagedResult<SessionDto>
@@ -68,7 +69,7 @@ namespace EduOps.Application.Services
                 if (overlapping != null)
                 {
                     _logger.LogWarning($"Conflict detected for Session: Teacher {request.TeacherId} at {request.StartTime}");
-                    throw new Exception("Conflict detected: Teacher or Assistant is already assigned to another session at this time.");
+                    throw new BadRequestException("Conflict detected: Teacher or Assistant is already assigned to another session at this time.");
                 }
 
                 var session = new Session

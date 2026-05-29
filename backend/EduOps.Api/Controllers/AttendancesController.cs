@@ -1,15 +1,18 @@
 using System;
 using System.Threading.Tasks;
+using EduOps.Application.DTOs;
 using EduOps.Application.DTOs.Attendance;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Filters;
 
 namespace EduOps.Api.Controllers
 {
     [Route("api/attendances")]
     [ApiController]
     [Authorize(Roles = "TEACHER,CENTER_ADMIN")]
+    [RequirePaidSubscription]
     public class AttendancesController : ControllerBase
     {
         private readonly IAttendanceService _attendanceService;
@@ -35,11 +38,21 @@ namespace EduOps.Api.Controllers
             return Ok(result);
         }
 
-        [HttpGet("my-records")]
-        public async Task<IActionResult> GetMyRecords([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        [HttpGet("me")]
+        public async Task<IActionResult> GetMyAttendances([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
-            var result = await _attendanceService.GetMyAttendancesAsync(_currentUserService.UserId, pageNumber, pageSize);
+            var userId = GetCurrentUserId();
+            var result = await _attendanceService.GetMyAttendancesAsync(userId, pageNumber, pageSize);
             return Ok(result);
+        }
+
+        [HttpPost("sessions/{sessionId}/students")]
+        [Authorize(Roles = "TEACHER,ASSISTANT,CENTER_ADMIN")]
+        public async Task<IActionResult> SubmitStudentAttendances(Guid sessionId, [FromBody] StudentAttendanceSubmitDto request)
+        {
+            var userId = GetCurrentUserId();
+            await _attendanceService.SubmitStudentAttendancesAsync(sessionId, GetOrganizationId(), userId, request);
+            return Ok();
         }
     }
 }

@@ -23,12 +23,17 @@ namespace EduOps.Application.Services
             _logger = logger;
         }
 
-        public async Task<PagedResult<SchoolDto>> GetSchoolsAsync(Guid organizationId, int pageNumber, int pageSize)
+        public async Task<PagedResult<SchoolDto>> GetSchoolsAsync(Guid organizationId, int pageNumber, int pageSize, string? searchKeyword = null)
         {
             try
             {
                 var repo = _unitOfWork.Repository<School>();
-                var result = await repo.FindPagedAsync(s => s.OrganizationId == organizationId, pageNumber, pageSize);
+                
+                System.Linq.Expressions.Expression<Func<School, bool>> predicate = s => 
+                    s.OrganizationId == organizationId &&
+                    (string.IsNullOrEmpty(searchKeyword) || s.Name.Contains(searchKeyword) || (s.Address != null && s.Address.Contains(searchKeyword)));
+                    
+                var result = await repo.FindPagedAsync(predicate, pageNumber, pageSize);
                 
                 return new PagedResult<SchoolDto>
                 {

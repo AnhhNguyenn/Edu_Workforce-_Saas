@@ -27,6 +27,7 @@ namespace EduOps.Infrastructure.Data
         public DbSet<School> Schools { get; set; }
         public DbSet<Class> Classes { get; set; }
         public DbSet<Student> Students { get; set; }
+        public DbSet<ClassEnrollment> ClassEnrollments { get; set; }
         public DbSet<ClassSchedule> ClassSchedules { get; set; }
         public DbSet<Session> Sessions { get; set; }
         

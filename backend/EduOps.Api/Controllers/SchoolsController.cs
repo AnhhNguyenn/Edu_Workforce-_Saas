@@ -28,10 +28,9 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetSchools([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> Get([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null)
         {
-            var orgId = GetOrganizationId();
-            var result = await _schoolService.GetSchoolsAsync(orgId, pageNumber, pageSize);
+            var result = await _schoolService.GetSchoolsAsync(GetOrganizationId(), pageNumber, pageSize, searchKeyword);
             return Ok(result);
         }
 

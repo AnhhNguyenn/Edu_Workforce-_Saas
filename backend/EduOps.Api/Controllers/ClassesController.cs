@@ -5,12 +5,14 @@ using EduOps.Application.Services;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Filters;
 
 namespace EduOps.Api.Controllers
 {
     [Route("api/classes")]
     [ApiController]
     [Authorize(Roles = "CENTER_ADMIN,TEACHER")]
+    [RequirePaidSubscription]
     public class ClassesController : ControllerBase
     {
         private readonly IClassService _classService;
@@ -28,9 +30,9 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get([FromQuery] Guid? schoolId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> Get([FromQuery] Guid? schoolId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null)
         {
-            var result = await _classService.GetClassesAsync(GetOrganizationId(), schoolId, pageNumber, pageSize);
+            var result = await _classService.GetClassesAsync(GetOrganizationId(), schoolId, pageNumber, pageSize, searchKeyword);
             return Ok(result);
         }
 

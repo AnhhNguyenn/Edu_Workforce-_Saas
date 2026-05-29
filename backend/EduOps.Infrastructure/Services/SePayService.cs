@@ -50,6 +50,8 @@ namespace EduOps.Infrastructure.Services
                 OrganizationId = organizationId,
                 Amount = finalPrice,
                 PlanName = plan.Name,
+                PlanId = plan.Id,
+                MonthsToAdd = billingCycle == "YEARLY" ? 12 : 1,
                 PaymentDate = DateTime.UtcNow,
                 PaymentMethod = "SEPAY_BANK_TRANSFER",
                 Status = BillingStatus.PENDING,
@@ -127,8 +129,15 @@ namespace EduOps.Infrastructure.Services
                         if (org != null)
                         {
                             org.SubscriptionStatus = "ACTIVE"; // MỞ KHÓA PAYWALL
+                            
+                            // Tính toán thời gian hết hạn mới
+                            var currentEnd = (org.SubscriptionEnd.HasValue && org.SubscriptionEnd.Value > DateTime.UtcNow) 
+                                ? org.SubscriptionEnd.Value 
+                                : DateTime.UtcNow;
+                            org.SubscriptionEnd = currentEnd.AddMonths(transaction.MonthsToAdd);
+                            
                             _unitOfWork.Repository<Organization>().Update(org);
-                            _logger.LogInformation($"Đã kích hoạt Gói cước cho Organization {org.Code}");
+                            _logger.LogInformation($"Đã kích hoạt Gói cước cho Organization {org.Code}. Hạn mới: {org.SubscriptionEnd:dd/MM/yyyy}");
                         }
                     }
 

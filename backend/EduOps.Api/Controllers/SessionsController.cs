@@ -5,12 +5,14 @@ using EduOps.Application.Services;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Filters;
 
 namespace EduOps.Api.Controllers
 {
     [Route("api/sessions")]
     [ApiController]
-    [Authorize(Roles = "CENTER_ADMIN,TEACHER")]
+    [Authorize]
+    [RequirePaidSubscription]
     public class SessionsController : ControllerBase
     {
         private readonly ISessionService _sessionService;
@@ -28,9 +30,9 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetSessions([FromQuery] Guid? classId, [FromQuery] Guid? teacherId, [FromQuery] DateTime? date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> Get([FromQuery] Guid? classId, [FromQuery] Guid? teacherId, [FromQuery] DateTime? date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null)
         {
-            var result = await _sessionService.GetSessionsAsync(GetOrganizationId(), classId, teacherId, date, pageNumber, pageSize);
+            var result = await _sessionService.GetSessionsAsync(GetOrganizationId(), classId, teacherId, date, pageNumber, pageSize, searchKeyword);
             return Ok(result);
         }
 

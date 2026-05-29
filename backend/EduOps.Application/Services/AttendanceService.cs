@@ -154,5 +154,50 @@ namespace EduOps.Application.Services
                 PageSize = pageSize
             };
         }
+
+        public async Task SubmitStudentAttendancesAsync(Guid sessionId, Guid organizationId, Guid userId, StudentAttendanceSubmitDto request)
+        {
+            var sessionRepo = _unitOfWork.Repository<Session>();
+            var session = (await sessionRepo.FindAsync(s => s.Id == sessionId)).FirstOrDefault();
+            
+            if (session == null || session.OrganizationId != organizationId) 
+                throw new NotFoundException("Session", sessionId);
+                
+            if (session.TeacherId != userId && session.AssistantId != userId)
+            {
+                // Only assigned teachers/assistants can mark attendance
+                throw new ForbiddenException("You are not assigned to this session.");
+            }
+
+            var studentAttendanceRepo = _unitOfWork.Repository<StudentSessionAttendance>();
+            var existingAttendances = await studentAttendanceRepo.FindAsync(sa => sa.SessionId == sessionId);
+
+            foreach (var record in request.Records)
+            {
+                var existing = existingAttendances.FirstOrDefault(sa => sa.StudentId == record.StudentId);
+                if (existing != null)
+                {
+                    existing.IsPresent = record.IsPresent;
+                    existing.Status = record.IsPresent ? EduOps.Domain.Enums.AttendanceStatus.PRESENT : EduOps.Domain.Enums.AttendanceStatus.ABSENT;
+                    existing.Note = record.Note;
+                    studentAttendanceRepo.Update(existing);
+                }
+                else
+                {
+                    var newAttendance = new StudentSessionAttendance
+                    {
+                        OrganizationId = organizationId,
+                        SessionId = sessionId,
+                        StudentId = record.StudentId,
+                        IsPresent = record.IsPresent,
+                        Status = record.IsPresent ? EduOps.Domain.Enums.AttendanceStatus.PRESENT : EduOps.Domain.Enums.AttendanceStatus.ABSENT,
+                        Note = record.Note
+                    };
+                    await studentAttendanceRepo.AddAsync(newAttendance);
+                }
+            }
+
+            await _unitOfWork.CommitAsync();
+        }
     }
 }

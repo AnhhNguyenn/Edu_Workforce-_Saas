@@ -45,7 +45,7 @@ Dự án được xây dựng theo kiến trúc **Clean Architecture** kết h�
 
 ### 3.1. Yêu cầu hệ thống
 - .NET 8.0 SDK
-- SQL Server (Hoặc LocalDB)
+- PostgreSQL (Cài local hoặc dùng Cloud như NeonDB/Supabase)
 - Postman / Swagger để test API.
 
 ### 3.2. Cấu hình `appsettings.Development.json`
@@ -54,9 +54,9 @@ Dự án được xây dựng theo kiến trúc **Clean Architecture** kết h�
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=...;Database=EduOpsDb;..."
+    "DefaultConnection": "Host=localhost;Database=EduOpsDb;Username=postgres;Password=..."
   },
-  "Jwt": {
+  "JwtSettings": {
     "Key": "Chuỗi_Bảo_Mật_Đủ_Dài_Của_Bạn",
     "Issuer": "EduOpsAPI",
     "Audience": "EduOpsClient"
@@ -86,7 +86,10 @@ Dự án được xây dựng theo kiến trúc **Clean Architecture** kết h�
    ```bash
    dotnet run --project EduOps.Api
    ```
-4. Truy cập Swagger UI để test: `https://localhost:5001/swagger` (Hoặc http://localhost:5000/swagger)
+4. **Data Seeder tự động**: Ngay khi chạy lệnh `dotnet run` lần đầu tiên, hệ thống sẽ tự động cấy (seed) sẵn vào Database:
+   - 1 Gói cước mẫu (Gói Pro)
+   - 4 Tài khoản Test (`superadmin@test.com`, `centeradmin@test.com`, `teacher@test.com`, `assistant@test.com`). Mật khẩu chung: `Admin@123`.
+5. Truy cập Swagger UI để test: `http://localhost:5000/swagger`
 
 ---
 

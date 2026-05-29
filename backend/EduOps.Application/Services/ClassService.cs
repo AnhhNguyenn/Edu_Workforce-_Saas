@@ -22,13 +22,16 @@ namespace EduOps.Application.Services
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<PagedResult<ClassDto>> GetClassesAsync(Guid organizationId, Guid? schoolId, int pageNumber, int pageSize)
+        public async Task<PagedResult<ClassDto>> GetClassesAsync(Guid organizationId, Guid? schoolId, int pageNumber, int pageSize, string? searchKeyword = null)
         {
             var repo = _unitOfWork.Repository<Class>();
             
-            var result = schoolId.HasValue
-                ? await repo.FindPagedAsync(c => c.OrganizationId == organizationId && c.SchoolId == schoolId, pageNumber, pageSize)
-                : await repo.FindPagedAsync(c => c.OrganizationId == organizationId, pageNumber, pageSize);
+            System.Linq.Expressions.Expression<Func<Class, bool>> predicate = c => 
+                c.OrganizationId == organizationId &&
+                (!schoolId.HasValue || c.SchoolId == schoolId) &&
+                (string.IsNullOrEmpty(searchKeyword) || c.Name.Contains(searchKeyword) || (c.Subject != null && c.Subject.Contains(searchKeyword)));
+
+            var result = await repo.FindPagedAsync(predicate, pageNumber, pageSize);
 
             return new PagedResult<ClassDto>
             {
@@ -53,7 +56,7 @@ namespace EduOps.Application.Services
             var school = await schoolRepo.GetByIdAsync(request.SchoolId);
             
             if (school == null || school.OrganizationId != organizationId)
-                throw new Exception("Invalid School ID");
+                throw new BadRequestException("Invalid School ID");
 
             var newClass = new Class
             {
@@ -82,7 +85,7 @@ namespace EduOps.Application.Services
             {
                 var school = await _unitOfWork.Repository<School>().GetByIdAsync(request.SchoolId);
                 if (school == null || school.OrganizationId != organizationId)
-                    throw new Exception("Invalid School ID");
+                    throw new BadRequestException("Invalid School ID");
                 classEntity.SchoolId = request.SchoolId;
             }
 

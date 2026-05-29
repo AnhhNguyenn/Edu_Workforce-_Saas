@@ -156,6 +156,9 @@ try
     // Cấu hình SignalR và Realtime Service (Nằm ở Tầng API)
     builder.Services.AddSignalR();
     builder.Services.AddScoped<EduOps.Application.Interfaces.IRealtimeNotificationService, EduOps.Api.Services.RealtimeNotificationService>();
+    builder.Services.AddScoped<EduOps.Application.Interfaces.ISchoolService, EduOps.Application.Services.SchoolService>();
+    builder.Services.AddScoped<EduOps.Application.Interfaces.IStudentService, EduOps.Application.Services.StudentService>();
+    builder.Services.AddScoped<EduOps.Application.Interfaces.IClassScheduleService, EduOps.Application.Services.ClassScheduleService>();
     builder.Services.AddScoped<EduOps.Application.Interfaces.ISePayService, EduOps.Infrastructure.Services.SePayService>();
 
     // Cấu hình Multi-tenant & HTTP Context
