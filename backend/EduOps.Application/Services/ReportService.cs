@@ -1,0 +1,144 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using EduOps.Application.DTOs;
+using EduOps.Application.DTOs.Report;
+using EduOps.Application.Exceptions;
+using EduOps.Application.Interfaces;
+using EduOps.Application.Mappings;
+using EduOps.Domain.Entities;
+using EduOps.Domain.Enums;
+using EduOps.Domain.Interfaces;
+
+namespace EduOps.Application.Services
+{
+    public class ReportService : IReportService
+    {
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IStorageService _storageService;
+
+        public ReportService(IUnitOfWork unitOfWork, IStorageService storageService)
+        {
+            _unitOfWork = unitOfWork;
+            _storageService = storageService;
+        }
+
+        private async Task<Report> GetOrCreateReportAsync(Guid sessionId)
+        {
+            var reportRepo = _unitOfWork.Repository<Report>();
+            var report = (await reportRepo.FindAsync(r => r.SessionId == sessionId)).FirstOrDefault();
+            
+            if (report == null)
+            {
+                var session = (await _unitOfWork.Repository<Session>().FindAsync(s => s.Id == sessionId)).FirstOrDefault();
+                if (session == null) throw new NotFoundException("Session", sessionId);
+                
+                var attendances = await _unitOfWork.Repository<StudentSessionAttendance>().FindAsync(a => a.SessionId == sessionId);
+                int presentCount = attendances.Count(a => a.IsPresent);
+                int absentCount = attendances.Count(a => !a.IsPresent);
+
+                report = new Report
+                {
+                    SessionId = sessionId,
+                    TeacherId = session.TeacherId,
+                    AssistantId = session.AssistantId,
+                    OrganizationId = session.OrganizationId,
+                    AttendanceCount = presentCount,
+                    AbsentCount = absentCount,
+                    Status = ReportStatus.DRAFT
+                };
+                await reportRepo.AddAsync(report);
+                await _unitOfWork.CommitAsync();
+            }
+            return report;
+        }
+
+        public async Task<ReportDto> SubmitTeacherReportAsync(Guid sessionId, Guid teacherId, TeacherReportRequestDto request)
+        {
+            var report = await GetOrCreateReportAsync(sessionId);
+            
+            if (report.TeacherId != teacherId)
+                throw new ForbiddenException("Only the assigned teacher can submit this part of the report.");
+
+            report.LessonTaught = request.LessonTaught;
+            report.Progress = request.Progress;
+            report.TeacherComment = request.TeacherComment;
+            report.SpecialStudents = request.SpecialStudents;
+            report.RatingForAssistant = request.RatingForAssistant;
+            report.FeedbackForAssistant = request.FeedbackForAssistant;
+            
+            report.Status = ReportStatus.SUBMITTED;
+            report.SubmittedAt = DateTime.UtcNow;
+
+            _unitOfWork.Repository<Report>().Update(report);
+            await _unitOfWork.CommitAsync();
+
+            return await GetReportBySessionIdAsync(sessionId);
+        }
+
+        public async Task<ReportDto> SubmitAssistantReportAsync(Guid sessionId, Guid assistantId, AssistantReportRequestDto request)
+        {
+            var report = await GetOrCreateReportAsync(sessionId);
+            
+            if (report.AssistantId != assistantId)
+                throw new ForbiddenException("Only the assigned assistant can submit this part of the report.");
+
+            report.AssistantNote = request.AssistantNote;
+            report.RatingForTeacher = request.RatingForTeacher;
+            report.FeedbackForTeacher = request.FeedbackForTeacher;
+            
+            _unitOfWork.Repository<Report>().Update(report);
+            await _unitOfWork.CommitAsync();
+
+            return await GetReportBySessionIdAsync(sessionId);
+        }
+
+        public async Task<ReportDto> UploadReportMediaAsync(Guid reportId, Guid userId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                throw new BadRequestException("File is empty.");
+
+            if (file.Length > 5 * 1024 * 1024)
+                throw new BadRequestException("File size exceeds 5MB limit.");
+
+            var reportRepo = _unitOfWork.Repository<Report>();
+            var report = await reportRepo.GetByIdAsync(reportId);
+            if (report == null) throw new NotFoundException("Report", reportId);
+
+            if (report.TeacherId != userId && report.AssistantId != userId)
+                throw new ForbiddenException("You don't have permission to upload media to this report.");
+
+            string extension = System.IO.Path.GetExtension(file.FileName);
+            string uniqueFileName = $"reports/{reportId}/{Guid.NewGuid()}{extension}";
+
+            using var stream = file.OpenReadStream();
+            string fileUrl = await _storageService.UploadFileAsync(stream, uniqueFileName, file.ContentType);
+
+            var media = new ReportMedia
+            {
+                ReportId = reportId,
+                FileName = file.FileName,
+                FileUrl = fileUrl,
+                FileSize = file.Length,
+                MimeType = file.ContentType,
+                UploadedBy = userId
+            };
+
+            await _unitOfWork.Repository<ReportMedia>().AddAsync(media);
+            await _unitOfWork.CommitAsync();
+
+            return await GetReportBySessionIdAsync(report.SessionId);
+        }
+
+        public async Task<ReportDto> GetReportBySessionIdAsync(Guid sessionId)
+        {
+            var report = (await _unitOfWork.Repository<Report>().FindAsync(r => r.SessionId == sessionId)).FirstOrDefault();
+            if (report == null) throw new NotFoundException("Report", sessionId);
+
+            var media = (await _unitOfWork.Repository<ReportMedia>().FindAsync(m => m.ReportId == report.Id)).ToList();
+            
+            return report.ToDto(media);
+        }
+    }
+}

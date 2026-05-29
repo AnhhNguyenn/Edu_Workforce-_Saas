@@ -82,6 +82,8 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("SessionId");
+
                     b.ToTable("Attendances");
                 });
 
@@ -165,6 +167,9 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<string>("ReferenceCode")
                         .HasColumnType("text");
 
+                    b.Property<string>("SePayTransactionId")
+                        .HasColumnType("text");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -216,6 +221,8 @@ namespace EduOps.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
 
                     b.ToTable("Classes");
                 });
@@ -401,10 +408,17 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<DateTime?>("SubscriptionStart")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("SubscriptionStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("Organizations");
                 });
@@ -499,6 +513,12 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("FeedbackForAssistant")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FeedbackForTeacher")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("FinalizedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -510,6 +530,12 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.Property<string>("Progress")
                         .HasColumnType("text");
+
+                    b.Property<int?>("RatingForAssistant")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RatingForTeacher")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uuid");
@@ -621,6 +647,8 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
                     b.ToTable("Schools");
                 });
 
@@ -684,6 +712,8 @@ namespace EduOps.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SessionDate", "TeacherId");
 
                     b.ToTable("Sessions");
                 });
@@ -749,6 +779,9 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsPresent")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Note")
                         .HasColumnType("text");
@@ -835,6 +868,10 @@ namespace EduOps.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("Users");
                 });

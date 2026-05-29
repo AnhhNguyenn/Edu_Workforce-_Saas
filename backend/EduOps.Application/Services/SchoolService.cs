@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using EduOps.Application.DTOs;
 using EduOps.Application.DTOs.Academic;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
@@ -22,11 +23,26 @@ namespace EduOps.Application.Services
             _logger = logger;
         }
 
-        public async Task<IEnumerable<SchoolDto>> GetSchoolsAsync(Guid organizationId)
+        public async Task<PagedResult<SchoolDto>> GetSchoolsAsync(Guid organizationId, int pageNumber, int pageSize)
         {
-            var schools = await _unitOfWork.Repository<School>()
-                .FindAsync(s => s.OrganizationId == organizationId);
-            return schools.Select(s => s.ToDto());
+            try
+            {
+                var repo = _unitOfWork.Repository<School>();
+                var result = await repo.FindPagedAsync(s => s.OrganizationId == organizationId, pageNumber, pageSize);
+                
+                return new PagedResult<SchoolDto>
+                {
+                    Items = result.Items.Select(s => s.ToDto()),
+                    TotalCount = result.TotalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve schools.");
+                throw;
+            }
         }
 
         public async Task<SchoolDto> GetByIdAsync(Guid id, Guid organizationId)

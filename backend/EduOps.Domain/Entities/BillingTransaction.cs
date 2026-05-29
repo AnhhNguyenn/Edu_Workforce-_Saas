@@ -1,4 +1,5 @@
 using System;
+using EduOps.Domain.Enums;
 
 namespace EduOps.Domain.Entities
 {
@@ -9,9 +10,12 @@ namespace EduOps.Domain.Entities
         public DateTime PaymentDate { get; set; }
         
         // SUCCESS, FAILED, PENDING
-        public string Status { get; set; } = "PENDING";
+        public BillingStatus Status { get; set; } = BillingStatus.PENDING;
         
         public string? PaymentMethod { get; set; }
         public string? ReferenceCode { get; set; }
+        
+        // ID Giao dịch trả về từ SePay để đối soát
+        public string? SePayTransactionId { get; set; }
     }
 }

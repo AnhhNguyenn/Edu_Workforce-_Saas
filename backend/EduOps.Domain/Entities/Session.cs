@@ -1,4 +1,5 @@
 using System;
+using EduOps.Domain.Enums;
 
 namespace EduOps.Domain.Entities
 {
@@ -20,7 +21,7 @@ namespace EduOps.Domain.Entities
         public TimeSpan EndTime { get; set; }
         
         // SCHEDULED, ONGOING, COMPLETED, CANCELLED
-        public string Status { get; set; } = "SCHEDULED";
+        public SessionStatus Status { get; set; } = SessionStatus.SCHEDULED;
         
         public string? Note { get; set; }
         public Guid? CreatedBy { get; set; }

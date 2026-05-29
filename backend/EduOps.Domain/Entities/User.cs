@@ -1,4 +1,5 @@
 using System;
+using EduOps.Domain.Enums;
 
 namespace EduOps.Domain.Entities
 {

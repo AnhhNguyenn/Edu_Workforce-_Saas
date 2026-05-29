@@ -35,6 +35,19 @@ namespace EduOps.Infrastructure.Repositories
             return await _dbSet.Where(predicate).ToListAsync();
         }
 
+        public async Task<(IEnumerable<T> Items, int TotalCount)> FindPagedAsync(Expression<Func<T, bool>> predicate, int pageNumber, int pageSize)
+        {
+            var query = _dbSet.Where(predicate);
+            var totalCount = await query.CountAsync();
+            var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+            return (items, totalCount);
+        }
+
+        public async Task<int> CountAsync(Expression<Func<T, bool>> predicate)
+        {
+            return await _dbSet.CountAsync(predicate);
+        }
+
         public async Task AddAsync(T entity)
         {
             await _dbSet.AddAsync(entity);

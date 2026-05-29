@@ -10,7 +10,7 @@ namespace EduOps.Api.Controllers
 {
     [Route("api/classes")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "CENTER_ADMIN,TEACHER")]
     public class ClassesController : ControllerBase
     {
         private readonly IClassService _classService;
@@ -28,9 +28,9 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get([FromQuery] Guid? schoolId)
+        public async Task<IActionResult> Get([FromQuery] Guid? schoolId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
-            var result = await _classService.GetClassesAsync(GetOrganizationId(), schoolId);
+            var result = await _classService.GetClassesAsync(GetOrganizationId(), schoolId, pageNumber, pageSize);
             return Ok(result);
         }
 
@@ -42,12 +42,14 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "CENTER_ADMIN")]
         public async Task<IActionResult> Create([FromBody] ClassRequestDto request)
         {
             var result = await _classService.CreateAsync(GetOrganizationId(), request);
-            return Ok(result);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
         [HttpPut("{id}")]
+        [Authorize(Roles = "CENTER_ADMIN")]
         public async Task<IActionResult> Update(Guid id, [FromBody] ClassRequestDto request)
         {
             await _classService.UpdateAsync(id, GetOrganizationId(), request);

@@ -18,6 +18,9 @@ namespace EduOps.Application
             services.AddScoped<ISchoolService, SchoolService>();
             services.AddScoped<IClassService, ClassService>();
             services.AddScoped<ISessionService, SessionService>();
+            services.AddScoped<IAttendanceService, AttendanceService>();
+            services.AddScoped<IReportService, ReportService>();
+            services.AddScoped<ISubscriptionService, SubscriptionService>();
             
             // Notifications & Background Jobs
             services.AddScoped<INotificationService, NotificationService>();

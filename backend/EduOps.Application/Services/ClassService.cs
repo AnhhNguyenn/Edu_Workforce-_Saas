@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using EduOps.Application.DTOs;
 using EduOps.Application.DTOs.Academic;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
+using EduOps.Domain.Enums;
 using EduOps.Domain.Interfaces;
 
 namespace EduOps.Application.Services
@@ -20,15 +22,21 @@ namespace EduOps.Application.Services
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<IEnumerable<ClassDto>> GetClassesAsync(Guid organizationId, Guid? schoolId)
+        public async Task<PagedResult<ClassDto>> GetClassesAsync(Guid organizationId, Guid? schoolId, int pageNumber, int pageSize)
         {
             var repo = _unitOfWork.Repository<Class>();
             
-            var classes = schoolId.HasValue
-                ? await repo.FindAsync(c => c.OrganizationId == organizationId && c.SchoolId == schoolId)
-                : await repo.FindAsync(c => c.OrganizationId == organizationId);
+            var result = schoolId.HasValue
+                ? await repo.FindPagedAsync(c => c.OrganizationId == organizationId && c.SchoolId == schoolId, pageNumber, pageSize)
+                : await repo.FindPagedAsync(c => c.OrganizationId == organizationId, pageNumber, pageSize);
 
-            return classes.Select(c => c.ToDto());
+            return new PagedResult<ClassDto>
+            {
+                Items = result.Items.Select(c => c.ToDto()),
+                TotalCount = result.TotalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
         }
 
         public async Task<ClassDto> GetByIdAsync(Guid id, Guid organizationId)
@@ -55,7 +63,7 @@ namespace EduOps.Application.Services
                 Grade = request.Grade,
                 Subject = request.Subject,
                 Description = request.Description,
-                Status = "ACTIVE"
+                Status = AccountStatus.ACTIVE
             };
 
             await _unitOfWork.Repository<Class>().AddAsync(newClass);

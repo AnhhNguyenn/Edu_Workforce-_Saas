@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using EduOps.Application.DTOs.Auth;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
+using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -49,19 +50,13 @@ namespace EduOps.Application.Services
                 throw new Exception(lockMessage); // Use generic exception for simple error passing or a custom one
             }
 
-            // MOCK PASSWORD VERIFICATION (Thay bằng BCrypt thực tế)
-            // if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-            //     throw new UnauthorizedException("Invalid credentials");
-
-            var userDto = new UserDto
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
-                Id = user.Id,
-                OrganizationId = user.OrganizationId,
-                FullName = user.FullName,
-                Email = user.Email,
-                Role = user.Role,
-                AvatarUrl = user.AvatarUrl
-            };
+                _logger.LogWarning($"Login failed: Invalid password for user {request.Email}");
+                throw new System.UnauthorizedAccessException("Invalid credentials");
+            }
+
+            var userDto = user.ToDto();
 
             var accessToken = GenerateJwtToken(user);
             var refreshToken = Guid.NewGuid().ToString(); // Giả lập refresh token

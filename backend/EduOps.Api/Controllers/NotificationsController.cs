@@ -25,9 +25,10 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetMyNotifications()
+        public async Task<IActionResult> GetMyNotifications([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
-            var result = await _notificationService.GetUserNotificationsAsync(GetUserId());
+            var userId = GetUserId();
+            var result = await _notificationService.GetUserNotificationsAsync(userId, pageNumber, pageSize);
             return Ok(result);
         }
 

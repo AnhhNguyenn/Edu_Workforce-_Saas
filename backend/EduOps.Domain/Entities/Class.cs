@@ -1,4 +1,5 @@
 using System;
+using EduOps.Domain.Enums;
 
 namespace EduOps.Domain.Entities
 {
@@ -11,6 +12,6 @@ namespace EduOps.Domain.Entities
         public string? Description { get; set; }
         
         // ACTIVE, INACTIVE, COMPLETED
-        public string Status { get; set; } = "ACTIVE";
+        public AccountStatus Status { get; set; } = AccountStatus.ACTIVE;
     }
 }

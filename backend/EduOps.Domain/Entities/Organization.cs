@@ -1,5 +1,7 @@
 using System;
 
+using EduOps.Domain.Enums;
+
 namespace EduOps.Domain.Entities
 {
     public class Organization : BaseEntity
@@ -13,8 +15,10 @@ namespace EduOps.Domain.Entities
         public int MaxUsers { get; set; }
         public int CurrentUsers { get; set; }
         
-        // ACTIVE, SUSPENDED, EXPIRED
-        public string Status { get; set; } = "ACTIVE";
+        public AccountStatus Status { get; set; } = AccountStatus.ACTIVE;
+        
+        // Trạng thái Gói cước: TRIAL, ACTIVE, EXPIRED, LOCKED
+        public string SubscriptionStatus { get; set; } = "LOCKED";
         
         public DateTime? SubscriptionStart { get; set; }
         public DateTime? SubscriptionEnd { get; set; }

@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using EduOps.Application.DTOs;
 using EduOps.Application.DTOs.Auth;
 using EduOps.Application.DTOs.User;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
+using EduOps.Domain.Enums;
 using EduOps.Domain.Interfaces;
 
 namespace EduOps.Application.Services
@@ -21,14 +23,24 @@ namespace EduOps.Application.Services
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<IEnumerable<UserDto>> GetUsersAsync(Guid? organizationId)
+        public async Task<PagedResult<UserDto>> GetUsersAsync(Guid? organizationId, int pageNumber, int pageSize, string? searchKeyword = null)
         {
             var repo = _unitOfWork.Repository<User>();
-            var users = organizationId.HasValue 
-                ? await repo.FindAsync(u => u.OrganizationId == organizationId)
-                : await repo.GetAllAsync();
+            
+            var queryPredicate = string.IsNullOrEmpty(searchKeyword) 
+                ? (System.Linq.Expressions.Expression<Func<User, bool>>)(u => (!organizationId.HasValue || u.OrganizationId == organizationId))
+                : (System.Linq.Expressions.Expression<Func<User, bool>>)(u => (!organizationId.HasValue || u.OrganizationId == organizationId) && 
+                                                                              (u.FullName.Contains(searchKeyword) || u.Email.Contains(searchKeyword) || (u.Phone != null && u.Phone.Contains(searchKeyword))));
 
-            return users.Select(u => u.ToDto());
+            var result = await repo.FindPagedAsync(queryPredicate, pageNumber, pageSize);
+
+            return new PagedResult<UserDto>
+            {
+                Items = result.Items.Select(u => u.ToDto()),
+                TotalCount = result.TotalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
         }
 
         public async Task<UserDto> GetUserByIdAsync(Guid id)
@@ -46,7 +58,24 @@ namespace EduOps.Application.Services
             // Validate Email
             var existing = await repo.FindAsync(u => u.Email == request.Email);
             if (existing.Any())
-                throw new Exception("Email already exists");
+                throw new BadRequestException("Email already exists");
+
+            // Chặn giới hạn tạo Giáo viên và Trợ giảng dựa trên gói cước của Trung tâm
+            if (organizationId.HasValue && (request.Role == "TEACHER" || request.Role == "ASSISTANT"))
+            {
+                var orgRepo = _unitOfWork.Repository<Organization>();
+                var org = await orgRepo.GetByIdAsync(organizationId.Value);
+                if (org != null)
+                {
+                    var currentCount = await repo.CountAsync(u => u.OrganizationId == organizationId.Value && (u.Role == "TEACHER" || u.Role == "ASSISTANT") && u.DeletedAt == null);
+                    if (currentCount >= org.MaxUsers)
+                        throw new BadRequestException($"Đã đạt giới hạn nhân viên của gói cước (Tối đa {org.MaxUsers} người). Vui lòng nâng cấp gói!");
+                }
+            }
+
+            var passwordHash = string.IsNullOrEmpty(request.Password) 
+                ? BCrypt.Net.BCrypt.HashPassword("Default@123") 
+                : BCrypt.Net.BCrypt.HashPassword(request.Password);
 
             var newUser = new User
             {
@@ -54,7 +83,7 @@ namespace EduOps.Application.Services
                 FullName = request.FullName,
                 Email = request.Email,
                 Phone = request.Phone,
-                PasswordHash = request.Password, // TODO: BCrypt Hash
+                PasswordHash = passwordHash,
                 Role = request.Role,
                 Gender = request.Gender,
                 BirthDate = request.BirthDate,
@@ -92,6 +121,9 @@ namespace EduOps.Application.Services
 
             user.Status = "INACTIVE";
             repo.Update(user);
+            
+            // Xóa logic giảm CurrentUsers vì chúng ta đã đếm trực tiếp từ DB
+            
             await _unitOfWork.CommitAsync();
         }
 
@@ -104,6 +136,9 @@ namespace EduOps.Application.Services
             user.DeletedAt = DateTime.UtcNow;
             user.Status = "SUSPENDED";
             repo.Update(user);
+            
+            // Xóa logic giảm CurrentUsers vì chúng ta đã đếm trực tiếp từ DB
+            
             await _unitOfWork.CommitAsync();
         }
 

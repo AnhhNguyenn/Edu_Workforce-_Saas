@@ -1,4 +1,5 @@
 using System;
+using EduOps.Domain.Enums;
 
 namespace EduOps.Domain.Entities
 {
@@ -11,7 +12,7 @@ namespace EduOps.Domain.Entities
         public string ParentPhone { get; set; } = string.Empty;
         public string ParentEmail { get; set; } = string.Empty;
         
-        // ACTIVE, INACTIVE
-        public string Status { get; set; } = "ACTIVE";
+        // ACTIVE, SUSPENDED, DROPPED_OUT
+        public AccountStatus Status { get; set; } = AccountStatus.ACTIVE;
     }
 }

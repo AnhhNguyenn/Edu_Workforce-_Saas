@@ -28,7 +28,7 @@ namespace EduOps.Application.BackgroundJobs
             var tomorrow = DateTime.UtcNow.Date.AddDays(1);
             var sessionRepo = _unitOfWork.Repository<Session>();
             
-            var tomorrowSessions = await sessionRepo.FindAsync(s => s.SessionDate.Date == tomorrow && s.Status == "SCHEDULED");
+            var tomorrowSessions = await sessionRepo.FindAsync(s => s.SessionDate.Date == tomorrow && s.Status == EduOps.Domain.Enums.SessionStatus.SCHEDULED);
 
             foreach (var session in tomorrowSessions)
             {

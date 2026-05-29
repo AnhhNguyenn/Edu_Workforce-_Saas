@@ -10,7 +10,7 @@ namespace EduOps.Api.Controllers
 {
     [Route("api/schools")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "CENTER_ADMIN")]
     public class SchoolsController : ControllerBase
     {
         private readonly ISchoolService _schoolService;
@@ -28,10 +28,10 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetSchools()
+        public async Task<IActionResult> GetSchools([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
             var orgId = GetOrganizationId();
-            var result = await _schoolService.GetSchoolsAsync(orgId);
+            var result = await _schoolService.GetSchoolsAsync(orgId, pageNumber, pageSize);
             return Ok(result);
         }
 

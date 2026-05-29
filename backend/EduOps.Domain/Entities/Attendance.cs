@@ -1,5 +1,7 @@
 using System;
 
+using EduOps.Domain.Enums;
+
 namespace EduOps.Domain.Entities
 {
     public class Attendance : TenantEntity
@@ -22,7 +24,7 @@ namespace EduOps.Domain.Entities
         public int EarlyCheckoutMinutes { get; set; }
         
         // ON_TIME, LATE, ABSENT, EARLY_CHECKOUT
-        public string Status { get; set; } = "ABSENT";
+        public AttendanceStatus Status { get; set; } = AttendanceStatus.ABSENT;
         
         public string? Note { get; set; }
     }

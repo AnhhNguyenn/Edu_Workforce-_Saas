@@ -10,6 +10,6 @@ namespace EduOps.Application.DTOs.Academic
         public string? Grade { get; set; }
         public string? Subject { get; set; }
         public string? Description { get; set; }
-        public string Status { get; set; } = string.Empty;
+        public EduOps.Domain.Enums.AccountStatus Status { get; set; } = EduOps.Domain.Enums.AccountStatus.ACTIVE;
     }
 }

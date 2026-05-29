@@ -12,6 +12,6 @@ namespace EduOps.Application.DTOs.Academic
         public DateTime SessionDate { get; set; }
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
-        public string Status { get; set; } = string.Empty;
+        public EduOps.Domain.Enums.SessionStatus Status { get; set; } = EduOps.Domain.Enums.SessionStatus.SCHEDULED;
     }
 }

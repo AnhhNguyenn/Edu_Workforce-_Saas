@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using EduOps.Application.DTOs;
 using EduOps.Application.DTOs.Academic;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
+using EduOps.Domain.Enums;
 using EduOps.Domain.Interfaces;
 
 namespace EduOps.Application.Services
@@ -22,6 +24,26 @@ namespace EduOps.Application.Services
             _logger = logger;
         }
 
+        public async Task<PagedResult<SessionDto>> GetSessionsAsync(Guid organizationId, Guid? classId, Guid? teacherId, DateTime? date, int pageNumber, int pageSize)
+        {
+            var repo = _unitOfWork.Repository<Session>();
+            
+            var result = await repo.FindPagedAsync(s => 
+                s.OrganizationId == organizationId &&
+                (!classId.HasValue || s.ClassId == classId.Value) &&
+                (!teacherId.HasValue || s.TeacherId == teacherId.Value) &&
+                (!date.HasValue || s.SessionDate.Date == date.Value.Date), 
+                pageNumber, pageSize);
+
+            return new PagedResult<SessionDto>
+            {
+                Items = result.Items.Select(s => s.ToDto()),
+                TotalCount = result.TotalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+        }
+
         public async Task<SessionDto> CreateSessionAsync(Guid organizationId, SessionRequestDto request)
         {
             try
@@ -32,7 +54,7 @@ namespace EduOps.Application.Services
                 var conflicts = await repo.FindAsync(s => 
                     s.OrganizationId == organizationId &&
                     s.SessionDate.Date == request.SessionDate.Date &&
-                    s.Status != "CANCELLED" &&
+                    s.Status != SessionStatus.CANCELLED &&
                     (s.TeacherId == request.TeacherId || (request.AssistantId.HasValue && s.AssistantId == request.AssistantId.Value))
                 );
 
@@ -60,7 +82,7 @@ namespace EduOps.Application.Services
                     SessionDate = request.SessionDate.Date,
                     StartTime = request.StartTime,
                     EndTime = request.EndTime,
-                    Status = "SCHEDULED"
+                    Status = SessionStatus.SCHEDULED
                 };
 
                 await repo.AddAsync(session);

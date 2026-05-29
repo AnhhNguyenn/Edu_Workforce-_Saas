@@ -17,7 +17,7 @@ namespace EduOps.Application.Mappings
                 Email = user.Email,
                 Role = user.Role,
                 AvatarUrl = user.AvatarUrl,
-                Status = user.Status,
+                Status = Enum.Parse<EduOps.Domain.Enums.AccountStatus>(user.Status),
                 LastLoginAt = user.LastLoginAt,
                 LockEndAt = user.LockEndAt
             };

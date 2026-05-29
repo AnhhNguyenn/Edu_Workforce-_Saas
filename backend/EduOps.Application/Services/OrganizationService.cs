@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using EduOps.Application.DTOs;
 using EduOps.Application.DTOs.Organization;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
+using EduOps.Domain.Enums;
 using EduOps.Domain.Interfaces;
 
 namespace EduOps.Application.Services
@@ -22,19 +24,24 @@ namespace EduOps.Application.Services
             _logger = logger;
         }
 
-        public async Task<IEnumerable<OrganizationDto>> GetAllAsync()
+        public async Task<PagedResult<OrganizationDto>> GetOrganizationsAsync(int pageNumber, int pageSize)
         {
             try
             {
                 var repo = _unitOfWork.Repository<Organization>();
-                var orgs = await repo.GetAllAsync();
+                var result = await repo.FindPagedAsync(o => true, pageNumber, pageSize);
                 
-                // Sử dụng Mapping Extension (Tách biệt hoàn toàn Logic Mapping ra khỏi Service)
-                return orgs.Select(o => o.ToDto());
+                return new PagedResult<OrganizationDto>
+                {
+                    Items = result.Items.Select(o => o.ToDto()),
+                    TotalCount = result.TotalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while fetching all organizations");
+                _logger.LogError(ex, "Error occurred while fetching organizations");
                 throw;
             }
         }
@@ -73,7 +80,7 @@ namespace EduOps.Application.Services
                     Address = request.Address,
                     MaxUsers = request.MaxUsers,
                     CurrentUsers = 0,
-                    Status = "ACTIVE",
+                    Status = AccountStatus.ACTIVE,
                     SubscriptionStart = DateTime.UtcNow,
                     SubscriptionEnd = DateTime.UtcNow.AddYears(1)
                 };
@@ -116,7 +123,7 @@ namespace EduOps.Application.Services
             var org = await repo.GetByIdAsync(id);
             if (org == null) throw new NotFoundException("Organization", id);
 
-            org.Status = "SUSPENDED";
+            org.Status = AccountStatus.SUSPENDED;
             repo.Update(org);
             await _unitOfWork.CommitAsync();
             _logger.LogWarning($"Suspended Organization: {org.Code}");
@@ -128,7 +135,7 @@ namespace EduOps.Application.Services
             var org = await repo.GetByIdAsync(id);
             if (org == null) throw new NotFoundException("Organization", id);
 
-            org.Status = "ACTIVE";
+            org.Status = AccountStatus.ACTIVE;
             repo.Update(org);
             await _unitOfWork.CommitAsync();
             _logger.LogInformation($"Activated Organization: {org.Code}");

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using EduOps.Application.DTOs;
 using EduOps.Application.DTOs.Notification;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
@@ -55,11 +56,18 @@ namespace EduOps.Application.Services
             }
         }
 
-        public async Task<IEnumerable<NotificationDto>> GetUserNotificationsAsync(Guid userId)
+        public async Task<PagedResult<NotificationDto>> GetUserNotificationsAsync(Guid userId, int pageNumber, int pageSize)
         {
-            var repo = _unitOfWork.Repository<Notification>();
-            var notifications = await repo.FindAsync(n => n.UserId == userId);
-            return notifications.OrderByDescending(n => n.CreatedAt).Select(n => n.ToDto());
+            var result = await _unitOfWork.Repository<Notification>()
+                .FindPagedAsync(n => n.UserId == userId, pageNumber, pageSize);
+
+            return new PagedResult<NotificationDto>
+            {
+                Items = result.Items.Select(n => n.ToDto()),
+                TotalCount = result.TotalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
         }
 
         public async Task MarkAsReadAsync(Guid id)

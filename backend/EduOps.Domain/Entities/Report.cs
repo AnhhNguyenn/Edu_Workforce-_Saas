@@ -1,5 +1,7 @@
 using System;
 
+using EduOps.Domain.Enums;
+
 namespace EduOps.Domain.Entities
 {
     public class Report : TenantEntity
@@ -17,8 +19,14 @@ namespace EduOps.Domain.Entities
         public string? AssistantNote { get; set; }
         public string? SpecialStudents { get; set; }
         
+        // Đánh giá chéo (Cross-Evaluation)
+        public int? RatingForAssistant { get; set; }
+        public string? FeedbackForAssistant { get; set; }
+        public int? RatingForTeacher { get; set; }
+        public string? FeedbackForTeacher { get; set; }
+        
         // DRAFT, SUBMITTED, FINALIZED
-        public string Status { get; set; } = "DRAFT";
+        public ReportStatus Status { get; set; } = ReportStatus.DRAFT;
         
         public DateTime? SubmittedAt { get; set; }
         public DateTime? FinalizedAt { get; set; }

@@ -27,10 +27,10 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetUsers()
+        public async Task<IActionResult> GetUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null)
         {
             var orgId = GetOrganizationId();
-            var result = await _userService.GetUsersAsync(orgId);
+            var result = await _userService.GetUsersAsync(orgId, pageNumber, pageSize, searchKeyword);
             return Ok(result);
         }
 
@@ -42,10 +42,17 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
         public async Task<IActionResult> CreateUser([FromBody] UserRequestDto request)
         {
+            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             var orgId = GetOrganizationId();
-            var result = await _userService.CreateUserAsync(request, orgId);
+
+            // Nếu là SUPER_ADMIN, cho phép lấy OrgId từ body (để gán Admin cho một Trung tâm)
+            // Nếu là CENTER_ADMIN, bắt buộc dùng orgId từ JWT Token của họ
+            var targetOrgId = role == "SUPER_ADMIN" ? request.OrganizationId : orgId;
+
+            var result = await _userService.CreateUserAsync(request, targetOrgId);
             return CreatedAtAction(nameof(GetUser), new { id = result.Id }, result);
         }
 

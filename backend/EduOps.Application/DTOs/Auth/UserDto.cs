@@ -10,7 +10,7 @@ namespace EduOps.Application.DTOs.Auth
         public string Email { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
         public string? AvatarUrl { get; set; }
-        public string Status { get; set; } = string.Empty;
+        public EduOps.Domain.Enums.AccountStatus Status { get; set; } = EduOps.Domain.Enums.AccountStatus.ACTIVE;
         public DateTime? LastLoginAt { get; set; }
         public DateTime? LockEndAt { get; set; }
     }

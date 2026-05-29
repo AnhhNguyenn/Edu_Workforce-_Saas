@@ -20,9 +20,9 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetOrganizations([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
-            var result = await _orgService.GetAllAsync();
+            var result = await _orgService.GetOrganizationsAsync(pageNumber, pageSize);
             return Ok(result);
         }
 

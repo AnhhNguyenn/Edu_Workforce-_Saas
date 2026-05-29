@@ -10,133 +10,220 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using FluentValidation.AspNetCore;
+using FluentValidation;
+using Serilog;
+using System;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
-var builder = WebApplication.CreateBuilder(args);
+// Load Configuration thủ công trước khi Builder chạy để cấp cho Serilog
+var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{env}.json", optional: true)
+    .Build();
 
-// 1. Đăng ký Services từ các Layer
-builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddApplication();
+// Định dạng Log chuẩn Doanh nghiệp (Enterprise Standard)
+var outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}";
 
-// 2. Cấu hình Controllers
-builder.Services.AddControllers();
+long fileSizeLimit = configuration.GetValue<long>("SerilogSettings:FileSizeLimitBytes", 10485760);
+int retainedFileCount = configuration.GetValue<int>("SerilogSettings:RetainedFileCountLimit", 30);
 
-// Cấu hình CORS cho Frontend
-builder.Services.AddCors(options =>
+// Cấu hình Serilog
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate: outputTemplate)
+    .WriteTo.File("Logs/eduops-log-.txt", 
+                  rollingInterval: RollingInterval.Day,
+                  outputTemplate: outputTemplate,
+                  fileSizeLimitBytes: fileSizeLimit,
+                  retainedFileCountLimit: retainedFileCount)
+    .CreateLogger();
+
+try
 {
-    options.AddPolicy("AllowFrontend",
-        builder =>
-        {
-            builder.WithOrigins("http://localhost:3000", "http://localhost:3001")
-                   .AllowAnyHeader()
-                   .AllowAnyMethod()
-                   .AllowCredentials();
-        });
-});
+    Log.Information("Starting web application");
+    var builder = WebApplication.CreateBuilder(args);
 
-// 3. Cấu hình Swagger kèm chức năng nhập JWT Bearer Token
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "EduOps API", Version = "v1" });
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    // Chuyển toàn bộ Log của ứng dụng sang Serilog
+    builder.Host.UseSerilog();
+
+    // 1. Đăng ký Services từ các Layer
+    builder.Services.AddInfrastructure(builder.Configuration);
+    builder.Services.AddApplication();
+
+    // Đăng ký Rate Limiter (Chống DDoS/Brute-force)
+    builder.Services.AddRateLimiter(options =>
     {
-        Description = "JWT Authorization header. Example: 'Bearer 12345abcdef'",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement()
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
+        options.GlobalLimiter = PartitionedRateLimiter.Create<Microsoft.AspNetCore.Http.HttpContext, string>(httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString(),
+                factory: partition => new FixedWindowRateLimiterOptions
                 {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                },
-                Scheme = "oauth2",
-                Name = "Bearer",
-                In = ParameterLocation.Header,
-            },
-            new System.Collections.Generic.List<string>()
-        }
+                    AutoReplenishment = true,
+                    PermitLimit = 100,
+                    QueueLimit = 0,
+                    Window = TimeSpan.FromMinutes(1)
+                }));
+        options.RejectionStatusCode = 429;
     });
-});
 
-// 4. Cấu hình JWT Authentication
-var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["Secret"]!;
+    // 2. Đăng ký Controllers và Auto-Validation (FluentValidation)
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        });
+    builder.Services.AddFluentValidationAutoValidation();
+    builder.Services.AddValidatorsFromAssembly(typeof(EduOps.Application.Interfaces.IUserService).Assembly);
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
-    options.TokenValidationParameters = new TokenValidationParameters
+    // Cấu hình CORS cho Frontend từ appsettings.json
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+
+    builder.Services.AddCors(options =>
     {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secretKey)),
-        ValidateIssuer = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidateAudience = true,
-        ValidAudience = jwtSettings["Audience"],
-        ValidateLifetime = true,
-        ClockSkew = System.TimeSpan.Zero
-    };
-});
+        options.AddPolicy("AllowFrontend",
+            policyBuilder =>
+            {
+                policyBuilder.WithOrigins(allowedOrigins)
+                       .AllowAnyHeader()
+                       .AllowAnyMethod()
+                       .AllowCredentials();
+            });
+    });
 
-// Cấu hình SignalR và Realtime Service (Nằm ở Tầng API)
-builder.Services.AddSignalR();
-builder.Services.AddScoped<EduOps.Application.Interfaces.IRealtimeNotificationService, EduOps.Api.Services.RealtimeNotificationService>();
+    // 3. Cấu hình Swagger kèm chức năng nhập JWT Bearer Token
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new OpenApiInfo { Title = "EduOps API", Version = "v1" });
+        c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            Description = "JWT Authorization header. Example: 'Bearer 12345abcdef'",
+            Name = "Authorization",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.ApiKey,
+            Scheme = "Bearer"
+        });
+        c.AddSecurityRequirement(new OpenApiSecurityRequirement()
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    },
+                    Scheme = "oauth2",
+                    Name = "Bearer",
+                    In = ParameterLocation.Header,
+                },
+                new System.Collections.Generic.List<string>()
+            }
+        });
+    });
 
-// Cấu hình Hangfire
-builder.Services.AddHangfire(config => config
-    .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
-    .UseSimpleAssemblyNameTypeSerializer()
-    .UseRecommendedSerializerSettings()
-    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+    // 4. Cấu hình JWT Authentication
+    var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+    var secretKey = jwtSettings["Secret"]!;
 
-builder.Services.AddHangfireServer();
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secretKey)),
+            ValidateIssuer = true,
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidateAudience = true,
+            ValidAudience = jwtSettings["Audience"],
+            ValidateLifetime = true,
+            ClockSkew = System.TimeSpan.Zero
+        };
+    });
 
-// 5. Build App
-var app = builder.Build();
+    // Cấu hình SignalR và Realtime Service (Nằm ở Tầng API)
+    builder.Services.AddSignalR();
+    builder.Services.AddScoped<EduOps.Application.Interfaces.IRealtimeNotificationService, EduOps.Api.Services.RealtimeNotificationService>();
+    builder.Services.AddScoped<EduOps.Application.Interfaces.ISePayService, EduOps.Infrastructure.Services.SePayService>();
 
-// 6. Cấu hình Pipeline Middleware
-app.UseSwagger();
-app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "EduOps API v1"));
+    // Cấu hình Multi-tenant & HTTP Context
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddScoped<EduOps.Application.Interfaces.ICurrentUserService, EduOps.Api.Services.CurrentUserService>();
 
-app.UseMiddleware<ExceptionHandlingMiddleware>();
+    // Cấu hình Hangfire
+    builder.Services.AddHangfire(config => config
+        .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-app.UseHttpsRedirection();
+    builder.Services.AddHangfireServer();
 
-app.UseCors("AllowFrontend");
+    // 5. Build App
+    var app = builder.Build();
 
-app.UseAuthentication();
-app.UseAuthorization();
+    // 6. Cấu hình Pipeline Middleware
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "EduOps API v1"));
 
-// Bật Dashboard Hangfire (Cần setup Auth cho endpoint này sau trên thực tế)
-app.UseHangfireDashboard("/hangfire");
+    app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-app.MapControllers();
-app.MapHub<EduOps.Api.Hubs.NotificationHub>("/hub/notifications");
+    app.UseHttpsRedirection();
 
-// Đăng ký Recurring Job khi App vừa chạy lên
-using (var scope = app.Services.CreateScope())
-{
-    var recurringJobManager = scope.ServiceProvider.GetRequiredService<Hangfire.IRecurringJobManager>();
-    // Chạy mỗi ngày lúc 21:00 (Cron expression: 0 21 * * *)
-    recurringJobManager.AddOrUpdate<EduOps.Application.BackgroundJobs.NotificationJobs>(
-        "Daily_Reminder_Job",
-        job => job.SendDailyRemindersAsync(),
-        "0 21 * * *",
-        new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
-    );
+    app.UseCors("AllowFrontend");
+    
+    app.UseRateLimiter();
+
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    // Bật Dashboard Hangfire (Cần setup Auth cho endpoint này sau trên thực tế)
+    app.UseHangfireDashboard("/hangfire");
+
+    app.MapControllers();
+    app.MapHub<EduOps.Api.Hubs.NotificationHub>("/hub/notifications");
+
+    // Đăng ký Recurring Job khi App vừa chạy lên
+    using (var scope = app.Services.CreateScope())
+    {
+        var recurringJobManager = scope.ServiceProvider.GetRequiredService<Hangfire.IRecurringJobManager>();
+        
+        var cronConfig = builder.Configuration["HangfireSettings:DailyReminderCron"] ?? "0 21 * * *";
+        
+            recurringJobManager.AddOrUpdate<EduOps.Application.BackgroundJobs.NotificationJobs>(
+                "Daily_Reminder_Job",
+                job => job.SendDailyRemindersAsync(),
+                cronConfig,
+                new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
+            );
+
+            // Tự động Seed Dữ liệu Test
+            EduOps.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
+        }
+
+    app.Run();
 }
-
-app.Run();
+catch (Exception ex)
+{
+    // Bỏ qua lỗi HostAbortedException do EF Core Tools cố tình ném ra khi chạy lệnh Migration
+    if (ex.GetType().Name != "HostAbortedException")
+    {
+        Log.Fatal(ex, "Application terminated unexpectedly");
+    }
+}
+finally
+{
+    Log.CloseAndFlush();
+}

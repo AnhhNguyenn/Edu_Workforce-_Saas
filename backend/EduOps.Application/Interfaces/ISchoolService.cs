@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using EduOps.Application.DTOs;
 using EduOps.Application.DTOs.Academic;
 
 namespace EduOps.Application.Interfaces
 {
     public interface ISchoolService
     {
-        Task<IEnumerable<SchoolDto>> GetSchoolsAsync(Guid organizationId);
+        Task<PagedResult<SchoolDto>> GetSchoolsAsync(Guid organizationId, int pageNumber, int pageSize);
         Task<SchoolDto> GetByIdAsync(Guid id, Guid organizationId);
         Task<SchoolDto> CreateAsync(Guid organizationId, SchoolRequestDto request);
         Task UpdateAsync(Guid id, Guid organizationId, SchoolRequestDto request);
