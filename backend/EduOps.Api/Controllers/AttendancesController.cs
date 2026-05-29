@@ -41,7 +41,7 @@ namespace EduOps.Api.Controllers
         [HttpGet("me")]
         public async Task<IActionResult> GetMyAttendances([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
-            var userId = GetCurrentUserId();
+            var userId = _currentUserService.UserId;
             var result = await _attendanceService.GetMyAttendancesAsync(userId, pageNumber, pageSize);
             return Ok(result);
         }
@@ -50,8 +50,8 @@ namespace EduOps.Api.Controllers
         [Authorize(Roles = "TEACHER,ASSISTANT,CENTER_ADMIN")]
         public async Task<IActionResult> SubmitStudentAttendances(Guid sessionId, [FromBody] StudentAttendanceSubmitDto request)
         {
-            var userId = GetCurrentUserId();
-            await _attendanceService.SubmitStudentAttendancesAsync(sessionId, GetOrganizationId(), userId, request);
+            var userId = _currentUserService.UserId;
+            await _attendanceService.SubmitStudentAttendancesAsync(sessionId, _currentUserService.OrganizationId ?? Guid.Empty, userId, request);
             return Ok();
         }
     }

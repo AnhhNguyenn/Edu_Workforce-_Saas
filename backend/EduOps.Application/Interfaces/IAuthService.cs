@@ -6,7 +6,7 @@ namespace EduOps.Application.Interfaces
     public interface IAuthService
     {
         Task<LoginResponseDto> LoginAsync(LoginRequestDto request);
-        // Task<LoginResponseDto> RefreshTokenAsync(string refreshToken);
-        // Task ChangePasswordAsync(Guid userId, string oldPassword, string newPassword);
+        Task<LoginResponseDto> RefreshTokenAsync(RefreshTokenRequestDto request);
+        Task LogoutAsync(Guid userId);
     }
 }

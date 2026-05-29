@@ -29,14 +29,23 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null)
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        public async Task<IActionResult> GetUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null, [FromQuery] Guid? filterOrgId = null)
         {
-            var orgId = GetOrganizationId();
-            var result = await _userService.GetUsersAsync(orgId, pageNumber, pageSize, searchKeyword);
+            pageNumber = pageNumber < 1 ? 1 : pageNumber;
+            pageSize = pageSize < 1 ? 20 : (pageSize > 100 ? 100 : pageSize);
+            
+            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            var userOrgId = GetOrganizationId();
+            
+            var targetOrgId = role == "SUPER_ADMIN" ? filterOrgId : userOrgId;
+            
+            var result = await _userService.GetUsersAsync(targetOrgId, pageNumber, pageSize, searchKeyword);
             return Ok(result);
         }
 
         [HttpGet("{id}")]
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
         public async Task<IActionResult> GetUser(Guid id)
         {
             var result = await _userService.GetUserByIdAsync(id);
@@ -45,13 +54,11 @@ namespace EduOps.Api.Controllers
 
         [HttpPost]
         [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
-        public async Task<IActionResult> CreateUser([FromBody] UserRequestDto request)
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserRequestDto request)
         {
             var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             var orgId = GetOrganizationId();
 
-            // Nếu là SUPER_ADMIN, cho phép lấy OrgId từ body (để gán Admin cho một Trung tâm)
-            // Nếu là CENTER_ADMIN, bắt buộc dùng orgId từ JWT Token của họ
             var targetOrgId = role == "SUPER_ADMIN" ? request.OrganizationId : orgId;
 
             var result = await _userService.CreateUserAsync(request, targetOrgId);
@@ -59,19 +66,23 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UserRequestDto request)
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequestDto request)
         {
             await _userService.UpdateUserAsync(id, request);
             return NoContent();
         }
 
         [HttpPost("{id}/deactivate")]
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
         public async Task<IActionResult> DeactivateUser(Guid id)
         {
             await _userService.DeactivateUserAsync(id);
             return NoContent();
         }
+
         [HttpDelete("{id}")]
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
         public async Task<IActionResult> DeleteUser(Guid id)
         {
             await _userService.DeleteUserAsync(id);
@@ -79,22 +90,32 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("{id}/lock")]
-        public async Task<IActionResult> LockUser(Guid id, [FromBody] LockUserRequest request)
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        public async Task<IActionResult> LockUser(Guid id, [FromBody] LockUserRequestDto request)
         {
             await _userService.LockUserAsync(id, request.LockEndAt);
             return NoContent();
         }
 
         [HttpPost("{id}/unlock")]
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
         public async Task<IActionResult> UnlockUser(Guid id)
         {
             await _userService.UnlockUserAsync(id);
             return NoContent();
         }
-    }
 
-    public class LockUserRequest
-    {
-        public DateTime? LockEndAt { get; set; }
+        [HttpPost("{id}/reset-password")]
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        public async Task<IActionResult> ResetPassword(Guid id, [FromBody] ResetPasswordRequestDto request)
+        {
+            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            var orgId = GetOrganizationId();
+            
+            var adminOrgId = role == "SUPER_ADMIN" ? (Guid?)null : orgId;
+
+            await _userService.ResetPasswordAsync(adminOrgId, id, request.NewPassword);
+            return NoContent();
+        }
     }
 }

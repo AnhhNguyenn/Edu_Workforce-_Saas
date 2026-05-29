@@ -111,7 +111,7 @@ namespace EduOps.Application.BackgroundJobs
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"Lỗi khi quét Gói cước cho Org {org.Id}: {ex.Message}");
+                    _logger.LogError(ex, $"Lỗi khi quét Gói cước cho Org {org.Id}: {ex.Message}");
                 }
             }
 

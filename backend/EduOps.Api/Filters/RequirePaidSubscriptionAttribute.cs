@@ -10,9 +10,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EduOps.Api.Filters
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
-    public class RequirePaidSubscriptionAttribute : ActionFilterAttribute
+    public class RequirePaidSubscriptionAttribute : ActionFilterAttribute, IAsyncActionFilter
     {
-        public override void OnActionExecuting(ActionExecutingContext context)
+        public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
             var currentUserService = context.HttpContext.RequestServices.GetService<ICurrentUserService>();
             var unitOfWork = context.HttpContext.RequestServices.GetService<IUnitOfWork>();
@@ -21,8 +21,7 @@ namespace EduOps.Api.Filters
             if (orgId.HasValue && orgId != Guid.Empty)
             {
                 var orgRepo = unitOfWork?.Repository<Organization>();
-                // Dùng đồng bộ vì Filter chạy trong pipeline, có thể dùng IAsyncActionFilter nếu cần async
-                var org = orgRepo?.GetByIdAsync(orgId.Value).GetAwaiter().GetResult();
+                var org = orgRepo != null ? await orgRepo.GetByIdAsync(orgId.Value) : null;
                 
                 if (org != null)
                 {
@@ -38,7 +37,7 @@ namespace EduOps.Api.Filters
                         {
                             org.SubscriptionStatus = "EXPIRED";
                             orgRepo?.Update(org);
-                            unitOfWork?.CommitAsync().GetAwaiter().GetResult();
+                            if (unitOfWork != null) await unitOfWork.CommitAsync();
                         }
 
                         context.Result = new ObjectResult(new 
@@ -54,7 +53,7 @@ namespace EduOps.Api.Filters
                 }
             }
 
-            base.OnActionExecuting(context);
+            await next();
         }
     }
 }

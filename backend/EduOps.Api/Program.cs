@@ -102,11 +102,12 @@ try
         c.SwaggerDoc("v1", new OpenApiInfo { Title = "EduOps API", Version = "v1" });
         c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
         {
-            Description = "JWT Authorization header. Example: 'Bearer 12345abcdef'",
+            Description = "JWT Authorization header.",
             Name = "Authorization",
             In = ParameterLocation.Header,
-            Type = SecuritySchemeType.ApiKey,
-            Scheme = "Bearer"
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT"
         });
         c.AddSecurityRequirement(new OpenApiSecurityRequirement()
         {
@@ -170,7 +171,8 @@ try
         .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
         .UseSimpleAssemblyNameTypeSerializer()
         .UseRecommendedSerializerSettings()
-        .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+        .UsePostgreSqlStorage(options => 
+            options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
 
     builder.Services.AddHangfireServer();
 

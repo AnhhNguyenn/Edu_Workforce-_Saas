@@ -3,9 +3,9 @@ using EduOps.Application.DTOs.User;
 
 namespace EduOps.Application.Validations.User
 {
-    public class UserRequestValidator : AbstractValidator<UserRequestDto>
+    public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequestDto>
     {
-        public UserRequestValidator()
+        public UpdateUserRequestValidator()
         {
             RuleFor(x => x.FullName)
                 .NotEmpty().WithMessage("Họ và tên không được để trống")
@@ -21,7 +21,7 @@ namespace EduOps.Application.Validations.User
                 .WithMessage("Phân quyền không hợp lệ");
 
             RuleFor(x => x.Phone)
-                .MaximumLength(15).WithMessage("Số điện thoại không được vượt quá 15 ký tự");
+                .MaximumLength(10).WithMessage("Số điện thoại không được vượt quá 10 ký tự");
         }
     }
 }

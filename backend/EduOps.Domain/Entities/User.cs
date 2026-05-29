@@ -27,5 +27,8 @@ namespace EduOps.Domain.Entities
         
         // Thời gian kết thúc khóa tài khoản. Nếu là DateTime.MaxValue nghĩa là khóa vĩnh viễn.
         public DateTime? LockEndAt { get; set; }
+
+        public string? RefreshToken { get; set; }
+        public DateTime? RefreshTokenExpiryTime { get; set; }
     }
 }

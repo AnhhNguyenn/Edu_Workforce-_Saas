@@ -86,7 +86,7 @@ namespace EduOps.Infrastructure.Data
             }
 
             // ĐÁNH INDEX (TỐI ƯU HIỆU NĂNG TÌM KIẾM TỐC ĐỘ CAO)
-            modelBuilder.Entity<User>().HasIndex(u => u.Email);
+            modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
             modelBuilder.Entity<User>().HasIndex(u => u.OrganizationId);
             modelBuilder.Entity<Organization>().HasIndex(o => o.Code).IsUnique();
             modelBuilder.Entity<School>().HasIndex(s => s.OrganizationId);
