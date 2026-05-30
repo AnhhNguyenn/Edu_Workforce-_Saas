@@ -12,10 +12,12 @@ namespace EduOps.Api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly ICurrentUserService _currentUserService;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, ICurrentUserService currentUserService)
         {
             _authService = authService;
+            _currentUserService = currentUserService;
         }
 
         [HttpPost("login")]
@@ -36,13 +38,26 @@ namespace EduOps.Api.Controllers
         [Authorize]
         public async Task<IActionResult> Logout()
         {
-            var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
-                        ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-            if (!string.IsNullOrEmpty(claim) && Guid.TryParse(claim, out var userId))
+            var userId = _currentUserService.UserId;
+            if (userId != Guid.Empty)
             {
                 await _authService.LogoutAsync(userId);
             }
             return NoContent();
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
+        {
+            await _authService.ForgotPasswordAsync(request);
+            return Ok(new { Message = "Nếu email hợp lệ, mã OTP sẽ được gửi đến hộp thư của bạn." });
+        }
+
+        [HttpPost("reset-password-via-token")]
+        public async Task<IActionResult> ResetPasswordViaToken([FromBody] ResetPasswordViaTokenRequestDto request)
+        {
+            await _authService.ResetPasswordViaTokenAsync(request);
+            return Ok(new { Message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
         }
     }
 }

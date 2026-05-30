@@ -8,5 +8,7 @@ namespace EduOps.Application.Interfaces
         Task<LoginResponseDto> LoginAsync(LoginRequestDto request);
         Task<LoginResponseDto> RefreshTokenAsync(RefreshTokenRequestDto request);
         Task LogoutAsync(Guid userId);
+        Task ForgotPasswordAsync(ForgotPasswordRequestDto request);
+        Task ResetPasswordViaTokenAsync(ResetPasswordViaTokenRequestDto request);
     }
 }

@@ -21,12 +21,14 @@ namespace EduOps.Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICustomLogger _logger;
         private readonly IConfiguration _configuration;
+        private readonly IEmailService _emailService;
 
-        public AuthService(IUnitOfWork unitOfWork, ICustomLogger logger, IConfiguration configuration)
+        public AuthService(IUnitOfWork unitOfWork, ICustomLogger logger, IConfiguration configuration, IEmailService emailService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
+            _emailService = emailService;
         }
 
         public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request)
@@ -35,8 +37,8 @@ namespace EduOps.Application.Services
 
             var userRepository = _unitOfWork.Repository<User>();
             
-            var users = await userRepository.FindAsync(u => u.Email.ToLower() == request.Email.ToLower(), ignoreQueryFilters: true);
-            var user = users.FirstOrDefault();
+            request.Email = request.Email.ToLower();
+            var user = await userRepository.FirstOrDefaultAsync(u => u.Email == request.Email, ignoreQueryFilters: true);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
@@ -99,8 +101,7 @@ namespace EduOps.Application.Services
             }
 
             var userRepository = _unitOfWork.Repository<User>();
-            var users = await userRepository.FindAsync(u => u.Id == userId, ignoreQueryFilters: true);
-            var user = users.FirstOrDefault();
+            var user = await userRepository.FirstOrDefaultAsync(u => u.Id == userId, ignoreQueryFilters: true);
 
             if (user == null || user.RefreshToken != request.RefreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
             {
@@ -212,6 +213,51 @@ namespace EduOps.Application.Services
                 userRepository.Update(user);
                 await _unitOfWork.CommitAsync();
             }
+        }
+
+        public async Task ForgotPasswordAsync(ForgotPasswordRequestDto request)
+        {
+            var userRepository = _unitOfWork.Repository<User>();
+            request.Email = request.Email.ToLower();
+            var user = await userRepository.FirstOrDefaultAsync(u => u.Email == request.Email, ignoreQueryFilters: true);
+
+            if (user == null || user.DeletedAt != null)
+            {
+                // We should not reveal that the user does not exist for security reasons,
+                // but for this implementation we can just return or throw BadRequest.
+                // Let's just return to simulate email sent.
+                return;
+            }
+
+            // Generate 6-digit OTP
+            var otp = new Random().Next(100000, 999999).ToString();
+            
+            user.ResetPasswordToken = otp;
+            user.ResetPasswordTokenExpiryTime = DateTime.UtcNow.AddMinutes(15);
+            
+            userRepository.Update(user);
+            await _unitOfWork.CommitAsync();
+
+            var emailBody = $"Mã xác nhận (OTP) để khôi phục mật khẩu của bạn là: {otp}\nMã này có hiệu lực trong 15 phút.";
+            await _emailService.SendEmailAsync(user.Email, "Khôi phục mật khẩu", emailBody);
+        }
+
+        public async Task ResetPasswordViaTokenAsync(ResetPasswordViaTokenRequestDto request)
+        {
+            var userRepository = _unitOfWork.Repository<User>();
+            var user = await userRepository.FirstOrDefaultAsync(u => u.ResetPasswordToken == request.Token && u.ResetPasswordTokenExpiryTime > DateTime.UtcNow, ignoreQueryFilters: true);
+
+            if (user == null || user.DeletedAt != null)
+                throw new BadRequestException("Mã xác nhận không hợp lệ hoặc đã hết hạn.");
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.ResetPasswordToken = null;
+            user.ResetPasswordTokenExpiryTime = null;
+            user.RefreshToken = null;
+            user.RefreshTokenExpiryTime = null;
+
+            userRepository.Update(user);
+            await _unitOfWork.CommitAsync();
         }
     }
 }

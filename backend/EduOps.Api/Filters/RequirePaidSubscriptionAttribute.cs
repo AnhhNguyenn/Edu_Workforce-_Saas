@@ -14,6 +14,13 @@ namespace EduOps.Api.Filters
     {
         public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
+            // Cho phép các request GET (chỉ đọc) đi qua tường phí
+            if (Microsoft.AspNetCore.Http.HttpMethods.IsGet(context.HttpContext.Request.Method))
+            {
+                await next();
+                return;
+            }
+
             var currentUserService = context.HttpContext.RequestServices.GetService<ICurrentUserService>();
             var unitOfWork = context.HttpContext.RequestServices.GetService<IUnitOfWork>();
 
@@ -29,8 +36,7 @@ namespace EduOps.Api.Filters
 
                     // Nếu gói bị khóa hoặc hết hạn -> Chặn đứng
                     if (isExpired || org.SubscriptionStatus == "LOCKED" || 
-                        org.SubscriptionStatus == "EXPIRED" || 
-                        org.SubscriptionStatus == "TRIAL")
+                        org.SubscriptionStatus == "EXPIRED")
                     {
                         // Auto update DB to EXPIRED if it was past time
                         if (isExpired && org.SubscriptionStatus != "EXPIRED" && org.SubscriptionStatus != "LOCKED")

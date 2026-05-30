@@ -20,32 +20,53 @@ namespace EduOps.Infrastructure.Repositories
             _dbSet = context.Set<T>();
         }
 
-        public async Task<T?> GetByIdAsync(Guid id)
+        public async Task<T?> GetByIdAsync(Guid id, bool asNoTracking = false)
         {
-            return await _dbSet.FindAsync(id);
+            if (!asNoTracking)
+                return await _dbSet.FindAsync(id);
+                
+            var entity = await _dbSet.FindAsync(id);
+            if (entity != null)
+                _context.Entry(entity).State = EntityState.Detached;
+            return entity;
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync()
+        public async Task<IEnumerable<T>> GetAllAsync(bool asNoTracking = false)
         {
-            return await _dbSet.ToListAsync();
+            return asNoTracking ? await _dbSet.AsNoTracking().ToListAsync() : await _dbSet.ToListAsync();
         }
 
-        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, bool ignoreQueryFilters = false)
+        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, bool ignoreQueryFilters = false, bool asNoTracking = false)
         {
             IQueryable<T> query = _dbSet;
-            if (ignoreQueryFilters)
-            {
-                query = query.IgnoreQueryFilters();
-            }
+            if (ignoreQueryFilters) query = query.IgnoreQueryFilters();
+            if (asNoTracking) query = query.AsNoTracking();
             return await query.Where(predicate).ToListAsync();
         }
 
-        public async Task<(IEnumerable<T> Items, int TotalCount)> FindPagedAsync(Expression<Func<T, bool>> predicate, int pageNumber, int pageSize)
+        public async Task<(IEnumerable<T> Items, int TotalCount)> FindPagedAsync(Expression<Func<T, bool>> predicate, int pageNumber, int pageSize, bool asNoTracking = false)
         {
-            var query = _dbSet.Where(predicate);
+            IQueryable<T> query = _dbSet.Where(predicate);
+            if (asNoTracking) query = query.AsNoTracking();
+            
             var totalCount = await query.CountAsync();
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
             return (items, totalCount);
+        }
+
+        public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate, bool ignoreQueryFilters = false)
+        {
+            IQueryable<T> query = _dbSet;
+            if (ignoreQueryFilters) query = query.IgnoreQueryFilters();
+            return await query.AnyAsync(predicate);
+        }
+
+        public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate, bool ignoreQueryFilters = false, bool asNoTracking = false)
+        {
+            IQueryable<T> query = _dbSet;
+            if (ignoreQueryFilters) query = query.IgnoreQueryFilters();
+            if (asNoTracking) query = query.AsNoTracking();
+            return await query.FirstOrDefaultAsync(predicate);
         }
 
         public async Task<int> CountAsync(Expression<Func<T, bool>> predicate)

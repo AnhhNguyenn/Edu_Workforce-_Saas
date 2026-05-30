@@ -2,6 +2,7 @@ using System;
 using System.Security.Claims;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Http;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace EduOps.Api.Services
 {
@@ -18,7 +19,8 @@ namespace EduOps.Api.Services
         {
             get
             {
-                var idStr = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var idStr = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier)
+                            ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue(JwtRegisteredClaimNames.Sub);
                 return Guid.TryParse(idStr, out var id) ? id : Guid.Empty;
             }
         }

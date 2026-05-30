@@ -2,6 +2,7 @@ using EduOps.Application.Interfaces;
 using EduOps.Domain.Interfaces;
 using EduOps.Infrastructure.Data;
 using EduOps.Infrastructure.Logging;
+using EduOps.Infrastructure.Notifications;
 using EduOps.Infrastructure.Repositories;
 using EduOps.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,9 @@ namespace EduOps.Infrastructure
 
             // Logging
             services.AddSingleton<ICustomLogger, CustomLogger<object>>();
+
+            // Email & Notifications
+            services.AddTransient<IEmailService, MockEmailService>();
 
             // Cloudflare R2 (S3 API)
             services.AddScoped<IStorageService>(provider => 

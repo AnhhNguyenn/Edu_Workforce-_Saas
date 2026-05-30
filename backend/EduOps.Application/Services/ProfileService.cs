@@ -3,6 +3,8 @@ using System.IO;
 using System.Threading.Tasks;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
+using EduOps.Application.DTOs.Auth;
+using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
 
@@ -17,6 +19,14 @@ namespace EduOps.Application.Services
         {
             _unitOfWork = unitOfWork;
             _storageService = storageService;
+        }
+
+        public async Task<UserDto> GetProfileAsync(Guid userId)
+        {
+            var user = await _unitOfWork.Repository<User>().GetByIdAsync(userId);
+            if (user == null || user.DeletedAt != null) throw new NotFoundException("User", userId);
+            
+            return user.ToDto();
         }
 
         public async Task<string> UploadAvatarAsync(Guid userId, Stream fileStream, string fileName, string contentType)

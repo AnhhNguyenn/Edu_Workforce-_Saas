@@ -14,11 +14,24 @@ namespace EduOps.Api.Controllers
     {
         private readonly IProfileService _profileService;
         private readonly IUserService _userService;
+        private readonly ICurrentUserService _currentUserService;
 
-        public ProfileController(IProfileService profileService, IUserService userService)
+        public ProfileController(IProfileService profileService, IUserService userService, ICurrentUserService currentUserService)
         {
             _profileService = profileService;
             _userService = userService;
+            _currentUserService = currentUserService;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetProfile()
+        {
+            var userId = _currentUserService.UserId;
+            if (userId == Guid.Empty)
+                return Unauthorized();
+
+            var result = await _profileService.GetProfileAsync(userId);
+            return Ok(result);
         }
 
         [HttpPost("avatar")]
@@ -27,10 +40,8 @@ namespace EduOps.Api.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest("Invalid file");
 
-            // Lấy ID từ JWT
-            var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
-                        ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-            if (string.IsNullOrEmpty(claim) || !Guid.TryParse(claim, out var userId))
+            var userId = _currentUserService.UserId;
+            if (userId == Guid.Empty)
                 return Unauthorized();
 
             using var stream = file.OpenReadStream();
@@ -42,9 +53,8 @@ namespace EduOps.Api.Controllers
         [HttpPost("password")]
         public async Task<IActionResult> ChangePassword([FromBody] EduOps.Application.DTOs.User.ChangePasswordRequestDto request)
         {
-            var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
-                        ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-            if (string.IsNullOrEmpty(claim) || !Guid.TryParse(claim, out var userId))
+            var userId = _currentUserService.UserId;
+            if (userId == Guid.Empty)
                 return Unauthorized();
 
             await _userService.ChangePasswordAsync(userId, request);

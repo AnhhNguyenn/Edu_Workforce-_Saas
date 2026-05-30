@@ -36,7 +36,7 @@ namespace EduOps.Application.Services
                                                                                u.Email.ToLower().Contains(searchKeyword.ToLower()) || 
                                                                                (u.Phone != null && u.Phone.Contains(searchKeyword))));
 
-            var result = await repo.FindPagedAsync(queryPredicate, pageNumber, pageSize);
+            var result = await repo.FindPagedAsync(queryPredicate, pageNumber, pageSize, asNoTracking: true);
 
             return new PagedResult<UserDto>
             {
@@ -49,7 +49,7 @@ namespace EduOps.Application.Services
 
         public async Task<UserDto> GetUserByIdAsync(Guid id)
         {
-            var user = await _unitOfWork.Repository<User>().GetByIdAsync(id);
+            var user = await _unitOfWork.Repository<User>().GetByIdAsync(id, asNoTracking: true);
             if (user == null) throw new NotFoundException("User", id);
 
             return user.ToDto();
@@ -58,7 +58,10 @@ namespace EduOps.Application.Services
         public async Task<UserDto> CreateUserAsync(CreateUserRequestDto request, Guid? organizationId)
         {
             if (request.Role == "SUPER_ADMIN" && _currentUserService.Role != "SUPER_ADMIN")
-                throw new UnauthorizedAccessException("Bạn không có quyền cấp chức vụ SUPER_ADMIN.");
+                throw new UnauthorizedAccessException("Bạn không có quyền thực hiện thao tác này.");
+                
+            if (_currentUserService.Role == "CENTER_ADMIN" && request.Role != "TEACHER" && request.Role != "ASSISTANT")
+                throw new UnauthorizedAccessException("Bạn không có quyền thực hiện thao tác này.");
             
             if (request.Role != "SUPER_ADMIN" && organizationId == null)
                 throw new BadRequestException("Nhân sự này bắt buộc phải thuộc về một Trung tâm (OrganizationId).");
@@ -67,8 +70,8 @@ namespace EduOps.Application.Services
             
             // Validate Email
             request.Email = request.Email.ToLower();
-            var existing = await repo.FindAsync(u => u.Email.ToLower() == request.Email, ignoreQueryFilters: true);
-            if (existing.Any())
+            var emailExists = await repo.AnyAsync(u => u.Email == request.Email, ignoreQueryFilters: true);
+            if (emailExists)
                 throw new BadRequestException("Email already exists");
 
             // Chặn giới hạn tạo Giáo viên và Trợ giảng dựa trên gói cước của Trung tâm
@@ -119,8 +122,8 @@ namespace EduOps.Application.Services
                 request.Email = request.Email.ToLower();
                 if (user.Email != request.Email)
                 {
-                    var existing = await repo.FindAsync(u => u.Email.ToLower() == request.Email, ignoreQueryFilters: true);
-                    if (existing.Any()) throw new BadRequestException("Email already exists");
+                    var emailExists = await repo.AnyAsync(u => u.Email == request.Email, ignoreQueryFilters: true);
+                    if (emailExists) throw new BadRequestException("Email already exists");
                     user.Email = request.Email;
                 }
             }
@@ -134,7 +137,10 @@ namespace EduOps.Application.Services
             if (!string.IsNullOrEmpty(request.Role))
             {
                 if (request.Role == "SUPER_ADMIN" && _currentUserService.Role != "SUPER_ADMIN")
-                    throw new UnauthorizedAccessException("Bạn không có quyền cấp chức vụ SUPER_ADMIN.");
+                    throw new UnauthorizedAccessException("Bạn không có quyền thực hiện thao tác này.");
+                    
+                if (_currentUserService.Role == "CENTER_ADMIN" && request.Role != "TEACHER" && request.Role != "ASSISTANT")
+                    throw new UnauthorizedAccessException("Bạn không có quyền thực hiện thao tác này.");
                     
                 if (id == _currentUserService.UserId && request.Role != user.Role)
                     throw new BadRequestException("Bạn không thể tự thay đổi chức vụ của chính mình.");
@@ -176,6 +182,7 @@ namespace EduOps.Application.Services
             user.Status = "SUSPENDED";
             user.RefreshToken = null;
             user.RefreshTokenExpiryTime = null;
+            user.Email = $"{user.Email}.deleted_{Guid.NewGuid()}";
 
             repo.Update(user);
             await _unitOfWork.CommitAsync();
@@ -236,7 +243,7 @@ namespace EduOps.Application.Services
             if (user == null || user.DeletedAt != null) throw new NotFoundException("User", targetUserId);
             
             if (adminOrgId.HasValue && user.OrganizationId != adminOrgId.Value)
-                throw new UnauthorizedAccessException("Bạn không có quyền thay đổi mật khẩu của nhân viên thuộc trung tâm khác.");
+                throw new UnauthorizedAccessException("Bạn không có quyền thực hiện thao tác này.");
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             user.RefreshToken = null;
