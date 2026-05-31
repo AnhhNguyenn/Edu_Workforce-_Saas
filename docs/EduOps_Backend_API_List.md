@@ -85,6 +85,34 @@ Dưới đây là danh sách tổng hợp toàn bộ **59 chức năng (API Endp
 56. `POST /api/notifications/{id}/read` - Đánh dấu thông báo đã đọc
 
 ### 14. Profile (Hồ sơ cá nhân)
-57. `GET /api/profile` - Lấy thông tin cá nhân của người dùng hiện tại
+57. `GET /api/profile` - Lấy thông hiện tại của người dùng hiện tại
 58. `POST /api/profile/avatar` - Upload/Cập nhật ảnh đại diện cá nhân
 59. `POST /api/profile/password` - Đổi mật khẩu cá nhân
+
+---
+
+## 🛡️ NHẬT KÝ KIỂM TOÁN BẢO MẬT & NÂNG CẤP LÕI (SECURITY & HARDENING AUDIT)
+
+Dưới đây là danh sách các tính năng cốt lõi đã được **Bọc Thép chuẩn Enterprise** để đảm bảo 100% không xảy ra lỗi sập Server (500), thất thoát dữ liệu, hoặc ô nhiễm dữ liệu chéo (Cross-data pollution):
+
+### 1. Global Infrastructure (Hạ tầng dùng chung)
+- **Global Pagination Sort:** Tích hợp tự động `OrderByDescending(CreatedAt)` vào `Repository.cs`. Mọi API danh sách (`GET`) mặc định trả về dữ liệu mới nhất lên đầu, chống nháy giật UI.
+- **Cascade Stability (`ignoreQueryFilters`):** Bật cờ xuyên thấu dữ liệu đã Xóa mềm (Soft Delete) ở các hàm nhạy cảm, đảm bảo tính toàn vẹn của Lịch sử Điểm danh & Tài chính dù Học viên/Giáo viên/Ca học đã bị xóa.
+
+### 2. Academic Core - Học viên (Phần 7)
+- **StudentCode Lock:** Chặn tái sử dụng Mã học viên cũ, tích hợp Regex bắt buộc chỉ chứa chữ, số, gạch ngang (Bảo vệ 100% tính năng in Barcode/QR Code).
+- **Status Freeze:** Mở khóa tính năng đổi `Status` (Bảo lưu, Nghỉ học) để quản lý luân chuyển mà không cần Xóa mềm. Kèm Validation chặn ngày sinh rơi vào tương lai.
+
+### 3. Academic Core - Lớp học (Phần 8)
+- **Relational Desync Protection:** Khóa cứng thao tác đổi `SchoolId` sau khi tạo Lớp. Đảm bảo toàn bộ Buổi học (`Session`) thuộc lớp đó vĩnh viễn được neo vào đúng Tọa độ GPS của 1 Cơ sở.
+- **Duplicate & Trim Guard:** Tự động cắt khoảng trắng đầu/cuối của dữ liệu. Bẫy lỗi chặn 2 Lớp học có cùng tên hoạt động trong cùng 1 Cơ sở.
+
+### 4. Academic Core - Xếp lịch & Sinh ca học (Phần 9 & 10)
+- **Cross-Role Radar:** Thuật toán bắt trùng lịch quét chéo toàn bộ Role (Giáo viên / Trợ giảng). Nếu 1 người đang có lịch dạy, vĩnh viễn không thể xếp người đó vào 1 ca học/lớp học khác cùng khung giờ.
+- **Zombie Enrollment Guard:** Ném lỗi 400 nếu Admin cố tình xếp 1 Học viên Đã Nghỉ Học (`DROPPED_OUT`) vào lớp mới.
+- **Bulk Generator Shield:** Thuật toán bắt trùng lịch được đưa vào bộ máy "Tự động sinh lịch tháng". Quét chặn ngay lập tức nếu lịch sinh ra đè lên lịch bù/lịch nghỉ lễ đã thiết lập trước. Kèm khiên Validator ép `StartTime < EndTime`.
+
+### 5. Academic Core - Điểm danh (Phần 11)
+- **Bypass GPS Check-out Lock:** Bắt buộc áp dụng thuật toán tọa độ `GeoCalculator` cho cả Check-out. Chặn đứng kẽ hở "Check-in ở trường rồi về nhà Check-out".
+- **Check-out 500 Crash Fix:** Bọc `ignoreQueryFilters` cho Session lúc Check-out, cứu Giáo viên khỏi lỗi kẹt hệ thống khi Admin lỡ tay xóa Ca học trong lúc đang dạy.
+- **Data Pollution Shield (Điểm danh ảo):** Khi Gửi danh sách điểm danh, hệ thống tự động lọc các Học sinh bị gửi trùng (chống lỗi 500 Constraint). Đồng thời đối chiếu với danh sách Lớp học chính thức, tát ngược lỗi 400 nếu nhét "Học sinh lạ" vào danh sách.
