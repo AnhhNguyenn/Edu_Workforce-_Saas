@@ -12,5 +12,6 @@ namespace EduOps.Application.DTOs.Academic
         public decimal? Longitude { get; set; }
         public int AttendanceRadius { get; set; }
         public int LateThresholdMinutes { get; set; }
+        public int EarlyCheckoutMinutes { get; set; }
     }
 }

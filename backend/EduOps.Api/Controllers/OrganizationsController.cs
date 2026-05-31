@@ -9,7 +9,6 @@ namespace EduOps.Api.Controllers
 {
     [Route("api/organizations")]
     [ApiController]
-    [Authorize(Roles = "SUPER_ADMIN")] // Chỉ Super Admin mới được cấu hình hệ thống đa Tenant
     public class OrganizationsController : ControllerBase
     {
         private readonly IOrganizationService _orgService;
@@ -20,13 +19,15 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetOrganizations([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> GetOrganizations([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null)
         {
-            var result = await _orgService.GetOrganizationsAsync(pageNumber, pageSize);
+            var result = await _orgService.GetOrganizationsAsync(pageNumber, pageSize, searchKeyword);
             return Ok(result);
         }
 
         [HttpGet("{id}")]
+        [Authorize(Roles = "SUPER_ADMIN")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var result = await _orgService.GetByIdAsync(id);
@@ -34,6 +35,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "SUPER_ADMIN")]
         public async Task<IActionResult> Create([FromBody] OrganizationRequestDto request)
         {
             var result = await _orgService.CreateAsync(request);
@@ -41,6 +43,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
         public async Task<IActionResult> Update(Guid id, [FromBody] OrganizationRequestDto request)
         {
             await _orgService.UpdateAsync(id, request);
@@ -48,6 +51,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("{id}/suspend")]
+        [Authorize(Roles = "SUPER_ADMIN")]
         public async Task<IActionResult> Suspend(Guid id)
         {
             await _orgService.SuspendAsync(id);
@@ -55,6 +59,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("{id}/activate")]
+        [Authorize(Roles = "SUPER_ADMIN")]
         public async Task<IActionResult> Activate(Guid id)
         {
             await _orgService.ActivateAsync(id);

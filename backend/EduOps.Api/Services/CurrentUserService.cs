@@ -35,5 +35,7 @@ namespace EduOps.Api.Services
         }
 
         public string Role => _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+
+        public bool IsBackgroundJob => _httpContextAccessor.HttpContext == null;
     }
 }

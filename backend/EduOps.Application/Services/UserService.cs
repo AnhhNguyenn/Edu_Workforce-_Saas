@@ -88,8 +88,8 @@ namespace EduOps.Application.Services
             }
 
             var passwordHash = string.IsNullOrEmpty(request.Password) 
-                ? BCrypt.Net.BCrypt.HashPassword("Default@123") 
-                : BCrypt.Net.BCrypt.HashPassword(request.Password);
+                ? await Task.Run(() => BCrypt.Net.BCrypt.HashPassword("Default@123")) 
+                : await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(request.Password));
 
             var newUser = new User
             {
@@ -224,10 +224,11 @@ namespace EduOps.Application.Services
             var user = await repo.GetByIdAsync(userId);
             if (user == null || user.DeletedAt != null) throw new NotFoundException("User", userId);
 
-            if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
+            bool isValid = await Task.Run(() => BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash));
+            if (!isValid)
                 throw new BadRequestException("Mật khẩu cũ không chính xác.");
 
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.PasswordHash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(request.NewPassword));
             user.RefreshToken = null;
             user.RefreshTokenExpiryTime = null;
             
@@ -245,7 +246,7 @@ namespace EduOps.Application.Services
             if (adminOrgId.HasValue && user.OrganizationId != adminOrgId.Value)
                 throw new UnauthorizedAccessException("Bạn không có quyền thực hiện thao tác này.");
 
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.PasswordHash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(newPassword));
             user.RefreshToken = null;
             user.RefreshTokenExpiryTime = null;
 

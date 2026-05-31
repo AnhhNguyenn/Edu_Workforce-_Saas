@@ -17,7 +17,7 @@ namespace EduOps.Infrastructure.Data
 
         // Expose parameters for EF Core Global Query Filter Translation
         public Guid? CurrentOrgId => _currentUserService.OrganizationId;
-        public bool IsSuperAdmin => _currentUserService.Role == "SUPER_ADMIN";
+        public bool IsSuperAdmin => _currentUserService.Role == "SUPER_ADMIN" || _currentUserService.IsBackgroundJob;
 
         // --- CORE ---
         public DbSet<User> Users { get; set; }
@@ -46,9 +46,7 @@ namespace EduOps.Infrastructure.Data
         public DbSet<Promotion> Promotions { get; set; }
         
         // --- AUTH ---
-        public DbSet<RefreshToken> RefreshTokens { get; set; }
-        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
-        public DbSet<UserDevice> UserDevices { get; set; }
+        // Token logic is implemented directly on the User entity.
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -89,6 +87,8 @@ namespace EduOps.Infrastructure.Data
             modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
             modelBuilder.Entity<User>().HasIndex(u => u.OrganizationId);
             modelBuilder.Entity<Organization>().HasIndex(o => o.Code).IsUnique();
+            modelBuilder.Entity<Organization>().HasIndex(o => o.Email).IsUnique();
+            modelBuilder.Entity<BillingTransaction>().HasIndex(t => t.ReferenceCode);
             modelBuilder.Entity<School>().HasIndex(s => s.OrganizationId);
             modelBuilder.Entity<Class>().HasIndex(c => c.SchoolId);
             modelBuilder.Entity<Session>().HasIndex(s => new { s.SessionDate, s.TeacherId });

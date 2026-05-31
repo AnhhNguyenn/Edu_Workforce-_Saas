@@ -68,6 +68,19 @@ try
                     QueueLimit = 0,
                     Window = TimeSpan.FromMinutes(1)
                 }));
+                
+        // Rate Limiter riêng cho Auth (Chống Brute-force mật khẩu)
+        options.AddPolicy("AuthLimit", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString(),
+                factory: partition => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 5,
+                    QueueLimit = 0,
+                    Window = TimeSpan.FromMinutes(1)
+                }));
+                
         options.RejectionStatusCode = 429;
     });
 
@@ -160,10 +173,10 @@ try
     builder.Services.AddScoped<EduOps.Application.Interfaces.ISchoolService, EduOps.Application.Services.SchoolService>();
     builder.Services.AddScoped<EduOps.Application.Interfaces.IStudentService, EduOps.Application.Services.StudentService>();
     builder.Services.AddScoped<EduOps.Application.Interfaces.IClassScheduleService, EduOps.Application.Services.ClassScheduleService>();
-    builder.Services.AddScoped<EduOps.Application.Interfaces.ISePayService, EduOps.Infrastructure.Services.SePayService>();
 
-    // Cấu hình Multi-tenant & HTTP Context
+    // Cấu hình Multi-tenant & HTTP Context & Caching
     builder.Services.AddHttpContextAccessor();
+    builder.Services.AddMemoryCache();
     builder.Services.AddScoped<EduOps.Application.Interfaces.ICurrentUserService, EduOps.Api.Services.CurrentUserService>();
 
     // Cấu hình Hangfire

@@ -17,7 +17,16 @@ namespace EduOps.Application.Validations.Organization
 
             RuleFor(x => x.Email)
                 .NotEmpty().WithMessage("Email is required.")
-                .EmailAddress().WithMessage("A valid email is required.");
+                .EmailAddress().WithMessage("A valid email is required.")
+                .MaximumLength(255).WithMessage("Email cannot exceed 255 characters.");
+
+            RuleFor(x => x.Phone)
+                .NotEmpty().WithMessage("Phone is required.")
+                .MaximumLength(20).WithMessage("Phone cannot exceed 20 characters.")
+                .Matches(@"^\+?[0-9\s-]+$").WithMessage("Phone must contain only numbers and optional '+', '-', or spaces.");
+
+            RuleFor(x => x.Address)
+                .MaximumLength(500).WithMessage("Address cannot exceed 500 characters.");
 
             RuleFor(x => x.MaxUsers)
                 .GreaterThan(0).WithMessage("Max users must be greater than 0.");

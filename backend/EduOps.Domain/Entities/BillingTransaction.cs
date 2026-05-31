@@ -20,5 +20,8 @@ namespace EduOps.Domain.Entities
         
         // ID Giao dịch trả về từ SePay để đối soát
         public string? SePayTransactionId { get; set; }
+        
+        // Lưu trữ ID Khuyến mãi để gạch nợ sau khi thanh toán thành công
+        public Guid? PromotionId { get; set; }
     }
 }

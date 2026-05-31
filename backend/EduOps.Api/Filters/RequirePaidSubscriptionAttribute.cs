@@ -6,6 +6,7 @@ using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
 using EduOps.Application.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace EduOps.Api.Filters
 {
@@ -23,29 +24,54 @@ namespace EduOps.Api.Filters
 
             var currentUserService = context.HttpContext.RequestServices.GetService<ICurrentUserService>();
             var unitOfWork = context.HttpContext.RequestServices.GetService<IUnitOfWork>();
+            var cache = context.HttpContext.RequestServices.GetService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
 
             var orgId = currentUserService?.OrganizationId;
             if (orgId.HasValue && orgId != Guid.Empty)
             {
-                var orgRepo = unitOfWork?.Repository<Organization>();
-                var org = orgRepo != null ? await orgRepo.GetByIdAsync(orgId.Value) : null;
+                var cacheKey = $"OrgSubscription_{orgId.Value}";
                 
-                if (org != null)
+                var cachedData = cache != null ? await cache.GetOrCreateAsync(cacheKey, async entry => 
                 {
-                    bool isExpired = org.SubscriptionEnd.HasValue && org.SubscriptionEnd.Value < DateTime.UtcNow;
-
-                    // Nếu gói bị khóa hoặc hết hạn -> Chặn đứng
-                    if (isExpired || org.SubscriptionStatus == "LOCKED" || 
-                        org.SubscriptionStatus == "EXPIRED")
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+                    
+                    var orgRepo = unitOfWork?.Repository<Organization>();
+                    var org = orgRepo != null ? await orgRepo.GetByIdAsync(orgId.Value) : null;
+                    
+                    if (org != null)
                     {
-                        // Auto update DB to EXPIRED if it was past time
-                        if (isExpired && org.SubscriptionStatus != "EXPIRED" && org.SubscriptionStatus != "LOCKED")
+                        bool isExpiredCheck = org.SubscriptionEnd.HasValue && org.SubscriptionEnd.Value < DateTime.UtcNow;
+                        if (isExpiredCheck && org.SubscriptionStatus != "EXPIRED" && org.SubscriptionStatus != "LOCKED")
                         {
                             org.SubscriptionStatus = "EXPIRED";
                             orgRepo?.Update(org);
                             if (unitOfWork != null) await unitOfWork.CommitAsync();
                         }
+                        return (Status: org.SubscriptionStatus, EndDate: org.SubscriptionEnd, OrgStatus: (EduOps.Domain.Enums.AccountStatus?)org.Status);
+                    }
+                    return (Status: (string?)null, EndDate: (DateTime?)null, OrgStatus: (EduOps.Domain.Enums.AccountStatus?)null);
+                }) : (Status: (string?)null, EndDate: (DateTime?)null, OrgStatus: (EduOps.Domain.Enums.AccountStatus?)null);
 
+                if (cachedData.OrgStatus == EduOps.Domain.Enums.AccountStatus.SUSPENDED || cachedData.OrgStatus == EduOps.Domain.Enums.AccountStatus.INACTIVE)
+                {
+                    context.Result = new ObjectResult(new 
+                    { 
+                        errorCode = "403_ORG_SUSPENDED",
+                        message = "Trung tâm của bạn đã bị vô hiệu hóa bởi Quản trị viên. Vui lòng liên hệ hỗ trợ." 
+                    }) 
+                    { 
+                        StatusCode = 403 
+                    };
+                    return;
+                }
+
+                if (cachedData.Status != null)
+                {
+                    bool isExpired = cachedData.EndDate.HasValue && cachedData.EndDate.Value < DateTime.UtcNow;
+
+                    // Nếu gói bị khóa hoặc hết hạn -> Chặn đứng
+                    if (isExpired || cachedData.Status == "LOCKED" || cachedData.Status == "EXPIRED")
+                    {
                         context.Result = new ObjectResult(new 
                         { 
                             errorCode = "403_SUBSCRIPTION_REQUIRED",

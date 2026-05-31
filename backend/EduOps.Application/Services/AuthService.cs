@@ -40,7 +40,18 @@ namespace EduOps.Application.Services
             request.Email = request.Email.ToLower();
             var user = await userRepository.FirstOrDefaultAsync(u => u.Email == request.Email, ignoreQueryFilters: true);
 
-            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            bool isPasswordValid = false;
+            if (user != null)
+            {
+                isPasswordValid = await Task.Run(() => BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash));
+            }
+            else
+            {
+                // Dummy hash to prevent Timing Attack (User Enumeration)
+                await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(request.Password, 11));
+            }
+
+            if (user == null || !isPasswordValid)
             {
                 _logger.LogWarning($"Login failed: Invalid credentials for user {request.Email}");
                 throw new System.UnauthorizedAccessException("Email hoặc mật khẩu không chính xác.");
@@ -174,9 +185,7 @@ namespace EduOps.Application.Services
 
         private string GenerateRefreshToken()
         {
-            var randomNumber = new byte[64];
-            using var rng = RandomNumberGenerator.Create();
-            rng.GetBytes(randomNumber);
+            var randomNumber = System.Security.Cryptography.RandomNumberGenerator.GetBytes(64);
             return Convert.ToBase64String(randomNumber);
         }
 
@@ -229,8 +238,8 @@ namespace EduOps.Application.Services
                 return;
             }
 
-            // Generate 6-digit OTP
-            var otp = new Random().Next(100000, 999999).ToString();
+            // Generate cryptographically secure 6-digit OTP
+            var otp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
             
             user.ResetPasswordToken = otp;
             user.ResetPasswordTokenExpiryTime = DateTime.UtcNow.AddMinutes(15);
@@ -250,7 +259,7 @@ namespace EduOps.Application.Services
             if (user == null || user.DeletedAt != null)
                 throw new BadRequestException("Mã xác nhận không hợp lệ hoặc đã hết hạn.");
 
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.PasswordHash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(request.NewPassword));
             user.ResetPasswordToken = null;
             user.ResetPasswordTokenExpiryTime = null;
             user.RefreshToken = null;

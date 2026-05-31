@@ -49,14 +49,27 @@ namespace EduOps.Application.Services
         {
             try
             {
+                // Validate Foreign Keys để chống lỗi 500
+                if (!await _unitOfWork.Repository<School>().AnyAsync(s => s.Id == request.SchoolId && s.OrganizationId == organizationId))
+                    throw new BadRequestException("Cơ sở không tồn tại hoặc đã bị xóa.");
+                if (!await _unitOfWork.Repository<Class>().AnyAsync(c => c.Id == request.ClassId && c.OrganizationId == organizationId))
+                    throw new BadRequestException("Lớp học không tồn tại hoặc đã bị xóa.");
+                if (!await _unitOfWork.Repository<User>().AnyAsync(u => u.Id == request.TeacherId && u.OrganizationId == organizationId))
+                    throw new BadRequestException("Giáo viên không tồn tại hoặc đã bị xóa.");
+                if (request.AssistantId.HasValue && !await _unitOfWork.Repository<User>().AnyAsync(u => u.Id == request.AssistantId.Value && u.OrganizationId == organizationId))
+                    throw new BadRequestException("Trợ giảng không tồn tại hoặc đã bị xóa.");
+
                 var repo = _unitOfWork.Repository<Session>();
 
                 // Tối ưu Performance: Tìm các session trùng lặp của Giáo viên hoặc Trợ giảng trong cùng ngày
+                var requestUsers = new List<Guid> { request.TeacherId };
+                if (request.AssistantId.HasValue) requestUsers.Add(request.AssistantId.Value);
+
                 var conflicts = await repo.FindAsync(s => 
                     s.OrganizationId == organizationId &&
                     s.SessionDate.Date == request.SessionDate.Date &&
                     s.Status != SessionStatus.CANCELLED &&
-                    (s.TeacherId == request.TeacherId || (request.AssistantId.HasValue && s.AssistantId == request.AssistantId.Value))
+                    (requestUsers.Contains(s.TeacherId) || (s.AssistantId.HasValue && requestUsers.Contains(s.AssistantId.Value)))
                 );
 
                 // Check trùng giờ
@@ -68,8 +81,8 @@ namespace EduOps.Application.Services
 
                 if (overlapping != null)
                 {
-                    _logger.LogWarning($"Conflict detected for Session: Teacher {request.TeacherId} at {request.StartTime}");
-                    throw new BadRequestException("Conflict detected: Teacher or Assistant is already assigned to another session at this time.");
+                    _logger.LogWarning($"Conflict detected for Session at {request.StartTime}");
+                    throw new BadRequestException("Phát hiện trùng lịch: Giáo viên hoặc Trợ giảng đã có lịch dạy/hỗ trợ ở một ca khác trong cùng khung giờ.");
                 }
 
                 var session = new Session

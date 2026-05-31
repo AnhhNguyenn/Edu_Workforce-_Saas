@@ -18,7 +18,8 @@ namespace EduOps.Application.Mappings
                 Latitude = school.Latitude,
                 Longitude = school.Longitude,
                 AttendanceRadius = school.AttendanceRadius,
-                LateThresholdMinutes = school.LateThresholdMinutes
+                LateThresholdMinutes = school.LateThresholdMinutes,
+                EarlyCheckoutMinutes = school.EarlyCheckoutMinutes
             };
         }
     }

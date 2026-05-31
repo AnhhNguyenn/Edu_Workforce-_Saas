@@ -8,7 +8,7 @@ namespace EduOps.Application.Interfaces
 {
     public interface IOrganizationService
     {
-        Task<PagedResult<OrganizationDto>> GetOrganizationsAsync(int pageNumber, int pageSize);
+        Task<PagedResult<OrganizationDto>> GetOrganizationsAsync(int pageNumber, int pageSize, string? searchKeyword = null);
         Task<OrganizationDto> GetByIdAsync(Guid id);
         Task<OrganizationDto> CreateAsync(OrganizationRequestDto request);
         Task UpdateAsync(Guid id, OrganizationRequestDto request);

@@ -5,10 +5,13 @@ using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using Microsoft.AspNetCore.RateLimiting;
+
 namespace EduOps.Api.Controllers
 {
     [Route("api/auth")]
     [ApiController]
+    [EnableRateLimiting("AuthLimit")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;

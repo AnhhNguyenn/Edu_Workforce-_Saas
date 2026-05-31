@@ -63,7 +63,15 @@ namespace EduOps.Application.Services
         {
             try
             {
+                request.Name = request.Name.Trim();
+                if (request.Address != null) request.Address = request.Address.Trim();
+
                 var repo = _unitOfWork.Repository<School>();
+                
+                var existing = await repo.FindAsync(s => s.OrganizationId == organizationId && s.Name.ToLower() == request.Name.ToLower());
+                if (existing.Any())
+                    throw new BadRequestException($"Một cơ sở với tên '{request.Name}' đã tồn tại trong hệ thống.");
+
                 var school = new School
                 {
                     OrganizationId = organizationId,
@@ -72,7 +80,8 @@ namespace EduOps.Application.Services
                     Latitude = request.Latitude,
                     Longitude = request.Longitude,
                     AttendanceRadius = request.AttendanceRadius,
-                    LateThresholdMinutes = request.LateThresholdMinutes
+                    LateThresholdMinutes = request.LateThresholdMinutes,
+                    EarlyCheckoutMinutes = request.EarlyCheckoutMinutes
                 };
 
                 await repo.AddAsync(school);
@@ -91,9 +100,20 @@ namespace EduOps.Application.Services
 
         public async Task UpdateAsync(Guid id, Guid organizationId, SchoolRequestDto request)
         {
-            var school = await _unitOfWork.Repository<School>().GetByIdAsync(id);
+            var repo = _unitOfWork.Repository<School>();
+            var school = await repo.GetByIdAsync(id);
             if (school == null || school.OrganizationId != organizationId)
                 throw new NotFoundException("School", id);
+
+            request.Name = request.Name.Trim();
+            if (request.Address != null) request.Address = request.Address.Trim();
+
+            if (!string.Equals(school.Name, request.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                var existing = await repo.FindAsync(s => s.OrganizationId == organizationId && s.Name.ToLower() == request.Name.ToLower());
+                if (existing.Any())
+                    throw new BadRequestException($"Một cơ sở với tên '{request.Name}' đã tồn tại trong hệ thống.");
+            }
 
             school.Name = request.Name;
             school.Address = request.Address;
@@ -101,8 +121,9 @@ namespace EduOps.Application.Services
             school.Longitude = request.Longitude;
             school.AttendanceRadius = request.AttendanceRadius;
             school.LateThresholdMinutes = request.LateThresholdMinutes;
+            school.EarlyCheckoutMinutes = request.EarlyCheckoutMinutes;
 
-            _unitOfWork.Repository<School>().Update(school);
+            repo.Update(school);
             await _unitOfWork.CommitAsync();
         }
 

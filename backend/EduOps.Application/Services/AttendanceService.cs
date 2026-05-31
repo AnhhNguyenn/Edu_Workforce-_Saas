@@ -38,7 +38,7 @@ namespace EduOps.Application.Services
             }
 
             var schoolRepo = _unitOfWork.Repository<School>();
-            var school = (await schoolRepo.FindAsync(s => s.Id == session.SchoolId)).FirstOrDefault();
+            var school = (await schoolRepo.FindAsync(s => s.Id == session.SchoolId, ignoreQueryFilters: true)).FirstOrDefault();
             if (school == null) throw new NotFoundException("School", session.SchoolId);
 
             if (school.Latitude.HasValue && school.Longitude.HasValue)
@@ -116,15 +116,28 @@ namespace EduOps.Application.Services
             }
 
             var sessionRepo = _unitOfWork.Repository<Session>();
-            var session = (await sessionRepo.FindAsync(s => s.Id == request.SessionId)).FirstOrDefault();
+            var session = (await sessionRepo.FindAsync(s => s.Id == request.SessionId, ignoreQueryFilters: true)).FirstOrDefault();
+            if (session == null) throw new NotFoundException("Session", request.SessionId);
 
             var now = DateTime.UtcNow;
-            var sessionEndTimeUtc = session!.SessionDate.Date.Add(session.EndTime);
+            var sessionEndTimeUtc = session.SessionDate.Date.Add(session.EndTime);
             var schoolRepo = _unitOfWork.Repository<School>();
-            var school = (await schoolRepo.FindAsync(s => s.Id == session.SchoolId)).FirstOrDefault();
+            var school = (await schoolRepo.FindAsync(s => s.Id == session.SchoolId, ignoreQueryFilters: true)).FirstOrDefault();
+            if (school == null) throw new NotFoundException("School", session.SchoolId);
+
+            if (school.Latitude.HasValue && school.Longitude.HasValue)
+            {
+                var distance = GeoCalculator.HaversineDistanceInMeters(
+                    request.Latitude, request.Longitude, school.Latitude.Value, school.Longitude.Value);
+
+                if (distance > school.AttendanceRadius)
+                {
+                    throw new BadRequestException($"You are out of the attendance zone for check-out. Distance: {Math.Round(distance)}m, Max allowed: {school.AttendanceRadius}m.");
+                }
+            }
 
             var earlyMinutes = 0;
-            if (now < sessionEndTimeUtc.AddMinutes(-school!.EarlyCheckoutMinutes))
+            if (now < sessionEndTimeUtc.AddMinutes(-school.EarlyCheckoutMinutes))
             {
                 earlyMinutes = (int)(sessionEndTimeUtc - now).TotalMinutes;
                 record.Status = record.Status == EduOps.Domain.Enums.AttendanceStatus.LATE ? EduOps.Domain.Enums.AttendanceStatus.LATE_AND_EARLY : EduOps.Domain.Enums.AttendanceStatus.EARLY_CHECKOUT;
@@ -169,11 +182,26 @@ namespace EduOps.Application.Services
                 throw new ForbiddenException("You are not assigned to this session.");
             }
 
+            var classEnrollmentRepo = _unitOfWork.Repository<ClassEnrollment>();
+            var enrollments = await classEnrollmentRepo.FindAsync(e => e.ClassId == session.ClassId && e.Status == "ENROLLED");
+            var enrolledStudentIds = enrollments.Select(e => e.StudentId).ToHashSet();
+
+            // Lọc các bản ghi trùng lặp (nếu Client vô tình gửi 2 lần cùng 1 học sinh)
+            var uniqueRecords = request.Records
+                .GroupBy(r => r.StudentId)
+                .Select(g => g.First())
+                .ToList();
+
             var studentAttendanceRepo = _unitOfWork.Repository<StudentSessionAttendance>();
             var existingAttendances = await studentAttendanceRepo.FindAsync(sa => sa.SessionId == sessionId);
 
-            foreach (var record in request.Records)
+            foreach (var record in uniqueRecords)
             {
+                if (!enrolledStudentIds.Contains(record.StudentId))
+                {
+                    throw new BadRequestException($"Học viên ID {record.StudentId} không có trong danh sách chính thức của lớp học này.");
+                }
+
                 var existing = existingAttendances.FirstOrDefault(sa => sa.StudentId == record.StudentId);
                 if (existing != null)
                 {

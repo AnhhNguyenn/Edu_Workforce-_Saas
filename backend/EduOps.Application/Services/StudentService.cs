@@ -53,9 +53,15 @@ namespace EduOps.Application.Services
         {
             var repo = _unitOfWork.Repository<Student>();
             
-            var existing = await repo.FindAsync(s => s.OrganizationId == organizationId && s.StudentCode == request.StudentCode);
+            request.StudentCode = request.StudentCode.Trim();
+            request.FullName = request.FullName.Trim();
+            if (request.ParentName != null) request.ParentName = request.ParentName.Trim();
+            if (request.ParentPhone != null) request.ParentPhone = request.ParentPhone.Trim();
+            if (request.ParentEmail != null) request.ParentEmail = request.ParentEmail.Trim();
+
+            var existing = await repo.FindAsync(s => s.OrganizationId == organizationId && s.StudentCode == request.StudentCode, ignoreQueryFilters: true);
             if (existing.Any())
-                throw new BadRequestException("Mã học viên đã tồn tại trong hệ thống.");
+                throw new BadRequestException("Mã học viên đã tồn tại trong hệ thống (bao gồm cả học viên đã nghỉ học).");
 
             var student = new Student
             {
@@ -66,7 +72,7 @@ namespace EduOps.Application.Services
                 ParentName = request.ParentName ?? "",
                 ParentPhone = request.ParentPhone ?? "",
                 ParentEmail = request.ParentEmail ?? "",
-                Status = AccountStatus.ACTIVE
+                Status = request.Status ?? AccountStatus.ACTIVE
             };
 
             await repo.AddAsync(student);
@@ -82,11 +88,17 @@ namespace EduOps.Application.Services
             if (student == null || student.OrganizationId != organizationId)
                 throw new NotFoundException("Student", id);
 
+            request.StudentCode = request.StudentCode.Trim();
+            request.FullName = request.FullName.Trim();
+            if (request.ParentName != null) request.ParentName = request.ParentName.Trim();
+            if (request.ParentPhone != null) request.ParentPhone = request.ParentPhone.Trim();
+            if (request.ParentEmail != null) request.ParentEmail = request.ParentEmail.Trim();
+
             if (student.StudentCode != request.StudentCode)
             {
-                var existing = await repo.FindAsync(s => s.OrganizationId == organizationId && s.StudentCode == request.StudentCode);
+                var existing = await repo.FindAsync(s => s.OrganizationId == organizationId && s.StudentCode == request.StudentCode, ignoreQueryFilters: true);
                 if (existing.Any())
-                    throw new BadRequestException("Mã học viên đã tồn tại trong hệ thống.");
+                    throw new BadRequestException("Mã học viên đã tồn tại trong hệ thống (bao gồm cả học viên đã nghỉ học).");
             }
 
             student.FullName = request.FullName;
@@ -95,6 +107,11 @@ namespace EduOps.Application.Services
             student.ParentName = request.ParentName ?? "";
             student.ParentPhone = request.ParentPhone ?? "";
             student.ParentEmail = request.ParentEmail ?? "";
+            
+            if (request.Status.HasValue)
+            {
+                student.Status = request.Status.Value;
+            }
 
             repo.Update(student);
             await _unitOfWork.CommitAsync();

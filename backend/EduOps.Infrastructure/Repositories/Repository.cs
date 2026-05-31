@@ -49,6 +49,11 @@ namespace EduOps.Infrastructure.Repositories
             IQueryable<T> query = _dbSet.Where(predicate);
             if (asNoTracking) query = query.AsNoTracking();
             
+            if (typeof(EduOps.Domain.Entities.BaseEntity).IsAssignableFrom(typeof(T)))
+            {
+                query = query.OrderByDescending(e => EF.Property<DateTime>(e, "CreatedAt"));
+            }
+            
             var totalCount = await query.CountAsync();
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
             return (items, totalCount);

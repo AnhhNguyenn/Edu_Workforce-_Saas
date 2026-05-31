@@ -10,5 +10,6 @@ namespace EduOps.Application.DTOs.Academic
         public string ParentName { get; set; } = string.Empty;
         public string ParentPhone { get; set; } = string.Empty;
         public string ParentEmail { get; set; } = string.Empty;
+        public EduOps.Domain.Enums.AccountStatus? Status { get; set; }
     }
 }

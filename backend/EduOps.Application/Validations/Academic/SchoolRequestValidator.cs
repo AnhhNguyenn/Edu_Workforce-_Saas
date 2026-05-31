@@ -19,6 +19,9 @@ namespace EduOps.Application.Validations.Academic
                 
             RuleFor(x => x.LateThresholdMinutes)
                 .GreaterThanOrEqualTo(0).WithMessage("Thời gian đi trễ không được là số âm");
+
+            RuleFor(x => x.EarlyCheckoutMinutes)
+                .GreaterThanOrEqualTo(0).WithMessage("Thời gian về sớm không được là số âm");
         }
     }
 }

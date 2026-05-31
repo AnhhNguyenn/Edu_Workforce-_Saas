@@ -1,21 +1,21 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using EduOps.Application.DTOs.Billing;
+using EduOps.Application.DTOs.Subscription;
 
 namespace EduOps.Application.Interfaces
 {
     public interface ISubscriptionService
     {
-        // Plans (Super Admin)
-        Task<List<SubscriptionPlanDto>> GetPlansAsync();
+        Task<IEnumerable<SubscriptionPlanDto>> GetPlansAsync();
         Task<SubscriptionPlanDto> CreatePlanAsync(SubscriptionPlanRequestDto request);
         
-        // Promotions (Super Admin)
-        Task<List<PromotionDto>> GetPromotionsAsync();
+        Task<IEnumerable<PromotionDto>> GetPromotionsAsync();
         Task<PromotionDto> CreatePromotionAsync(PromotionRequestDto request);
         
-        // Subscribe (Center Admin)
-        Task<string> SubscribeAsync(Guid orgId, SubscribeRequestDto request);
+        Task<SubscribeResponseDto> SubscribeAsync(SubscribeRequestDto request);
+        Task<MySubscriptionDto> GetMySubscriptionAsync();
+        Task<IEnumerable<BillingTransactionDto>> GetMyTransactionsAsync();
+        Task<string> GetTransactionStatusAsync(string referenceCode);
     }
 }
