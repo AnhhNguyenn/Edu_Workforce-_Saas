@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Application.DTOs.Auth;
+using EduOps.Application.DTOs.User.Responses;
+using EduOps.Application.DTOs.User.Requests;
 using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
@@ -21,12 +23,12 @@ namespace EduOps.Application.Services
             _storageService = storageService;
         }
 
-        public async Task<UserDto> GetProfileAsync(Guid userId)
+        public async Task<UserDetailResponseDto> GetProfileAsync(Guid userId)
         {
             var user = await _unitOfWork.Repository<User>().GetByIdAsync(userId);
             if (user == null || user.DeletedAt != null) throw new NotFoundException("User", userId);
             
-            return user.ToDto();
+            return user.ToDetailResponseDto();
         }
 
         public async Task<string> UploadAvatarAsync(Guid userId, Stream fileStream, string fileName, string contentType)
@@ -59,6 +61,22 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             return avatarUrl;
+        }
+
+        public async Task UpdateProfileAsync(Guid userId, UpdateProfileRequestDto request)
+        {
+            var repo = _unitOfWork.Repository<User>();
+            var user = await repo.GetByIdAsync(userId);
+            
+            if (user == null || user.DeletedAt != null)
+                throw new NotFoundException("User", userId);
+
+            // Chỉ cho phép cập nhật các trường an toàn (SĐT, Địa chỉ)
+            user.Phone = request.Phone ?? string.Empty;
+            user.Address = request.Address ?? string.Empty;
+
+            repo.Update(user);
+            await _unitOfWork.CommitAsync();
         }
     }
 }

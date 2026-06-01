@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs;
-using EduOps.Application.DTOs.Auth;
 using EduOps.Application.DTOs.User;
+using EduOps.Application.DTOs.User.Requests;
+using EduOps.Application.DTOs.User.Responses;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Application.Mappings;
@@ -25,37 +26,40 @@ namespace EduOps.Application.Services
             _currentUserService = currentUserService;
         }
 
-        public async Task<PagedResult<UserDto>> GetUsersAsync(Guid? organizationId, int pageNumber, int pageSize, string? searchKeyword = null)
+        public async Task<PagedResult<UserListResponseDto>> GetUsersAsync(Guid? organizationId, GetUserListQueryDto query)
         {
             var repo = _unitOfWork.Repository<User>();
             
-            var queryPredicate = string.IsNullOrEmpty(searchKeyword) 
+            var queryPredicate = string.IsNullOrEmpty(query.SearchKeyword) 
                 ? (System.Linq.Expressions.Expression<Func<User, bool>>)(u => (!organizationId.HasValue || u.OrganizationId == organizationId) && u.DeletedAt == null)
                 : (System.Linq.Expressions.Expression<Func<User, bool>>)(u => (!organizationId.HasValue || u.OrganizationId == organizationId) && u.DeletedAt == null && 
-                                                                              (u.FullName.ToLower().Contains(searchKeyword.ToLower()) || 
-                                                                               u.Email.ToLower().Contains(searchKeyword.ToLower()) || 
-                                                                               (u.Phone != null && u.Phone.Contains(searchKeyword))));
+                                                                              (u.FullName.ToLower().Contains(query.SearchKeyword.ToLower()) || 
+                                                                               u.Email.ToLower().Contains(query.SearchKeyword.ToLower()) || 
+                                                                               (u.Phone != null && u.Phone.ToLower().Contains(query.SearchKeyword.ToLower()))));
 
-            var result = await repo.FindPagedAsync(queryPredicate, pageNumber, pageSize, asNoTracking: true);
+            var result = await repo.FindPagedAsync(queryPredicate, query.PageNumber, query.PageSize, asNoTracking: true);
 
-            return new PagedResult<UserDto>
+            return new PagedResult<UserListResponseDto>
             {
-                Items = result.Items.Select(u => u.ToDto()),
+                Items = result.Items.Select(u => u.ToListResponseDto()),
                 TotalCount = result.TotalCount,
-                PageNumber = pageNumber,
-                PageSize = pageSize
+                PageNumber = query.PageNumber,
+                PageSize = query.PageSize
             };
         }
 
-        public async Task<UserDto> GetUserByIdAsync(Guid id)
+        public async Task<UserDetailResponseDto> GetUserByIdAsync(Guid id)
         {
             var user = await _unitOfWork.Repository<User>().GetByIdAsync(id, asNoTracking: true);
             if (user == null) throw new NotFoundException("User", id);
+            
+            if (_currentUserService.Role != "SUPER_ADMIN" && user.OrganizationId != _currentUserService.OrganizationId)
+                throw new UnauthorizedAccessException("Bạn không có quyền thao tác trên nhân sự này.");
 
-            return user.ToDto();
+            return user.ToDetailResponseDto();
         }
 
-        public async Task<UserDto> CreateUserAsync(CreateUserRequestDto request, Guid? organizationId)
+        public async Task<UserDetailResponseDto> CreateUserAsync(CreateUserRequestDto request, Guid? organizationId)
         {
             if (request.Role == "SUPER_ADMIN" && _currentUserService.Role != "SUPER_ADMIN")
                 throw new UnauthorizedAccessException("Bạn không có quyền thực hiện thao tác này.");
@@ -74,15 +78,14 @@ namespace EduOps.Application.Services
             if (emailExists)
                 throw new BadRequestException("Email already exists");
 
-            // Chặn giới hạn tạo Giáo viên và Trợ giảng dựa trên gói cước của Trung tâm
-            if (organizationId.HasValue && (request.Role == "TEACHER" || request.Role == "ASSISTANT"))
+            // Chặn giới hạn nhân sự dựa trên gói cước của Trung tâm
+            if (organizationId.HasValue && request.Role != "SUPER_ADMIN")
             {
                 var orgRepo = _unitOfWork.Repository<Organization>();
                 var org = await orgRepo.GetByIdAsync(organizationId.Value);
                 if (org != null)
                 {
-                    var currentCount = await repo.CountAsync(u => u.OrganizationId == organizationId.Value && (u.Role == "TEACHER" || u.Role == "ASSISTANT") && u.DeletedAt == null);
-                    if (currentCount >= org.MaxUsers)
+                    if (org.CurrentUsers >= org.MaxUsers)
                         throw new BadRequestException($"Đã đạt giới hạn nhân viên của gói cước (Tối đa {org.MaxUsers} người). Vui lòng nâng cấp gói!");
                 }
             }
@@ -102,13 +105,26 @@ namespace EduOps.Application.Services
                 Gender = request.Gender,
                 BirthDate = request.BirthDate,
                 Address = request.Address,
-                Status = "ACTIVE"
+                Status = AccountStatus.ACTIVE.ToString()
             };
 
             await repo.AddAsync(newUser);
+            
+            // Cập nhật CurrentUsers của Organization
+            if (organizationId.HasValue)
+            {
+                var orgRepo = _unitOfWork.Repository<Organization>();
+                var org = await orgRepo.GetByIdAsync(organizationId.Value);
+                if (org != null)
+                {
+                    org.CurrentUsers += 1;
+                    orgRepo.Update(org);
+                }
+            }
+            
             await _unitOfWork.CommitAsync();
 
-            return newUser.ToDto();
+            return newUser.ToDetailResponseDto();
         }
 
         public async Task UpdateUserAsync(Guid id, UpdateUserRequestDto request)
@@ -116,6 +132,9 @@ namespace EduOps.Application.Services
             var repo = _unitOfWork.Repository<User>();
             var user = await repo.GetByIdAsync(id);
             if (user == null) throw new NotFoundException("User", id);
+
+            if (_currentUserService.Role != "SUPER_ADMIN" && user.OrganizationId != _currentUserService.OrganizationId)
+                throw new UnauthorizedAccessException("Bạn không có quyền thao tác trên nhân sự này.");
 
             if (user.Email != request.Email && !string.IsNullOrEmpty(request.Email))
             {
@@ -161,6 +180,9 @@ namespace EduOps.Application.Services
             var user = await repo.GetByIdAsync(id);
             if (user == null || user.DeletedAt != null) throw new NotFoundException("User", id);
 
+            if (_currentUserService.Role != "SUPER_ADMIN" && user.OrganizationId != _currentUserService.OrganizationId)
+                throw new UnauthorizedAccessException("Bạn không có quyền thao tác trên nhân sự này.");
+
             user.Status = "INACTIVE";
             user.RefreshToken = null;
             user.RefreshTokenExpiryTime = null;
@@ -178,13 +200,29 @@ namespace EduOps.Application.Services
             var user = await repo.GetByIdAsync(id);
             if (user == null || user.DeletedAt != null) throw new NotFoundException("User", id);
 
+            if (_currentUserService.Role != "SUPER_ADMIN" && user.OrganizationId != _currentUserService.OrganizationId)
+                throw new UnauthorizedAccessException("Bạn không có quyền thao tác trên nhân sự này.");
+
+            user.Status = "INACTIVE";
             user.DeletedAt = DateTime.UtcNow;
-            user.Status = "SUSPENDED";
             user.RefreshToken = null;
             user.RefreshTokenExpiryTime = null;
             user.Email = $"{user.Email}.deleted_{Guid.NewGuid()}";
 
             repo.Update(user);
+
+            // Cập nhật CurrentUsers của Organization
+            if (user.OrganizationId.HasValue)
+            {
+                var orgRepo = _unitOfWork.Repository<Organization>();
+                var org = await orgRepo.GetByIdAsync(user.OrganizationId.Value);
+                if (org != null && org.CurrentUsers > 0)
+                {
+                    org.CurrentUsers -= 1;
+                    orgRepo.Update(org);
+                }
+            }
+
             await _unitOfWork.CommitAsync();
         }
 
@@ -196,6 +234,9 @@ namespace EduOps.Application.Services
             var repo = _unitOfWork.Repository<User>();
             var user = await repo.GetByIdAsync(id);
             if (user == null || user.DeletedAt != null) throw new NotFoundException("User", id);
+
+            if (_currentUserService.Role != "SUPER_ADMIN" && user.OrganizationId != _currentUserService.OrganizationId)
+                throw new UnauthorizedAccessException("Bạn không có quyền thao tác trên nhân sự này.");
 
             user.Status = "SUSPENDED";
             user.LockEndAt = lockEndAt ?? DateTime.MaxValue; // Default to permanent lock if null
@@ -211,6 +252,9 @@ namespace EduOps.Application.Services
             var repo = _unitOfWork.Repository<User>();
             var user = await repo.GetByIdAsync(id);
             if (user == null || user.DeletedAt != null) throw new NotFoundException("User", id);
+
+            if (_currentUserService.Role != "SUPER_ADMIN" && user.OrganizationId != _currentUserService.OrganizationId)
+                throw new UnauthorizedAccessException("Bạn không có quyền thao tác trên nhân sự này.");
 
             user.Status = "ACTIVE";
             user.LockEndAt = null;

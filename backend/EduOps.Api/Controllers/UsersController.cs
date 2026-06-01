@@ -1,6 +1,8 @@
 using System;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs.User;
+using EduOps.Application.DTOs.User.Requests;
+using EduOps.Application.DTOs.User.Responses;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,17 +32,17 @@ namespace EduOps.Api.Controllers
 
         [HttpGet]
         [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
-        public async Task<IActionResult> GetUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null, [FromQuery] Guid? filterOrgId = null)
+        public async Task<IActionResult> GetUsers([FromQuery] GetUserListQueryDto query)
         {
-            pageNumber = pageNumber < 1 ? 1 : pageNumber;
-            pageSize = pageSize < 1 ? 20 : (pageSize > 100 ? 100 : pageSize);
+            query.PageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
+            query.PageSize = query.PageSize < 1 ? 20 : (query.PageSize > 100 ? 100 : query.PageSize);
             
             var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             var userOrgId = GetOrganizationId();
             
-            var targetOrgId = role == "SUPER_ADMIN" ? filterOrgId : userOrgId;
+            var targetOrgId = role == "SUPER_ADMIN" ? query.FilterOrgId : userOrgId;
             
-            var result = await _userService.GetUsersAsync(targetOrgId, pageNumber, pageSize, searchKeyword);
+            var result = await _userService.GetUsersAsync(targetOrgId, query);
             return Ok(result);
         }
 

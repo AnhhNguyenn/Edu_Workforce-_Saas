@@ -1,15 +1,17 @@
-# DANH SÁCH TOÀN BỘ 59 API ENDPOINTS (BACKEND EDUOPS SAAS)
+# DANH SÁCH TOÀN BỘ 60 API ENDPOINTS (BACKEND EDUOPS SAAS)
 
-Dưới đây là danh sách tổng hợp toàn bộ **59 chức năng (API Endpoints)** chia theo 14 Controller hiện có trong Backend:
+Dưới đây là danh sách tổng hợp toàn bộ **60 chức năng (API Endpoints)** chia theo 14 Controller hiện có trong Backend:
 
 ### 1. Auth (Đăng nhập & Xác thực)
+*(Tất cả người dùng)*
 1. `POST /api/auth/login` - Đăng nhập
 2. `POST /api/auth/refresh` - Xin cấp lại Token mới
-3. `POST /api/auth/logout` - Đăng xuất
+3. `POST /api/auth/logout` - Đăng xuất [Yêu cầu Token]
 4. `POST /api/auth/forgot-password` - Gửi mã OTP khôi phục mật khẩu vào Email
 5. `POST /api/auth/reset-password-via-token` - Đặt lại mật khẩu mới bằng Token
 
 ### 2. Users (Quản lý Nhân sự / Tài khoản)
+*(Quyền: SUPER_ADMIN, CENTER_ADMIN)*
 6. `GET /api/users` - Lấy danh sách nhân sự
 7. `GET /api/users/{id}` - Xem chi tiết 1 nhân sự
 8. `POST /api/users` - Tạo tài khoản mới
@@ -21,6 +23,8 @@ Dưới đây là danh sách tổng hợp toàn bộ **59 chức năng (API Endp
 14. `POST /api/users/{id}/reset-password` - Admin chủ động đặt lại mật khẩu cho nhân viên
 
 ### 3. Organizations (Quản lý Trung tâm / Super Admin)
+*(Quyền: SUPER_ADMIN)*
+
 15. `GET /api/organizations` - Lấy danh sách các trung tâm
 16. `GET /api/organizations/{id}` - Xem chi tiết 1 trung tâm
 17. `POST /api/organizations` - Tạo trung tâm mới
@@ -29,6 +33,8 @@ Dưới đây là danh sách tổng hợp toàn bộ **59 chức năng (API Endp
 20. `POST /api/organizations/{id}/activate` - Kích hoạt lại trung tâm
 
 ### 4. Subscriptions (Gói cước & Đăng ký dịch vụ)
+*(Quyền: SUPER_ADMIN cho tạo mới, CENTER_ADMIN cho mua gói)*
+
 21. `GET /api/subscriptions/plans` - Lấy danh sách các gói cước (Basic/Pro/...)
 22. `POST /api/subscriptions/plans` - Tạo gói cước mới
 23. `POST /api/subscriptions/subscribe` - Đăng ký mua/gia hạn gói cước
@@ -36,9 +42,11 @@ Dưới đây là danh sách tổng hợp toàn bộ **59 chức năng (API Endp
 25. `POST /api/subscriptions/promotions` - Tạo mã khuyến mãi mới
 
 ### 5. SePayWebhook (Thanh toán tự động)
+
 26. `POST /api/sepay/ipn` - Hứng dữ liệu chuyển khoản tự động từ SePay
 
 ### 6. Schools (Cơ sở / Trường học & Tọa độ GPS)
+*(Quyền: CENTER_ADMIN)*
 27. `GET /api/schools` - Lấy danh sách cơ sở
 28. `GET /api/schools/{id}` - Xem chi tiết 1 cơ sở
 29. `POST /api/schools` - Thêm cơ sở mới (kèm tọa độ)
@@ -46,6 +54,8 @@ Dưới đây là danh sách tổng hợp toàn bộ **59 chức năng (API Endp
 31. `DELETE /api/schools/{id}` - Xóa cơ sở
 
 ### 7. Students (Học viên)
+*(Quyền: CENTER_ADMIN, TEACHER chỉ được xem)*
+
 32. `GET /api/students` - Lấy danh sách học viên
 33. `GET /api/students/{id}` - Xem chi tiết học viên
 34. `POST /api/students` - Thêm học viên mới
@@ -53,41 +63,48 @@ Dưới đây là danh sách tổng hợp toàn bộ **59 chức năng (API Endp
 36. `DELETE /api/students/{id}` - Xóa học viên
 
 ### 8. Classes (Lớp học)
+*(Quyền: CENTER_ADMIN, TEACHER chỉ được xem)*
 37. `GET /api/classes` - Danh sách lớp học
 38. `GET /api/classes/{id}` - Chi tiết lớp
 39. `POST /api/classes` - Tạo lớp mới
 40. `PUT /api/classes/{id}` - Sửa thông tin lớp
 41. `DELETE /api/classes/{id}` - Xóa lớp
 
-### 9. ClassSchedules (Lịch học định kỳ)
-42. `POST /api/classes/schedules` - Tạo lịch học định kỳ trong tuần
-43. `POST /api/classes/enrollments` - Xếp học viên vào lớp
-44. `POST /api/classes/generate-sessions` - Hệ thống tự động sinh ra các buổi học cụ thể từ lịch định kỳ
+### 9. ClassSchedules (Lịch học định kỳ & Xếp lớp)
+*(Quyền: CENTER_ADMIN)*
+42. `POST /api/classes/{classId}/schedules` - Tạo lịch học định kỳ trong tuần
+43. `POST /api/classes/{classId}/enrollments` - Xếp học viên vào lớp
+44. `POST /api/classes/{classId}/generate-sessions` - Hệ thống tự động sinh ra các buổi học cụ thể từ lịch định kỳ
 
 ### 10. Sessions (Buổi học thực tế)
+
 45. `GET /api/sessions` - Lấy danh sách các buổi học
 46. `POST /api/sessions` - Tạo một buổi học thủ công (ngoại lệ)
 
 ### 11. Attendances (Điểm danh & Chấm công)
+
 47. `POST /api/attendances/check-in` - Giáo viên Check-in (Xác thực GPS)
 48. `POST /api/attendances/check-out` - Giáo viên Check-out
 49. `GET /api/attendances/me` - Xem lịch sử điểm danh của bản thân
 50. `POST /api/attendances/sessions/{sessionId}/students` - Giáo viên điểm danh vắng/có mặt cho học viên
 
 ### 12. Reports (Báo cáo & Upload file)
+
 51. `GET /api/reports/session/{sessionId}` - Lấy báo cáo chi tiết của 1 buổi học
 52. `POST /api/reports/session/{sessionId}/teacher` - Báo cáo chấm công cho giáo viên
 53. `POST /api/reports/session/{sessionId}/assistant` - Báo cáo chấm công cho trợ giảng
 54. `POST /api/reports/{reportId}/media` - Upload ảnh minh chứng (lên Cloudflare R2)
 
 ### 13. Notifications (Thông báo thời gian thực)
+
 55. `GET /api/notifications` - Lấy danh sách thông báo
 56. `POST /api/notifications/{id}/read` - Đánh dấu thông báo đã đọc
 
 ### 14. Profile (Hồ sơ cá nhân)
-57. `GET /api/profile` - Lấy thông hiện tại của người dùng hiện tại
-58. `POST /api/profile/avatar` - Upload/Cập nhật ảnh đại diện cá nhân
-59. `POST /api/profile/password` - Đổi mật khẩu cá nhân
+57. `GET /api/profile` - Lấy thông tin cá nhân của người dùng hiện tại
+58. `PUT /api/profile` - Cập nhật thông tin cá nhân (SĐT, Địa chỉ)
+59. `POST /api/profile/avatar` - Upload/Cập nhật ảnh đại diện cá nhân
+60. `POST /api/profile/password` - Đổi mật khẩu cá nhân
 
 ---
 

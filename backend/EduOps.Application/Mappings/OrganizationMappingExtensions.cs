@@ -1,15 +1,30 @@
-using EduOps.Application.DTOs.Organization;
+using EduOps.Application.DTOs.Organization.Responses;
 using EduOps.Domain.Entities;
 
 namespace EduOps.Application.Mappings
 {
     public static class OrganizationMappingExtensions
     {
-        public static OrganizationDto ToDto(this Organization org)
+        public static OrganizationListResponseDto ToListResponseDto(this Organization org)
         {
             if (org == null) return null!;
 
-            return new OrganizationDto
+            return new OrganizationListResponseDto
+            {
+                Id = org.Id,
+                Name = org.Name,
+                Code = org.Code,
+                MaxUsers = org.MaxUsers,
+                CurrentUsers = org.CurrentUsers,
+                Status = org.Status
+            };
+        }
+
+        public static OrganizationDetailResponseDto ToDetailResponseDto(this Organization org)
+        {
+            if (org == null) return null!;
+
+            return new OrganizationDetailResponseDto
             {
                 Id = org.Id,
                 Name = org.Name,

@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using EduOps.Application.DTOs.User.Requests;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -58,6 +59,17 @@ namespace EduOps.Api.Controllers
                 return Unauthorized();
 
             await _userService.ChangePasswordAsync(userId, request);
+            return NoContent();
+        }
+
+        [HttpPut]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequestDto request)
+        {
+            var userId = _currentUserService.UserId;
+            if (userId == Guid.Empty)
+                return Unauthorized();
+
+            await _profileService.UpdateProfileAsync(userId, request);
             return NoContent();
         }
     }

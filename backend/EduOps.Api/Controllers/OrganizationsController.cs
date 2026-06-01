@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
-using EduOps.Application.DTOs.Organization;
+using EduOps.Application.DTOs.Organization.Requests;
+using EduOps.Application.DTOs.Organization.Responses;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,9 +21,9 @@ namespace EduOps.Api.Controllers
 
         [HttpGet]
         [Authorize(Roles = "SUPER_ADMIN")]
-        public async Task<IActionResult> GetOrganizations([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null)
+        public async Task<IActionResult> GetOrganizations([FromQuery] GetOrganizationListQueryDto query)
         {
-            var result = await _orgService.GetOrganizationsAsync(pageNumber, pageSize, searchKeyword);
+            var result = await _orgService.GetOrganizationsAsync(query);
             return Ok(result);
         }
 
@@ -36,7 +37,7 @@ namespace EduOps.Api.Controllers
 
         [HttpPost]
         [Authorize(Roles = "SUPER_ADMIN")]
-        public async Task<IActionResult> Create([FromBody] OrganizationRequestDto request)
+        public async Task<IActionResult> Create([FromBody] CreateOrganizationRequestDto request)
         {
             var result = await _orgService.CreateAsync(request);
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
@@ -44,7 +45,7 @@ namespace EduOps.Api.Controllers
 
         [HttpPut("{id}")]
         [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
-        public async Task<IActionResult> Update(Guid id, [FromBody] OrganizationRequestDto request)
+        public async Task<IActionResult> Update(Guid id, [FromBody] UpdateOrganizationRequestDto request)
         {
             await _orgService.UpdateAsync(id, request);
             return NoContent();

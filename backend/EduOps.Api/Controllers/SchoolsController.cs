@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
-using EduOps.Application.DTOs.Academic;
+using EduOps.Application.DTOs.Academic.Schools.Requests;
+using EduOps.Application.DTOs.Academic.Schools.Responses;
 using EduOps.Application.Services;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -28,9 +29,9 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null)
+        public async Task<IActionResult> Get([FromQuery] GetSchoolListQueryDto query)
         {
-            var result = await _schoolService.GetSchoolsAsync(GetOrganizationId(), pageNumber, pageSize, searchKeyword);
+            var result = await _schoolService.GetSchoolsAsync(GetOrganizationId(), query);
             return Ok(result);
         }
 
@@ -43,7 +44,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] SchoolRequestDto request)
+        public async Task<IActionResult> Create([FromBody] CreateSchoolRequestDto request)
         {
             var orgId = GetOrganizationId();
             var result = await _schoolService.CreateAsync(orgId, request);
@@ -51,7 +52,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(Guid id, [FromBody] SchoolRequestDto request)
+        public async Task<IActionResult> Update(Guid id, [FromBody] UpdateSchoolRequestDto request)
         {
             var orgId = GetOrganizationId();
             await _schoolService.UpdateAsync(id, orgId, request);

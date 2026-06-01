@@ -1,13 +1,15 @@
 using System;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs;
-using EduOps.Application.DTOs.Academic;
+using EduOps.Application.DTOs.Academic.Sessions.Requests;
+using EduOps.Application.DTOs.Academic.Sessions.Responses;
 
 namespace EduOps.Application.Interfaces
 {
     public interface ISessionService
     {
-        Task<PagedResult<SessionDto>> GetSessionsAsync(Guid organizationId, Guid? classId, Guid? teacherId, DateTime? date, int pageNumber, int pageSize, string? searchKeyword = null);
-        Task<SessionDto> CreateSessionAsync(Guid organizationId, SessionRequestDto request);
+        Task<PagedResult<SessionListResponseDto>> GetSessionsAsync(Guid organizationId, GetSessionListQueryDto query);
+        Task<SessionDetailResponseDto> CreateSessionAsync(Guid organizationId, CreateSessionRequestDto request);
+        Task CheckConflictAsync(Guid organizationId, Guid teacherId, Guid? assistantId, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime);
     }
 }

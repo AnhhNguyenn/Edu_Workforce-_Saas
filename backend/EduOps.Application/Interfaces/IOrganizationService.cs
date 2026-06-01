@@ -2,16 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs;
-using EduOps.Application.DTOs.Organization;
+using EduOps.Application.DTOs.Organization.Requests;
+using EduOps.Application.DTOs.Organization.Responses;
 
 namespace EduOps.Application.Interfaces
 {
     public interface IOrganizationService
     {
-        Task<PagedResult<OrganizationDto>> GetOrganizationsAsync(int pageNumber, int pageSize, string? searchKeyword = null);
-        Task<OrganizationDto> GetByIdAsync(Guid id);
-        Task<OrganizationDto> CreateAsync(OrganizationRequestDto request);
-        Task UpdateAsync(Guid id, OrganizationRequestDto request);
+        Task<PagedResult<OrganizationListResponseDto>> GetOrganizationsAsync(GetOrganizationListQueryDto query);
+        Task<OrganizationDetailResponseDto> GetByIdAsync(Guid id);
+        Task<OrganizationDetailResponseDto> CreateAsync(CreateOrganizationRequestDto request);
+        Task UpdateAsync(Guid id, UpdateOrganizationRequestDto request);
         Task SuspendAsync(Guid id);
         Task ActivateAsync(Guid id);
     }

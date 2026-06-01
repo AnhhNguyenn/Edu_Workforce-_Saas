@@ -10,7 +10,7 @@ namespace EduOps.Api.Controllers
 {
     [Route("api/reports")]
     [ApiController]
-    [Authorize(Roles = "TEACHER,CENTER_ADMIN")]
+    [Authorize(Roles = "TEACHER,ASSISTANT,CENTER_ADMIN")]
     public class ReportsController : ControllerBase
     {
         private readonly IReportService _reportService;
@@ -25,7 +25,10 @@ namespace EduOps.Api.Controllers
         [HttpGet("session/{sessionId}")]
         public async Task<IActionResult> GetBySession(Guid sessionId)
         {
-            var result = await _reportService.GetReportBySessionIdAsync(sessionId);
+            var orgIdClaim = User.FindFirst("OrganizationId")?.Value;
+            var orgId = Guid.TryParse(orgIdClaim, out var id) ? id : Guid.Empty;
+            
+            var result = await _reportService.GetReportBySessionIdAsync(sessionId, orgId, _currentUserService.UserId, _currentUserService.Role);
             return Ok(result);
         }
 
@@ -47,7 +50,7 @@ namespace EduOps.Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadMedia(Guid reportId, IFormFile file)
         {
-            var result = await _reportService.UploadReportMediaAsync(reportId, _currentUserService.UserId, file);
+            var result = await _reportService.UploadReportMediaAsync(reportId, _currentUserService.UserId, _currentUserService.Role, file);
             return Ok(result);
         }
     }

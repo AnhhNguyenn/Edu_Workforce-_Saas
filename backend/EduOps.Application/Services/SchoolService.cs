@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs;
-using EduOps.Application.DTOs.Academic;
+using EduOps.Application.DTOs.Academic.Schools.Requests;
+using EduOps.Application.DTOs.Academic.Schools.Responses;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
+using EduOps.Domain.Enums;
 using EduOps.Domain.Interfaces;
 
 namespace EduOps.Application.Services
@@ -23,7 +25,7 @@ namespace EduOps.Application.Services
             _logger = logger;
         }
 
-        public async Task<PagedResult<SchoolDto>> GetSchoolsAsync(Guid organizationId, int pageNumber, int pageSize, string? searchKeyword = null)
+        public async Task<PagedResult<SchoolListResponseDto>> GetSchoolsAsync(Guid organizationId, GetSchoolListQueryDto query)
         {
             try
             {
@@ -31,16 +33,16 @@ namespace EduOps.Application.Services
                 
                 System.Linq.Expressions.Expression<Func<School, bool>> predicate = s => 
                     s.OrganizationId == organizationId &&
-                    (string.IsNullOrEmpty(searchKeyword) || s.Name.Contains(searchKeyword) || (s.Address != null && s.Address.Contains(searchKeyword)));
+                    (string.IsNullOrEmpty(query.SearchKeyword) || s.Name.ToLower().Contains(query.SearchKeyword.ToLower()) || (s.Address != null && s.Address.ToLower().Contains(query.SearchKeyword.ToLower())));
                     
-                var result = await repo.FindPagedAsync(predicate, pageNumber, pageSize);
+                var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize);
                 
-                return new PagedResult<SchoolDto>
+                return new PagedResult<SchoolListResponseDto>
                 {
-                    Items = result.Items.Select(s => s.ToDto()),
+                    Items = result.Items.Select(s => s.ToListResponseDto()),
                     TotalCount = result.TotalCount,
-                    PageNumber = pageNumber,
-                    PageSize = pageSize
+                    PageNumber = query.PageNumber,
+                    PageSize = query.PageSize
                 };
             }
             catch (Exception ex)
@@ -50,16 +52,16 @@ namespace EduOps.Application.Services
             }
         }
 
-        public async Task<SchoolDto> GetByIdAsync(Guid id, Guid organizationId)
+        public async Task<SchoolDetailResponseDto> GetByIdAsync(Guid id, Guid organizationId)
         {
             var school = await _unitOfWork.Repository<School>().GetByIdAsync(id);
             if (school == null || school.OrganizationId != organizationId)
                 throw new NotFoundException("School", id);
 
-            return school.ToDto();
+            return school.ToDetailResponseDto();
         }
 
-        public async Task<SchoolDto> CreateAsync(Guid organizationId, SchoolRequestDto request)
+        public async Task<SchoolDetailResponseDto> CreateAsync(Guid organizationId, CreateSchoolRequestDto request)
         {
             try
             {
@@ -89,7 +91,7 @@ namespace EduOps.Application.Services
 
                 _logger.LogInformation($"Created school {school.Name} under Org {organizationId}");
 
-                return school.ToDto();
+                return school.ToDetailResponseDto();
             }
             catch (Exception ex)
             {
@@ -98,7 +100,7 @@ namespace EduOps.Application.Services
             }
         }
 
-        public async Task UpdateAsync(Guid id, Guid organizationId, SchoolRequestDto request)
+        public async Task UpdateAsync(Guid id, Guid organizationId, UpdateSchoolRequestDto request)
         {
             var repo = _unitOfWork.Repository<School>();
             var school = await repo.GetByIdAsync(id);
@@ -133,6 +135,10 @@ namespace EduOps.Application.Services
             var school = await repo.GetByIdAsync(id);
             if (school == null || school.OrganizationId != organizationId)
                 throw new NotFoundException("School", id);
+
+            var classExists = await _unitOfWork.Repository<Class>().AnyAsync(c => c.SchoolId == id && c.DeletedAt == null && c.Status != AccountStatus.INACTIVE);
+            if (classExists)
+                throw new BadRequestException("Không thể xóa cơ sở này vì vẫn còn lớp học đang hoạt động. Vui lòng xóa hoặc chuyển các lớp học trước.");
 
             school.DeletedAt = DateTime.UtcNow;
             repo.Update(school);

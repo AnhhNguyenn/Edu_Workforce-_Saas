@@ -10,6 +10,7 @@ using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
+using EduOps.Domain.Enums;
 using EduOps.Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -40,6 +41,13 @@ namespace EduOps.Application.Services
             request.Email = request.Email.ToLower();
             var user = await userRepository.FirstOrDefaultAsync(u => u.Email == request.Email, ignoreQueryFilters: true);
 
+            Organization? org = null;
+            if (user != null && user.OrganizationId.HasValue)
+            {
+                var orgRepo = _unitOfWork.Repository<Organization>();
+                org = await orgRepo.GetByIdAsync(user.OrganizationId.Value);
+            }
+
             bool isPasswordValid = false;
             if (user != null)
             {
@@ -63,6 +71,17 @@ namespace EduOps.Application.Services
             if (user.Status == "INACTIVE")
                 throw new BadRequestException("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
 
+            // Check Organization Status
+            if (org != null)
+            {
+                if (org.Status == AccountStatus.SUSPENDED)
+                    throw new BadRequestException("Trung tâm của bạn đã bị đình chỉ hoạt động. Vui lòng liên hệ quản trị viên hệ thống.");
+                if (org.Status == AccountStatus.INACTIVE)
+                    throw new BadRequestException("Trung tâm của bạn đã ngừng hoạt động.");
+                if (org.SubscriptionEnd < DateTime.UtcNow)
+                    throw new BadRequestException("Gói cước của trung tâm đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng.");
+            }
+
             // Auto-Unlock nếu đã hết thời gian khóa
             if (user.Status == "SUSPENDED" && user.LockEndAt.HasValue && user.LockEndAt.Value <= DateTime.UtcNow)
             {
@@ -77,7 +96,7 @@ namespace EduOps.Application.Services
                 throw new BadRequestException(lockMessage); 
             }
 
-            var userDto = user.ToDto();
+            var userDto = user.ToDetailResponseDto();
 
             var accessToken = GenerateJwtToken(user);
             var refreshToken = GenerateRefreshToken();
@@ -114,6 +133,13 @@ namespace EduOps.Application.Services
             var userRepository = _unitOfWork.Repository<User>();
             var user = await userRepository.FirstOrDefaultAsync(u => u.Id == userId, ignoreQueryFilters: true);
 
+            Organization? org = null;
+            if (user != null && user.OrganizationId.HasValue)
+            {
+                var orgRepo = _unitOfWork.Repository<Organization>();
+                org = await orgRepo.GetByIdAsync(user.OrganizationId.Value);
+            }
+
             if (user == null || user.RefreshToken != request.RefreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
             {
                 throw new BadRequestException("Invalid or expired refresh token");
@@ -124,6 +150,17 @@ namespace EduOps.Application.Services
             
             if (user.Status == "INACTIVE")
                 throw new BadRequestException("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
+
+            // Check Organization Status
+            if (org != null)
+            {
+                if (org.Status == AccountStatus.SUSPENDED)
+                    throw new BadRequestException("Trung tâm của bạn đã bị đình chỉ hoạt động. Vui lòng liên hệ quản trị viên hệ thống.");
+                if (org.Status == AccountStatus.INACTIVE)
+                    throw new BadRequestException("Trung tâm của bạn đã ngừng hoạt động.");
+                if (org.SubscriptionEnd < DateTime.UtcNow)
+                    throw new BadRequestException("Gói cước của trung tâm đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng.");
+            }
 
             // Auto-Unlock nếu đã hết thời gian khóa
             if (user.Status == "SUSPENDED" && user.LockEndAt.HasValue && user.LockEndAt.Value <= DateTime.UtcNow)
@@ -151,7 +188,7 @@ namespace EduOps.Application.Services
             {
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
-                User = user.ToDto()
+                User = user.ToDetailResponseDto()
             };
         }
 

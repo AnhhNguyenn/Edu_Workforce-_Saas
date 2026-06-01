@@ -51,7 +51,7 @@ namespace EduOps.Api.Controllers
         public async Task<IActionResult> SubmitStudentAttendances(Guid sessionId, [FromBody] StudentAttendanceSubmitDto request)
         {
             var userId = _currentUserService.UserId;
-            await _attendanceService.SubmitStudentAttendancesAsync(sessionId, _currentUserService.OrganizationId ?? Guid.Empty, userId, request);
+            await _attendanceService.SubmitStudentAttendancesAsync(sessionId, _currentUserService.OrganizationId ?? Guid.Empty, userId, _currentUserService.Role, request);
             return Ok();
         }
     }

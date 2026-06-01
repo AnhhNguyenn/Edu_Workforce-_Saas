@@ -29,7 +29,7 @@ namespace EduOps.Application.Services
             }
 
             var sessionRepo = _unitOfWork.Repository<Session>();
-            var session = (await sessionRepo.FindAsync(s => s.Id == request.SessionId)).FirstOrDefault();
+            var session = await sessionRepo.FirstOrDefaultAsync(s => s.Id == request.SessionId);
             if (session == null) throw new NotFoundException("Session", request.SessionId);
             
             if (session.TeacherId != userId && session.AssistantId != userId)
@@ -53,7 +53,7 @@ namespace EduOps.Application.Services
             }
 
             var attendanceRepo = _unitOfWork.Repository<Attendance>();
-            var existingRecord = (await attendanceRepo.FindAsync(a => a.SessionId == request.SessionId && a.UserId == userId)).FirstOrDefault();
+            var existingRecord = await attendanceRepo.FirstOrDefaultAsync(a => a.SessionId == request.SessionId && a.UserId == userId);
 
             if (existingRecord != null && existingRecord.CheckinTime.HasValue)
             {
@@ -103,7 +103,7 @@ namespace EduOps.Application.Services
         public async Task<AttendanceDto> CheckOutAsync(Guid userId, AttendanceRequestDto request)
         {
             var attendanceRepo = _unitOfWork.Repository<Attendance>();
-            var record = (await attendanceRepo.FindAsync(a => a.SessionId == request.SessionId && a.UserId == userId)).FirstOrDefault();
+            var record = await attendanceRepo.FirstOrDefaultAsync(a => a.SessionId == request.SessionId && a.UserId == userId);
 
             if (record == null || !record.CheckinTime.HasValue)
             {
@@ -168,17 +168,17 @@ namespace EduOps.Application.Services
             };
         }
 
-        public async Task SubmitStudentAttendancesAsync(Guid sessionId, Guid organizationId, Guid userId, StudentAttendanceSubmitDto request)
+        public async Task SubmitStudentAttendancesAsync(Guid sessionId, Guid organizationId, Guid userId, string role, StudentAttendanceSubmitDto request)
         {
             var sessionRepo = _unitOfWork.Repository<Session>();
-            var session = (await sessionRepo.FindAsync(s => s.Id == sessionId)).FirstOrDefault();
+            var session = await sessionRepo.FirstOrDefaultAsync(s => s.Id == sessionId);
             
             if (session == null || session.OrganizationId != organizationId) 
                 throw new NotFoundException("Session", sessionId);
                 
-            if (session.TeacherId != userId && session.AssistantId != userId)
+            if (role != "CENTER_ADMIN" && session.TeacherId != userId && session.AssistantId != userId)
             {
-                // Only assigned teachers/assistants can mark attendance
+                // Only assigned teachers/assistants or Center Admins can mark attendance
                 throw new ForbiddenException("You are not assigned to this session.");
             }
 

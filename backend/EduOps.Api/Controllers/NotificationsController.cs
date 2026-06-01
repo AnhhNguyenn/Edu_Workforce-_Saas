@@ -35,7 +35,7 @@ namespace EduOps.Api.Controllers
         [HttpPost("{id}/read")]
         public async Task<IActionResult> MarkAsRead(Guid id)
         {
-            await _notificationService.MarkAsReadAsync(id);
+            await _notificationService.MarkAsReadAsync(id, GetUserId());
             return NoContent();
         }
     }

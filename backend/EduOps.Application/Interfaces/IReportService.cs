@@ -10,7 +10,7 @@ namespace EduOps.Application.Interfaces
     {
         Task<ReportDto> SubmitTeacherReportAsync(Guid sessionId, Guid teacherId, TeacherReportRequestDto request);
         Task<ReportDto> SubmitAssistantReportAsync(Guid sessionId, Guid assistantId, AssistantReportRequestDto request);
-        Task<ReportDto> UploadReportMediaAsync(Guid reportId, Guid userId, IFormFile file);
-        Task<ReportDto> GetReportBySessionIdAsync(Guid sessionId);
+        Task<ReportDto> UploadReportMediaAsync(Guid reportId, Guid userId, string role, IFormFile file);
+        Task<ReportDto> GetReportBySessionIdAsync(Guid sessionId, Guid organizationId, Guid userId, string role);
     }
 }

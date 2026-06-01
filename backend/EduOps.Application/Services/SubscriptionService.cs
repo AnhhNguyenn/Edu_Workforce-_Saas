@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EduOps.Application.DTOs.Subscription;
+using EduOps.Application.DTOs.Billing.Requests;
+using EduOps.Application.DTOs.Billing.Responses;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Domain.Entities;
@@ -29,7 +30,7 @@ namespace EduOps.Application.Services
             _cache = cache;
         }
 
-        public async Task<IEnumerable<SubscriptionPlanDto>> GetPlansAsync()
+        public async Task<List<SubscriptionPlanResponseDto>> GetPlansAsync()
         {
             var cachedPlans = await _cache.GetOrCreateAsync(PLANS_CACHE_KEY, async entry =>
             {
@@ -38,22 +39,22 @@ namespace EduOps.Application.Services
                 var plans = await _unitOfWork.Repository<SubscriptionPlan>()
                     .FindAsync(p => p.Status == AccountStatus.ACTIVE && p.DeletedAt == null);
                     
-                return plans.Select(p => new SubscriptionPlanDto
+                return plans.Select(p => new SubscriptionPlanResponseDto
                 {
                     Id = p.Id,
                     Name = p.Name,
-                    Description = p.Description,
+                    Description = p.Description ?? string.Empty,
                     MaxUsers = p.MaxUsers,
                     PricePerMonth = p.PricePerMonth,
                     PricePerYear = p.PricePerYear,
-                    Status = p.Status.ToString()
+                    Status = p.Status
                 }).ToList();
             });
 
-            return cachedPlans ?? new List<SubscriptionPlanDto>();
+            return cachedPlans ?? new List<SubscriptionPlanResponseDto>();
         }
 
-        public async Task<SubscriptionPlanDto> CreatePlanAsync(SubscriptionPlanRequestDto request)
+        public async Task<SubscriptionPlanResponseDto> CreatePlanAsync(CreateSubscriptionPlanRequestDto request)
         {
             if (_currentUserService.Role != "SUPER_ADMIN")
                 throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới được tạo gói cước.");
@@ -73,7 +74,7 @@ namespace EduOps.Application.Services
 
             _cache.Remove(PLANS_CACHE_KEY);
 
-            return new SubscriptionPlanDto
+            return new SubscriptionPlanResponseDto
             {
                 Id = plan.Id,
                 Name = plan.Name,
@@ -85,14 +86,14 @@ namespace EduOps.Application.Services
             };
         }
 
-        public async Task<IEnumerable<PromotionDto>> GetPromotionsAsync()
+        public async Task<List<PromotionResponseDto>> GetPromotionsAsync()
         {
             if (_currentUserService.Role != "SUPER_ADMIN")
                 throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới được xem danh sách khuyến mãi.");
 
-            var promos = await _unitOfWork.Repository<Promotion>().GetAllAsync();
+            var promos = await _unitOfWork.Repository<Promotion>().FindAsync(p => p.Status == AccountStatus.ACTIVE);
             
-            return promos.Select(p => new PromotionDto
+            return promos.Select(p => new PromotionResponseDto
             {
                 Id = p.Id,
                 Code = p.Code,
@@ -106,7 +107,7 @@ namespace EduOps.Application.Services
             }).ToList();
         }
 
-        public async Task<PromotionDto> CreatePromotionAsync(PromotionRequestDto request)
+        public async Task<PromotionResponseDto> CreatePromotionAsync(CreatePromotionRequestDto request)
         {
             if (_currentUserService.Role != "SUPER_ADMIN")
                 throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới được tạo mã khuyến mãi.");
@@ -132,7 +133,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.Repository<Promotion>().AddAsync(promo);
             await _unitOfWork.CommitAsync();
 
-            return new PromotionDto
+            return new PromotionResponseDto
             {
                 Id = promo.Id,
                 Code = promo.Code,
@@ -160,13 +161,26 @@ namespace EduOps.Application.Services
             int monthsToAdd = request.BillingCycle == "YEARLY" ? 12 : 1;
             decimal finalPrice = basePrice;
 
+            var now = DateTime.UtcNow;
             Guid? appliedPromotionId = null;
 
-            if (!string.IsNullOrEmpty(request.PromoCode))
+            // 1. Kiểm tra Auto Discount đang diễn ra
+            var autoPromo = await _unitOfWork.Repository<Promotion>().FirstOrDefaultAsync(
+                p => p.Type == PromotionType.AUTO_DISCOUNT && p.Status == AccountStatus.ACTIVE && p.StartDate <= now && p.EndDate >= now
+            );
+
+            if (autoPromo != null)
             {
-                var now = DateTime.UtcNow;
-                var promo = (await _unitOfWork.Repository<Promotion>()
-                    .FindAsync(p => p.Code == request.PromoCode && p.Status == AccountStatus.ACTIVE)).FirstOrDefault();
+                appliedPromotionId = autoPromo.Id;
+                finalPrice = basePrice - (basePrice * autoPromo.DiscountPercentage / 100);
+            }
+            // 2. Nếu không có Auto Discount, kiểm tra Promo Code do người dùng nhập
+            else if (!string.IsNullOrWhiteSpace(request.PromoCode))
+            {
+                var inputCode = request.PromoCode.Trim().ToUpper();
+                var promo = await _unitOfWork.Repository<Promotion>().FirstOrDefaultAsync(
+                    p => p.Type == PromotionType.PROMO_CODE && p.Code == inputCode && p.Status == AccountStatus.ACTIVE
+                );
 
                 if (promo == null) throw new BadRequestException("Mã khuyến mãi không hợp lệ.");
                 if (now < promo.StartDate || now > promo.EndDate) throw new BadRequestException("Mã khuyến mãi không trong thời gian sử dụng.");

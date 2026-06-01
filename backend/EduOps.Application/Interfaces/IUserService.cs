@@ -2,16 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs;
-using EduOps.Application.DTOs.Auth;
 using EduOps.Application.DTOs.User;
+using EduOps.Application.DTOs.User.Requests;
+using EduOps.Application.DTOs.User.Responses;
 
 namespace EduOps.Application.Interfaces
 {
     public interface IUserService
     {
-        Task<PagedResult<UserDto>> GetUsersAsync(Guid? organizationId, int pageNumber, int pageSize, string? searchKeyword = null);
-        Task<UserDto> GetUserByIdAsync(Guid id);
-        Task<UserDto> CreateUserAsync(CreateUserRequestDto request, Guid? organizationId);
+        Task<PagedResult<UserListResponseDto>> GetUsersAsync(Guid? organizationId, GetUserListQueryDto query);
+        Task<UserDetailResponseDto> GetUserByIdAsync(Guid id);
+        Task<UserDetailResponseDto> CreateUserAsync(CreateUserRequestDto request, Guid? organizationId);
         Task UpdateUserAsync(Guid id, UpdateUserRequestDto request);
         Task DeactivateUserAsync(Guid id);
         Task DeleteUserAsync(Guid id);

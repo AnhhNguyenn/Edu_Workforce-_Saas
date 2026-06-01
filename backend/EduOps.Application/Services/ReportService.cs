@@ -17,21 +17,23 @@ namespace EduOps.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IStorageService _storageService;
+        private readonly ICurrentUserService _currentUserService;
 
-        public ReportService(IUnitOfWork unitOfWork, IStorageService storageService)
+        public ReportService(IUnitOfWork unitOfWork, IStorageService storageService, ICurrentUserService currentUserService)
         {
             _unitOfWork = unitOfWork;
             _storageService = storageService;
+            _currentUserService = currentUserService;
         }
 
         private async Task<Report> GetOrCreateReportAsync(Guid sessionId)
         {
             var reportRepo = _unitOfWork.Repository<Report>();
-            var report = (await reportRepo.FindAsync(r => r.SessionId == sessionId)).FirstOrDefault();
+            var report = await reportRepo.FirstOrDefaultAsync(r => r.SessionId == sessionId);
             
             if (report == null)
             {
-                var session = (await _unitOfWork.Repository<Session>().FindAsync(s => s.Id == sessionId)).FirstOrDefault();
+                var session = await _unitOfWork.Repository<Session>().FirstOrDefaultAsync(s => s.Id == sessionId);
                 if (session == null) throw new NotFoundException("Session", sessionId);
                 
                 var attendances = await _unitOfWork.Repository<StudentSessionAttendance>().FindAsync(a => a.SessionId == sessionId);
@@ -74,7 +76,7 @@ namespace EduOps.Application.Services
             _unitOfWork.Repository<Report>().Update(report);
             await _unitOfWork.CommitAsync();
 
-            return await GetReportBySessionIdAsync(sessionId);
+            return await GetReportBySessionIdAsync(sessionId, _currentUserService.OrganizationId ?? Guid.Empty, _currentUserService.UserId, _currentUserService.Role);
         }
 
         public async Task<ReportDto> SubmitAssistantReportAsync(Guid sessionId, Guid assistantId, AssistantReportRequestDto request)
@@ -91,10 +93,10 @@ namespace EduOps.Application.Services
             _unitOfWork.Repository<Report>().Update(report);
             await _unitOfWork.CommitAsync();
 
-            return await GetReportBySessionIdAsync(sessionId);
+            return await GetReportBySessionIdAsync(sessionId, _currentUserService.OrganizationId ?? Guid.Empty, _currentUserService.UserId, _currentUserService.Role);
         }
 
-        public async Task<ReportDto> UploadReportMediaAsync(Guid reportId, Guid userId, IFormFile file)
+        public async Task<ReportDto> UploadReportMediaAsync(Guid reportId, Guid userId, string role, IFormFile file)
         {
             if (file == null || file.Length == 0)
                 throw new BadRequestException("File is empty.");
@@ -106,7 +108,7 @@ namespace EduOps.Application.Services
             var report = await reportRepo.GetByIdAsync(reportId);
             if (report == null) throw new NotFoundException("Report", reportId);
 
-            if (report.TeacherId != userId && report.AssistantId != userId)
+            if (role != "CENTER_ADMIN" && report.TeacherId != userId && report.AssistantId != userId)
                 throw new ForbiddenException("You don't have permission to upload media to this report.");
 
             string extension = System.IO.Path.GetExtension(file.FileName);
@@ -128,13 +130,16 @@ namespace EduOps.Application.Services
             await _unitOfWork.Repository<ReportMedia>().AddAsync(media);
             await _unitOfWork.CommitAsync();
 
-            return await GetReportBySessionIdAsync(report.SessionId);
+            return await GetReportBySessionIdAsync(report.SessionId, _currentUserService.OrganizationId ?? Guid.Empty, _currentUserService.UserId, _currentUserService.Role);
         }
 
-        public async Task<ReportDto> GetReportBySessionIdAsync(Guid sessionId)
+        public async Task<ReportDto> GetReportBySessionIdAsync(Guid sessionId, Guid organizationId, Guid userId, string role)
         {
-            var report = (await _unitOfWork.Repository<Report>().FindAsync(r => r.SessionId == sessionId)).FirstOrDefault();
-            if (report == null) throw new NotFoundException("Report", sessionId);
+            var report = await _unitOfWork.Repository<Report>().FirstOrDefaultAsync(r => r.SessionId == sessionId);
+            if (report == null || report.OrganizationId != organizationId) throw new NotFoundException("Report", sessionId);
+
+            if (role != "CENTER_ADMIN" && report.TeacherId != userId && report.AssistantId != userId)
+                throw new ForbiddenException("Bạn không có quyền xem báo cáo này.");
 
             var media = (await _unitOfWork.Repository<ReportMedia>().FindAsync(m => m.ReportId == report.Id)).ToList();
             

@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs;
-using EduOps.Application.DTOs.Organization;
+using EduOps.Application.DTOs.Organization.Requests;
+using EduOps.Application.DTOs.Organization.Responses;
 using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Application.Mappings;
@@ -28,7 +29,7 @@ namespace EduOps.Application.Services
             _cache = cache;
         }
 
-        public async Task<PagedResult<OrganizationDto>> GetOrganizationsAsync(int pageNumber, int pageSize, string? searchKeyword = null)
+        public async Task<PagedResult<OrganizationListResponseDto>> GetOrganizationsAsync(GetOrganizationListQueryDto query)
         {
             try
             {
@@ -37,22 +38,20 @@ namespace EduOps.Application.Services
                 pageNumber = Math.Max(pageNumber, 1);
 
                 var repo = _unitOfWork.Repository<Organization>();
-                
-                var queryPredicate = string.IsNullOrEmpty(searchKeyword) 
-                    ? (System.Linq.Expressions.Expression<Func<Organization, bool>>)(o => o.DeletedAt == null)
-                    : (System.Linq.Expressions.Expression<Func<Organization, bool>>)(o => o.DeletedAt == null && 
-                                                                                  (o.Name.ToLower().Contains(searchKeyword.ToLower()) || 
-                                                                                   o.Code.ToLower().Contains(searchKeyword.ToLower()) || 
-                                                                                   o.Email.ToLower().Contains(searchKeyword.ToLower())));
 
-                var result = await repo.FindPagedAsync(queryPredicate, pageNumber, pageSize, asNoTracking: true);
                 
-                return new PagedResult<OrganizationDto>
+                System.Linq.Expressions.Expression<Func<Organization, bool>> predicate = o => 
+                    (string.IsNullOrEmpty(query.SearchKeyword) || o.Name.ToLower().Contains(query.SearchKeyword.ToLower()) || o.Code.ToLower().Contains(query.SearchKeyword.ToLower())) &&
+                    (!query.Status.HasValue || o.Status == query.Status.Value);
+
+                var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize);
+                
+                return new PagedResult<OrganizationListResponseDto>
                 {
-                    Items = result.Items.Select(o => o.ToDto()),
+                    Items = result.Items.Select(o => o.ToListResponseDto()),
                     TotalCount = result.TotalCount,
-                    PageNumber = pageNumber,
-                    PageSize = pageSize
+                    PageNumber = query.PageNumber,
+                    PageSize = query.PageSize
                 };
             }
             catch (Exception ex)
@@ -62,7 +61,7 @@ namespace EduOps.Application.Services
             }
         }
 
-        public async Task<OrganizationDto> GetByIdAsync(Guid id)
+        public async Task<OrganizationDetailResponseDto> GetByIdAsync(Guid id)
         {
             var org = await _unitOfWork.Repository<Organization>().GetByIdAsync(id);
             if (org == null)
@@ -71,20 +70,20 @@ namespace EduOps.Application.Services
                 throw new NotFoundException("Organization", id);
             }
 
-            return org.ToDto();
+            return org.ToDetailResponseDto();
         }
 
-        public async Task<OrganizationDto> CreateAsync(OrganizationRequestDto request)
+        public async Task<OrganizationDetailResponseDto> CreateAsync(CreateOrganizationRequestDto request)
         {
             try
             {
                 var repo = _unitOfWork.Repository<Organization>();
 
-                // Kiểm tra trùng mã code (Dùng AnyAsync để tối ưu DB thay vì FindAsync)
-                var codeExists = await repo.AnyAsync(x => x.Code == request.Code);
-                if (codeExists)
+                if (request.Code != null)
                 {
-                    throw new BadRequestException($"Organization code '{request.Code}' already exists.");
+                    var exists = await repo.AnyAsync(x => x.Code == request.Code);
+                    if (exists)
+                        throw new BadRequestException("Mã trung tâm đã tồn tại trên hệ thống. Vui lòng chọn mã khác.");
                 }
 
                 var emailExists = await repo.AnyAsync(x => x.Email == request.Email);
@@ -96,7 +95,7 @@ namespace EduOps.Application.Services
                 var org = new Organization
                 {
                     Name = request.Name,
-                    Code = request.Code,
+                    Code = request.Code ?? string.Empty,
                     Email = request.Email,
                     Phone = request.Phone,
                     Address = request.Address,
@@ -122,7 +121,7 @@ namespace EduOps.Application.Services
             }
         }
 
-        public async Task UpdateAsync(Guid id, OrganizationRequestDto request)
+        public async Task UpdateAsync(Guid id, UpdateOrganizationRequestDto request)
         {
             if (_currentUserService.Role == "CENTER_ADMIN" && _currentUserService.OrganizationId != id)
             {
@@ -134,22 +133,22 @@ namespace EduOps.Application.Services
             
             if (org == null) throw new NotFoundException("Organization", id);
 
-            if (_currentUserService.Role == "SUPER_ADMIN")
+            if (_currentUserService.Role == "SUPER_ADMIN" && request.MaxUsers.HasValue)
             {
-                if (request.MaxUsers < org.MaxUsers)
+                if (request.MaxUsers.Value < org.MaxUsers)
                 {
                     var activeStaffCount = await _unitOfWork.Repository<User>().CountAsync(u => 
                         u.OrganizationId == id && 
                         u.DeletedAt == null && 
                         (u.Role == "TEACHER" || u.Role == "ASSISTANT"));
                     
-                    if (activeStaffCount > request.MaxUsers)
+                    if (activeStaffCount > request.MaxUsers.Value)
                     {
-                        throw new BadRequestException($"Không thể hạ cấp gói cước. Trung tâm hiện có {activeStaffCount} nhân sự đang hoạt động, vượt quá mức {request.MaxUsers} của gói mới. Vui lòng xóa bớt nhân sự trước!");
+                        throw new BadRequestException($"Không thể hạ cấp gói cước. Trung tâm hiện có {activeStaffCount} nhân sự đang hoạt động, vượt quá mức {request.MaxUsers.Value} của gói mới. Vui lòng xóa bớt nhân sự trước!");
                     }
                 }
                 
-                org.MaxUsers = request.MaxUsers;
+                org.MaxUsers = request.MaxUsers.Value;
             }
 
             org.Name = request.Name;

@@ -10,6 +10,6 @@ namespace EduOps.Application.Interfaces
     {
         Task<NotificationDto> CreateAndSendAsync(Guid userId, string title, string message, string type);
         Task<PagedResult<NotificationDto>> GetUserNotificationsAsync(Guid userId, int pageNumber, int pageSize);
-        Task MarkAsReadAsync(Guid id);
+        Task MarkAsReadAsync(Guid id, Guid userId);
     }
 }

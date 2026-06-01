@@ -2,16 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs;
-using EduOps.Application.DTOs.Academic;
+using EduOps.Application.DTOs.Academic.Schools.Requests;
+using EduOps.Application.DTOs.Academic.Schools.Responses;
 
 namespace EduOps.Application.Interfaces
 {
     public interface ISchoolService
     {
-        Task<PagedResult<SchoolDto>> GetSchoolsAsync(Guid organizationId, int pageNumber, int pageSize, string? searchKeyword = null);
-        Task<SchoolDto> GetByIdAsync(Guid id, Guid organizationId);
-        Task<SchoolDto> CreateAsync(Guid organizationId, SchoolRequestDto request);
-        Task UpdateAsync(Guid id, Guid organizationId, SchoolRequestDto request);
+        Task<PagedResult<SchoolListResponseDto>> GetSchoolsAsync(Guid organizationId, GetSchoolListQueryDto query);
+        Task<SchoolDetailResponseDto> GetByIdAsync(Guid id, Guid organizationId);
+        Task<SchoolDetailResponseDto> CreateAsync(Guid organizationId, CreateSchoolRequestDto request);
+        Task UpdateAsync(Guid id, Guid organizationId, UpdateSchoolRequestDto request);
         Task DeleteAsync(Guid id, Guid organizationId);
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
-using EduOps.Application.DTOs.Academic;
+using EduOps.Application.DTOs.Academic.Students.Requests;
+using EduOps.Application.DTOs.Academic.Students.Responses;
 using EduOps.Application.Interfaces;
 using EduOps.Api.Filters;
 using Microsoft.AspNetCore.Authorization;
@@ -29,9 +30,9 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null)
+        public async Task<IActionResult> Get([FromQuery] GetStudentListQueryDto query)
         {
-            var result = await _studentService.GetStudentsAsync(GetOrganizationId(), pageNumber, pageSize, searchKeyword);
+            var result = await _studentService.GetStudentsAsync(GetOrganizationId(), query);
             return Ok(result);
         }
 
@@ -44,7 +45,7 @@ namespace EduOps.Api.Controllers
 
         [HttpPost]
         [Authorize(Roles = "CENTER_ADMIN,ASSISTANT")]
-        public async Task<IActionResult> Create([FromBody] StudentRequestDto request)
+        public async Task<IActionResult> Create([FromBody] CreateStudentRequestDto request)
         {
             var result = await _studentService.CreateAsync(GetOrganizationId(), request);
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
@@ -52,7 +53,7 @@ namespace EduOps.Api.Controllers
 
         [HttpPut("{id}")]
         [Authorize(Roles = "CENTER_ADMIN,ASSISTANT")]
-        public async Task<IActionResult> Update(Guid id, [FromBody] StudentRequestDto request)
+        public async Task<IActionResult> Update(Guid id, [FromBody] UpdateStudentRequestDto request)
         {
             await _studentService.UpdateAsync(id, GetOrganizationId(), request);
             return NoContent();

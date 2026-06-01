@@ -1,15 +1,30 @@
-using EduOps.Application.DTOs.Academic;
+using EduOps.Application.DTOs.Academic.Classes.Responses;
 using EduOps.Domain.Entities;
 
 namespace EduOps.Application.Mappings
 {
     public static class ClassMappingExtensions
     {
-        public static ClassDto ToDto(this Class c)
+        public static ClassListResponseDto ToListResponseDto(this Class c)
         {
             if (c == null) return null!;
 
-            return new ClassDto
+            return new ClassListResponseDto
+            {
+                Id = c.Id,
+                SchoolId = c.SchoolId,
+                Name = c.Name,
+                Grade = c.Grade,
+                Subject = c.Subject,
+                Status = c.Status.ToString()
+            };
+        }
+
+        public static ClassDetailResponseDto ToDetailResponseDto(this Class c)
+        {
+            if (c == null) return null!;
+
+            return new ClassDetailResponseDto
             {
                 Id = c.Id,
                 SchoolId = c.SchoolId,
@@ -17,7 +32,8 @@ namespace EduOps.Application.Mappings
                 Grade = c.Grade,
                 Subject = c.Subject,
                 Description = c.Description,
-                Status = c.Status
+                Status = c.Status.ToString(),
+                CreatedAt = c.CreatedAt
             };
         }
     }

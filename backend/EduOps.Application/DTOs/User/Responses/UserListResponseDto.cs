@@ -1,0 +1,15 @@
+using System;
+using EduOps.Domain.Enums;
+
+namespace EduOps.Application.DTOs.User.Responses
+{
+    public class UserListResponseDto
+    {
+        public Guid Id { get; set; }
+        public Guid? OrganizationId { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public AccountStatus Status { get; set; }
+    }
+}

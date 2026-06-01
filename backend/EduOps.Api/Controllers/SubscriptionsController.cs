@@ -1,10 +1,10 @@
 using System;
 using System.Threading.Tasks;
-using EduOps.Application.DTOs.Subscription;
+using EduOps.Application.DTOs.Billing.Requests;
+using EduOps.Application.DTOs.Billing.Responses;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
 namespace EduOps.Api.Controllers
 {
     [ApiController]
@@ -27,7 +27,7 @@ namespace EduOps.Api.Controllers
 
         [HttpPost("plans")]
         [Authorize(Roles = "SUPER_ADMIN")]
-        public async Task<IActionResult> CreatePlan([FromBody] SubscriptionPlanRequestDto request)
+        public async Task<IActionResult> CreatePlan([FromBody] CreateSubscriptionPlanRequestDto request)
         {
             var result = await _subscriptionService.CreatePlanAsync(request);
             return Ok(result);
@@ -43,7 +43,7 @@ namespace EduOps.Api.Controllers
 
         [HttpPost("promotions")]
         [Authorize(Roles = "SUPER_ADMIN")]
-        public async Task<IActionResult> CreatePromotion([FromBody] PromotionRequestDto request)
+        public async Task<IActionResult> CreatePromotion([FromBody] CreatePromotionRequestDto request)
         {
             var result = await _subscriptionService.CreatePromotionAsync(request);
             return Ok(result);

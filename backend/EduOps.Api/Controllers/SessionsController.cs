@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
-using EduOps.Application.DTOs.Academic;
+using EduOps.Application.DTOs.Academic.Sessions.Requests;
+using EduOps.Application.DTOs.Academic.Sessions.Responses;
 using EduOps.Application.Services;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -30,14 +31,20 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get([FromQuery] Guid? classId, [FromQuery] Guid? teacherId, [FromQuery] DateTime? date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? searchKeyword = null)
+        public async Task<IActionResult> Get([FromQuery] GetSessionListQueryDto query)
         {
-            var result = await _sessionService.GetSessionsAsync(GetOrganizationId(), classId, teacherId, date, pageNumber, pageSize, searchKeyword);
+            if (User.IsInRole("TEACHER"))
+            {
+                var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (Guid.TryParse(userIdString, out var uid)) query.TeacherId = uid;
+            }
+
+            var result = await _sessionService.GetSessionsAsync(GetOrganizationId(), query);
             return Ok(result);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] SessionRequestDto request)
+        public async Task<IActionResult> Create([FromBody] CreateSessionRequestDto request)
         {
             var result = await _sessionService.CreateSessionAsync(GetOrganizationId(), request);
             return Ok(result);

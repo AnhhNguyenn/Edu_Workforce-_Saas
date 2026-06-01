@@ -70,11 +70,11 @@ namespace EduOps.Application.Services
             };
         }
 
-        public async Task MarkAsReadAsync(Guid id)
+        public async Task MarkAsReadAsync(Guid id, Guid userId)
         {
             var repo = _unitOfWork.Repository<Notification>();
             var notif = await repo.GetByIdAsync(id);
-            if (notif == null) throw new NotFoundException("Notification", id);
+            if (notif == null || notif.UserId != userId) throw new NotFoundException("Notification", id);
 
             notif.IsRead = true;
             repo.Update(notif);
