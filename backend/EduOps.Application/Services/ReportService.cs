@@ -30,12 +30,12 @@ namespace EduOps.Application.Services
         {
             var reportRepo = _unitOfWork.Repository<Report>();
             var report = await reportRepo.FirstOrDefaultAsync(r => r.SessionId == sessionId);
-            
+
             if (report == null)
             {
                 var session = await _unitOfWork.Repository<Session>().FirstOrDefaultAsync(s => s.Id == sessionId);
                 if (session == null) throw new NotFoundException("Session", sessionId);
-                
+
                 var attendances = await _unitOfWork.Repository<StudentSessionAttendance>().FindAsync(a => a.SessionId == sessionId);
                 int presentCount = attendances.Count(a => a.IsPresent);
                 int absentCount = attendances.Count(a => !a.IsPresent);
@@ -48,7 +48,7 @@ namespace EduOps.Application.Services
                     OrganizationId = session.OrganizationId,
                     AttendanceCount = presentCount,
                     AbsentCount = absentCount,
-                    Status = ReportStatus.DRAFT
+                    StatusId = (await _unitOfWork.Repository<EduOps.Domain.Entities.ReportStatus>().FirstOrDefaultAsync(s => s.Code == "DRAFT"))?.Id
                 };
                 await reportRepo.AddAsync(report);
                 await _unitOfWork.CommitAsync();
@@ -59,18 +59,20 @@ namespace EduOps.Application.Services
         public async Task<ReportDto> SubmitTeacherReportAsync(Guid sessionId, Guid teacherId, TeacherReportRequestDto request)
         {
             var report = await GetOrCreateReportAsync(sessionId);
-            
+
             if (report.TeacherId != teacherId)
                 throw new ForbiddenException("Only the assigned teacher can submit this part of the report.");
 
-            report.LessonTaught = request.LessonTaught;
-            report.Progress = request.Progress;
-            report.TeacherComment = request.TeacherComment;
-            report.SpecialStudents = request.SpecialStudents;
-            report.RatingForAssistant = request.RatingForAssistant;
-            report.FeedbackForAssistant = request.FeedbackForAssistant;
-            
-            report.Status = ReportStatus.SUBMITTED;
+            if (report.ReportDetail == null) report.ReportDetail = new EduOps.Domain.Entities.ReportDetail();
+            report.ReportDetail.LessonTaught = request.LessonTaught;
+            report.ReportDetail.Progress = request.Progress;
+            report.ReportDetail.TeacherComment = request.TeacherComment;
+            report.ReportDetail.SpecialStudents = request.SpecialStudents;
+            report.ReportDetail.RatingForAssistant = request.RatingForAssistant;
+            report.ReportDetail.FeedbackForAssistant = request.FeedbackForAssistant;
+
+            var submittedStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.ReportStatus>().FirstOrDefaultAsync(s => s.Code == "SUBMITTED");
+            report.StatusId = submittedStatus?.Id;
             report.SubmittedAt = DateTime.UtcNow;
 
             _unitOfWork.Repository<Report>().Update(report);
@@ -82,14 +84,15 @@ namespace EduOps.Application.Services
         public async Task<ReportDto> SubmitAssistantReportAsync(Guid sessionId, Guid assistantId, AssistantReportRequestDto request)
         {
             var report = await GetOrCreateReportAsync(sessionId);
-            
+
             if (report.AssistantId != assistantId)
                 throw new ForbiddenException("Only the assigned assistant can submit this part of the report.");
 
-            report.AssistantNote = request.AssistantNote;
-            report.RatingForTeacher = request.RatingForTeacher;
-            report.FeedbackForTeacher = request.FeedbackForTeacher;
-            
+            if (report.ReportDetail == null) report.ReportDetail = new EduOps.Domain.Entities.ReportDetail();
+            report.ReportDetail.AssistantNote = request.AssistantNote;
+            report.ReportDetail.RatingForTeacher = request.RatingForTeacher;
+            report.ReportDetail.FeedbackForTeacher = request.FeedbackForTeacher;
+
             _unitOfWork.Repository<Report>().Update(report);
             await _unitOfWork.CommitAsync();
 
@@ -142,7 +145,7 @@ namespace EduOps.Application.Services
                 throw new ForbiddenException("Bạn không có quyền xem báo cáo này.");
 
             var media = (await _unitOfWork.Repository<ReportMedia>().FindAsync(m => m.ReportId == report.Id)).ToList();
-            
+
             return report.ToDto(media);
         }
     }

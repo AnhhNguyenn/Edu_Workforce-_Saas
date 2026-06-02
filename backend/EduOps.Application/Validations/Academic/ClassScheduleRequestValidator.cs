@@ -10,7 +10,7 @@ namespace EduOps.Application.Validations.Academic
         {
             RuleFor(x => x.DayOfWeek)
                 .InclusiveBetween(1, 7).WithMessage("Ngày trong tuần phải từ 1 (Thứ 2) đến 7 (Chủ nhật)");
-                
+
             RuleFor(x => x.TeacherId)
                 .NotEmpty().WithMessage("Bắt buộc phải chọn Giáo viên phụ trách");
 

@@ -16,8 +16,10 @@ namespace EduOps.Application.Mappings
                 OrganizationId = user.OrganizationId,
                 FullName = user.FullName,
                 Email = user.Email,
-                Role = user.Role,
-                Status = Enum.Parse<EduOps.Domain.Enums.AccountStatus>(user.Status)
+                RoleId = user.RoleId,
+                RoleCode = user.Role?.Code ?? string.Empty,
+                StatusId = user.StatusId,
+                StatusCode = user.Status?.Code ?? string.Empty
             };
         }
 
@@ -31,9 +33,11 @@ namespace EduOps.Application.Mappings
                 OrganizationId = user.OrganizationId,
                 FullName = user.FullName,
                 Email = user.Email,
-                Role = user.Role,
-                AvatarUrl = user.AvatarUrl,
-                Status = Enum.Parse<EduOps.Domain.Enums.AccountStatus>(user.Status),
+                RoleId = user.RoleId,
+                RoleCode = user.Role?.Code ?? string.Empty,
+                AvatarUrl = user.UserDetail?.AvatarUrl,
+                StatusId = user.StatusId,
+                StatusCode = user.Status?.Code ?? string.Empty,
                 LastLoginAt = user.LastLoginAt,
                 LockEndAt = user.LockEndAt
             };

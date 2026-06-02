@@ -13,7 +13,7 @@ namespace EduOps.Application.Mappings
             {
                 Id = school.Id,
                 Name = school.Name,
-                Address = school.Address
+                Address = school.SchoolDetail?.Address
             };
         }
 
@@ -26,12 +26,11 @@ namespace EduOps.Application.Mappings
                 Id = school.Id,
                 OrganizationId = school.OrganizationId ?? System.Guid.Empty,
                 Name = school.Name,
-                Address = school.Address,
-                Latitude = school.Latitude,
-                Longitude = school.Longitude,
-                AttendanceRadius = school.AttendanceRadius,
-                LateThresholdMinutes = school.LateThresholdMinutes,
-                EarlyCheckoutMinutes = school.EarlyCheckoutMinutes
+                Address = school.SchoolDetail?.Address,
+                Latitude = school.SchoolDetail?.Latitude,
+                Longitude = school.SchoolDetail?.Longitude,
+                AttendanceRadius = school.SchoolDetail?.AttendanceRadius ?? 200,
+                LateThresholdMinutes = school.SchoolDetail?.LateThresholdMinutes ?? 15
             };
         }
     }

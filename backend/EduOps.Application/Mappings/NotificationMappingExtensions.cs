@@ -15,7 +15,8 @@ namespace EduOps.Application.Mappings
                 UserId = notif.UserId,
                 Title = notif.Title,
                 Message = notif.Message,
-                Type = notif.Type,
+                TypeId = notif.TypeId,
+                TypeCode = notif.Type?.Code ?? string.Empty,
                 IsRead = notif.IsRead,
                 CreatedAt = notif.CreatedAt
             };

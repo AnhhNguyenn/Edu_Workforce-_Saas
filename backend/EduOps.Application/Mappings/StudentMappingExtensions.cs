@@ -14,7 +14,8 @@ namespace EduOps.Application.Mappings
                 Id = student.Id,
                 FullName = student.FullName,
                 StudentCode = student.StudentCode,
-                Status = student.Status.ToString()
+                StatusId = student.StatusId,
+                StatusCode = student.Status?.Code ?? string.Empty
             };
         }
 
@@ -27,11 +28,12 @@ namespace EduOps.Application.Mappings
                 Id = student.Id,
                 FullName = student.FullName,
                 StudentCode = student.StudentCode,
-                BirthDate = student.BirthDate,
-                ParentName = student.ParentName,
-                ParentPhone = student.ParentPhone,
-                ParentEmail = student.ParentEmail,
-                Status = student.Status.ToString(),
+                BirthDate = student.StudentDetail?.BirthDate,
+                ParentName = student.StudentDetail?.ParentName ?? string.Empty,
+                ParentPhone = student.StudentDetail?.ParentPhone ?? string.Empty,
+                ParentEmail = student.StudentDetail?.ParentEmail ?? string.Empty,
+                StatusId = student.StatusId,
+                StatusCode = student.Status?.Code ?? string.Empty,
                 CreatedAt = student.CreatedAt
             };
         }

@@ -16,7 +16,7 @@ namespace EduOps.Application.Validations.Academic
 
             RuleFor(x => x.Grade)
                 .MaximumLength(50).WithMessage("Khối lớp không được vượt quá 50 ký tự");
-                
+
             RuleFor(x => x.Subject)
                 .MaximumLength(100).WithMessage("Môn học không được vượt quá 100 ký tự");
         }

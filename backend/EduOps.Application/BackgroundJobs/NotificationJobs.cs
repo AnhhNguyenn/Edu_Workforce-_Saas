@@ -27,17 +27,17 @@ namespace EduOps.Application.BackgroundJobs
 
             var tomorrow = DateTime.UtcNow.Date.AddDays(1);
             var sessionRepo = _unitOfWork.Repository<Session>();
-            
-            var tomorrowSessions = await sessionRepo.FindAsync(s => s.SessionDate.Date == tomorrow && s.Status == EduOps.Domain.Enums.SessionStatus.SCHEDULED);
+
+            var tomorrowSessions = await sessionRepo.FindAsync(s => s.SessionDate.Date == tomorrow && s.Status != null && s.Status.Code == "SCHEDULED");
 
             foreach (var session in tomorrowSessions)
             {
                 var timeStr = session.StartTime.ToString(@"hh\:mm");
                 // Gửi cho Giáo viên
                 await _notificationService.CreateAndSendAsync(
-                    session.TeacherId, 
-                    "Nhắc nhở lịch dạy", 
-                    $"Bạn có lịch dạy bài '{session.LessonTitle}' vào lúc {timeStr} sáng mai.", 
+                    session.TeacherId,
+                    "Nhắc nhở lịch dạy",
+                    $"Bạn có lịch dạy bài '{session.LessonTitle}' vào lúc {timeStr} sáng mai.",
                     "REMINDER"
                 );
 
@@ -45,9 +45,9 @@ namespace EduOps.Application.BackgroundJobs
                 if (session.AssistantId.HasValue)
                 {
                     await _notificationService.CreateAndSendAsync(
-                        session.AssistantId.Value, 
-                        "Nhắc nhở lịch trợ giảng", 
-                        $"Bạn có lịch làm trợ giảng bài '{session.LessonTitle}' vào lúc {timeStr} sáng mai.", 
+                        session.AssistantId.Value,
+                        "Nhắc nhở lịch trợ giảng",
+                        $"Bạn có lịch làm trợ giảng bài '{session.LessonTitle}' vào lúc {timeStr} sáng mai.",
                         "REMINDER"
                     );
                 }
@@ -73,14 +73,14 @@ namespace EduOps.Application.BackgroundJobs
                 try
                 {
                     if (!org.SubscriptionEnd.HasValue) continue;
-                    
+
                     var endDate = org.SubscriptionEnd.Value.Date;
                     var daysLeft = (endDate - now).Days;
 
                     if (daysLeft == 7 || daysLeft == 2 || daysLeft == 1)
                     {
                         // Lấy tất cả CENTER_ADMIN của trung tâm này
-                        var admins = await userRepo.FindAsync(u => u.OrganizationId == org.Id && u.Role == "CENTER_ADMIN");
+                        var admins = await userRepo.FindAsync(u => u.OrganizationId == org.Id && u.Role != null && u.Role.Code == "CENTER_ADMIN");
                         foreach (var admin in admins)
                         {
                             await _notificationService.CreateAndSendAsync(
@@ -97,7 +97,7 @@ namespace EduOps.Application.BackgroundJobs
                         org.SubscriptionStatus = "EXPIRED";
                         orgRepo.Update(org);
 
-                        var admins = await userRepo.FindAsync(u => u.OrganizationId == org.Id && u.Role == "CENTER_ADMIN");
+                        var admins = await userRepo.FindAsync(u => u.OrganizationId == org.Id && u.Role != null && u.Role.Code == "CENTER_ADMIN");
                         foreach (var admin in admins)
                         {
                             await _notificationService.CreateAndSendAsync(

@@ -22,6 +22,37 @@ namespace EduOps.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EduOps.Domain.Entities.AccountStatus", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AccountStatuses");
+                });
+
             modelBuilder.Entity("EduOps.Domain.Entities.Attendance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -70,9 +101,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -84,7 +114,40 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasIndex("SessionId");
 
+                    b.HasIndex("StatusId");
+
                     b.ToTable("Attendances");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.AttendanceStatus", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AttendanceStatuses");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.AuditLog", b =>
@@ -136,6 +199,37 @@ namespace EduOps.Infrastructure.Migrations
                     b.ToTable("AuditLogs");
                 });
 
+            modelBuilder.Entity("EduOps.Domain.Entities.BillingStatus", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BillingStatuses");
+                });
+
             modelBuilder.Entity("EduOps.Domain.Entities.BillingTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -169,20 +263,26 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<string>("PlanName")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("PromotionId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("ReferenceCode")
                         .HasColumnType("text");
 
                     b.Property<string>("SePayTransactionId")
                         .HasColumnType("text");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReferenceCode");
+
+                    b.HasIndex("StatusId");
 
                     b.ToTable("BillingTransactions");
                 });
@@ -199,11 +299,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Grade")
-                        .HasColumnType("text");
+                    b.Property<Guid?>("GradeId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -215,11 +312,44 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid>("SchoolId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
-                    b.Property<string>("Subject")
+                    b.Property<Guid?>("SubjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GradeId");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("StatusId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("Classes");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.ClassDetail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClassId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -227,9 +357,10 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SchoolId");
+                    b.HasIndex("ClassId")
+                        .IsUnique();
 
-                    b.ToTable("Classes");
+                    b.ToTable("ClassDetails");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.ClassEnrollment", b =>
@@ -253,9 +384,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid?>("OrganizationId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("StudentId")
                         .HasColumnType("uuid");
@@ -264,6 +394,12 @@ namespace EduOps.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClassId");
+
+                    b.HasIndex("StatusId");
+
+                    b.HasIndex("StudentId");
 
                     b.ToTable("ClassEnrollments");
                 });
@@ -298,9 +434,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<TimeSpan>("StartTime")
                         .HasColumnType("interval");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("TeacherId")
                         .HasColumnType("uuid");
@@ -310,7 +445,42 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ClassId");
+
+                    b.HasIndex("StatusId");
+
                     b.ToTable("ClassSchedules");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.EnrollmentStatus", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EnrollmentStatuses");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.FileRecord", b =>
@@ -358,6 +528,65 @@ namespace EduOps.Infrastructure.Migrations
                     b.ToTable("Files");
                 });
 
+            modelBuilder.Entity("EduOps.Domain.Entities.Gender", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Genders");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Grade", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Grades");
+                });
+
             modelBuilder.Entity("EduOps.Domain.Entities.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -387,9 +616,8 @@ namespace EduOps.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("TypeId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -399,17 +627,16 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TypeId");
+
                     b.ToTable("Notifications");
                 });
 
-            modelBuilder.Entity("EduOps.Domain.Entities.Organization", b =>
+            modelBuilder.Entity("EduOps.Domain.Entities.NotificationType", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<string>("Address")
-                        .HasColumnType("text");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -418,30 +645,49 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("CurrentUsers")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Email")
-                        .IsRequired()
+                    b.Property<string>("Description")
                         .HasColumnType("text");
-
-                    b.Property<int>("MaxUsers")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Phone")
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("NotificationTypes");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Organization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Status")
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CurrentPlanId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("SubscriptionEnd")
                         .HasColumnType("timestamp with time zone");
@@ -461,14 +707,21 @@ namespace EduOps.Infrastructure.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
+                    b.HasIndex("CurrentPlanId");
+
+                    b.HasIndex("StatusId");
+
                     b.ToTable("Organizations");
                 });
 
-            modelBuilder.Entity("EduOps.Domain.Entities.PasswordResetToken", b =>
+            modelBuilder.Entity("EduOps.Domain.Entities.OrganizationDetail", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -476,25 +729,58 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("ExpiresAt")
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Token")
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId")
+                        .IsUnique();
+
+                    b.ToTable("OrganizationDetails");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Permission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Module")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("UsedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
-                    b.ToTable("PasswordResetTokens");
+                    b.ToTable("Permissions");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.Promotion", b =>
@@ -527,27 +813,33 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("TypeId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("StatusId");
+
+                    b.HasIndex("TypeId");
+
                     b.ToTable("Promotions");
                 });
 
-            modelBuilder.Entity("EduOps.Domain.Entities.RefreshToken", b =>
+            modelBuilder.Entity("EduOps.Domain.Entities.PromotionType", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -555,25 +847,19 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
 
-                    b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Token")
+                    b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("PromotionTypes");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.Report", b =>
@@ -588,11 +874,51 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid?>("AssistantId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AssistantNote")
-                        .HasColumnType("text");
-
                     b.Property<int>("AttendanceCount")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FinalizedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StatusId");
+
+                    b.ToTable("Reports");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.ReportDetail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssistantNote")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -606,14 +932,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<string>("FeedbackForTeacher")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("FinalizedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("LessonTaught")
                         .HasColumnType("text");
-
-                    b.Property<Guid?>("OrganizationId")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("Progress")
                         .HasColumnType("text");
@@ -624,31 +944,24 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<int?>("RatingForTeacher")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("SessionId")
+                    b.Property<Guid>("ReportId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("SpecialStudents")
                         .HasColumnType("text");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("SubmittedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("TeacherComment")
                         .HasColumnType("text");
-
-                    b.Property<Guid>("TeacherId")
-                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Reports");
+                    b.HasIndex("ReportId")
+                        .IsUnique();
+
+                    b.ToTable("ReportDetails");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.ReportMedia", b =>
@@ -692,7 +1005,131 @@ namespace EduOps.Infrastructure.Migrations
                     b.ToTable("ReportMedia");
                 });
 
+            modelBuilder.Entity("EduOps.Domain.Entities.ReportStatus", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ReportStatuses");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.RolePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PermissionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PermissionId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("RolePermissions");
+                });
+
             modelBuilder.Entity("EduOps.Domain.Entities.School", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("Schools");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.SchoolDetail", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -722,11 +1159,7 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<decimal?>("Longitude")
                         .HasColumnType("numeric");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid?>("OrganizationId")
+                    b.Property<Guid>("SchoolId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -734,9 +1167,10 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrganizationId");
+                    b.HasIndex("SchoolId")
+                        .IsUnique();
 
-                    b.ToTable("Schools");
+                    b.ToTable("SchoolDetails");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.Session", b =>
@@ -766,14 +1200,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<TimeSpan>("EndTime")
                         .HasColumnType("interval");
 
-                    b.Property<string>("LessonContent")
-                        .HasColumnType("text");
-
                     b.Property<string>("LessonTitle")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Note")
                         .HasColumnType("text");
 
                     b.Property<Guid?>("OrganizationId")
@@ -788,9 +1216,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<TimeSpan>("StartTime")
                         .HasColumnType("interval");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("TeacherId")
                         .HasColumnType("uuid");
@@ -800,9 +1227,76 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ClassId");
+
+                    b.HasIndex("StatusId");
+
                     b.HasIndex("SessionDate", "TeacherId");
 
                     b.ToTable("Sessions");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.SessionDetail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LessonContent")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique();
+
+                    b.ToTable("SessionDetails");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.SessionStatus", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SessionStatuses");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.Student", b =>
@@ -810,9 +1304,6 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("BirthDate")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -827,21 +1318,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid?>("OrganizationId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ParentEmail")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ParentName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ParentPhone")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("StudentCode")
                         .IsRequired()
@@ -852,7 +1330,47 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("StatusId");
+
                     b.ToTable("Students");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.StudentDetail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("BirthDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ParentEmail")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ParentName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ParentPhone")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId")
+                        .IsUnique();
+
+                    b.ToTable("StudentDetails");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.StudentSessionAttendance", b =>
@@ -879,9 +1397,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("StudentId")
                         .HasColumnType("uuid");
@@ -891,7 +1408,42 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("StatusId");
+
+                    b.HasIndex("StudentId");
+
                     b.ToTable("StudentSessionAttendances");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Subject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Subjects");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.SubscriptionPlan", b =>
@@ -906,9 +1458,6 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
                     b.Property<int>("MaxUsers")
                         .HasColumnType("integer");
 
@@ -922,16 +1471,85 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<decimal>("PricePerYear")
                         .HasColumnType("numeric");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("StatusId");
+
                     b.ToTable("SubscriptionPlans");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.SubscriptionPlanDetail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SubscriptionPlanId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionPlanId")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionPlanDetails");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.SystemSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsPublic")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SettingKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SettingValue")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ValueType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SystemSettings");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.User", b =>
@@ -939,15 +1557,6 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<string>("Address")
-                        .HasColumnType("text");
-
-                    b.Property<string>("AvatarUrl")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("BirthDate")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -961,9 +1570,6 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.Property<string>("FullName")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Gender")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("LastLoginAt")
@@ -995,13 +1601,11 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<DateTime?>("ResetPasswordTokenExpiryTime")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("RoleId")
+                        .HasColumnType("uuid");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1013,14 +1617,27 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasIndex("OrganizationId");
 
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("StatusId");
+
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("EduOps.Domain.Entities.UserDevice", b =>
+            modelBuilder.Entity("EduOps.Domain.Entities.UserDetail", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("BirthDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1028,15 +1645,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("DeviceToken")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("LastActiveAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Platform")
-                        .HasColumnType("text");
+                    b.Property<Guid?>("GenderId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1046,7 +1656,394 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UserDevices");
+                    b.HasIndex("GenderId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserDetails");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Attendance", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.AttendanceStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.BillingTransaction", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.BillingStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Class", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Grade", "Grade")
+                        .WithMany()
+                        .HasForeignKey("GradeId");
+
+                    b.HasOne("EduOps.Domain.Entities.School", null)
+                        .WithMany("Classes")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EduOps.Domain.Entities.AccountStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.HasOne("EduOps.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId");
+
+                    b.Navigation("Grade");
+
+                    b.Navigation("Status");
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.ClassDetail", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Class", "Class")
+                        .WithOne("ClassDetail")
+                        .HasForeignKey("EduOps.Domain.Entities.ClassDetail", "ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Class");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.ClassEnrollment", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Class", null)
+                        .WithMany("Enrollments")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EduOps.Domain.Entities.EnrollmentStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.HasOne("EduOps.Domain.Entities.Student", null)
+                        .WithMany("Enrollments")
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.ClassSchedule", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Class", null)
+                        .WithMany("ClassSchedules")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EduOps.Domain.Entities.AccountStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.NotificationType", "Type")
+                        .WithMany()
+                        .HasForeignKey("TypeId");
+
+                    b.Navigation("Type");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Organization", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.SubscriptionPlan", "CurrentPlan")
+                        .WithMany()
+                        .HasForeignKey("CurrentPlanId");
+
+                    b.HasOne("EduOps.Domain.Entities.AccountStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.Navigation("CurrentPlan");
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.OrganizationDetail", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithOne("OrganizationDetail")
+                        .HasForeignKey("EduOps.Domain.Entities.OrganizationDetail", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Promotion", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.AccountStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.HasOne("EduOps.Domain.Entities.PromotionType", "Type")
+                        .WithMany()
+                        .HasForeignKey("TypeId");
+
+                    b.Navigation("Status");
+
+                    b.Navigation("Type");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Report", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.ReportStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.ReportDetail", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Report", "Report")
+                        .WithOne("ReportDetail")
+                        .HasForeignKey("EduOps.Domain.Entities.ReportDetail", "ReportId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Report");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.RolePermission", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Permission", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EduOps.Domain.Entities.Role", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.School", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Organization", null)
+                        .WithMany("Schools")
+                        .HasForeignKey("OrganizationId");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.SchoolDetail", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.School", "School")
+                        .WithOne("SchoolDetail")
+                        .HasForeignKey("EduOps.Domain.Entities.SchoolDetail", "SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Session", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Class", null)
+                        .WithMany("Sessions")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EduOps.Domain.Entities.SessionStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.SessionDetail", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Session", "Session")
+                        .WithOne("SessionDetail")
+                        .HasForeignKey("EduOps.Domain.Entities.SessionDetail", "SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Student", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.AccountStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.StudentDetail", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Student", "Student")
+                        .WithOne("StudentDetail")
+                        .HasForeignKey("EduOps.Domain.Entities.StudentDetail", "StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.StudentSessionAttendance", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.AttendanceStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.HasOne("EduOps.Domain.Entities.Student", null)
+                        .WithMany("Attendances")
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.SubscriptionPlan", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.AccountStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.SubscriptionPlanDetail", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.SubscriptionPlan", "SubscriptionPlan")
+                        .WithOne("SubscriptionPlanDetail")
+                        .HasForeignKey("EduOps.Domain.Entities.SubscriptionPlanDetail", "SubscriptionPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SubscriptionPlan");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.User", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Organization", null)
+                        .WithMany("Users")
+                        .HasForeignKey("OrganizationId");
+
+                    b.HasOne("EduOps.Domain.Entities.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId");
+
+                    b.HasOne("EduOps.Domain.Entities.AccountStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.Navigation("Role");
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.UserDetail", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Gender", "Gender")
+                        .WithMany()
+                        .HasForeignKey("GenderId");
+
+                    b.HasOne("EduOps.Domain.Entities.User", "User")
+                        .WithOne("UserDetail")
+                        .HasForeignKey("EduOps.Domain.Entities.UserDetail", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Gender");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Class", b =>
+                {
+                    b.Navigation("ClassDetail");
+
+                    b.Navigation("ClassSchedules");
+
+                    b.Navigation("Enrollments");
+
+                    b.Navigation("Sessions");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Organization", b =>
+                {
+                    b.Navigation("OrganizationDetail");
+
+                    b.Navigation("Schools");
+
+                    b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Permission", b =>
+                {
+                    b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Report", b =>
+                {
+                    b.Navigation("ReportDetail");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Role", b =>
+                {
+                    b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.School", b =>
+                {
+                    b.Navigation("Classes");
+
+                    b.Navigation("SchoolDetail");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Session", b =>
+                {
+                    b.Navigation("SessionDetail");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Student", b =>
+                {
+                    b.Navigation("Attendances");
+
+                    b.Navigation("Enrollments");
+
+                    b.Navigation("StudentDetail");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.SubscriptionPlan", b =>
+                {
+                    b.Navigation("SubscriptionPlanDetail");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.User", b =>
+                {
+                    b.Navigation("UserDetail");
                 });
 #pragma warning restore 612, 618
         }

@@ -16,7 +16,8 @@ namespace EduOps.Application.Mappings
                 UserId = a.UserId,
                 CheckinTime = a.CheckinTime,
                 CheckoutTime = a.CheckoutTime,
-                Status = a.Status,
+                StatusId = a.StatusId,
+                StatusCode = a.Status?.Code ?? string.Empty,
                 LateMinutes = a.LateMinutes,
                 EarlyCheckoutMinutes = a.EarlyCheckoutMinutes,
                 Note = a.Note

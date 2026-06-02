@@ -16,7 +16,7 @@ namespace EduOps.Application.Validations.Academic
 
             RuleFor(x => x.AttendanceRadius)
                 .GreaterThan(0).WithMessage("Bán kính điểm danh phải lớn hơn 0 mét");
-                
+
             RuleFor(x => x.LateThresholdMinutes)
                 .GreaterThanOrEqualTo(0).WithMessage("Thời gian đi trễ không được là số âm");
 

@@ -1,5 +1,5 @@
 using System;
-using EduOps.Domain.Enums;
+
 
 namespace EduOps.Application.DTOs.Billing.Responses
 {
@@ -11,6 +11,6 @@ namespace EduOps.Application.DTOs.Billing.Responses
         public int MaxUsers { get; set; }
         public decimal PricePerMonth { get; set; }
         public decimal PricePerYear { get; set; }
-        public AccountStatus Status { get; set; }
+        public string? Status { get; set; }
     }
 }

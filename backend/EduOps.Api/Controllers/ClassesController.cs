@@ -65,7 +65,7 @@ namespace EduOps.Api.Controllers
             var result = await _classService.CreateAsync(GetOrganizationId(), request);
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
-        
+
         [HttpPut("{id}")]
         [Authorize(Roles = "CENTER_ADMIN")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateClassRequestDto request)

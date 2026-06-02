@@ -21,22 +21,30 @@ namespace EduOps.Infrastructure.Data
 
         // --- CORE ---
         public DbSet<User> Users { get; set; }
+        public DbSet<UserDetail> UserDetails { get; set; }
         public DbSet<Organization> Organizations { get; set; }
-        
+        public DbSet<OrganizationDetail> OrganizationDetails { get; set; }
+
         // --- ACADEMIC ---
         public DbSet<School> Schools { get; set; }
         public DbSet<Class> Classes { get; set; }
         public DbSet<Student> Students { get; set; }
+        public DbSet<StudentDetail> StudentDetails { get; set; }
         public DbSet<ClassEnrollment> ClassEnrollments { get; set; }
         public DbSet<ClassSchedule> ClassSchedules { get; set; }
         public DbSet<Session> Sessions { get; set; }
-        
+        public DbSet<SessionDetail> SessionDetails { get; set; }
+
         // --- ATTENDANCE & REPORT ---
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<StudentSessionAttendance> StudentSessionAttendances { get; set; }
         public DbSet<Report> Reports { get; set; }
+        public DbSet<ReportDetail> ReportDetails { get; set; }
         public DbSet<ReportMedia> ReportMedia { get; set; }
-        
+        public DbSet<ClassDetail> ClassDetails { get; set; }
+        public DbSet<SchoolDetail> SchoolDetails { get; set; }
+        public DbSet<SubscriptionPlanDetail> SubscriptionPlanDetails { get; set; }
+
         // --- SYSTEM & AUDIT ---
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Notification> Notifications { get; set; }
@@ -44,7 +52,28 @@ namespace EduOps.Infrastructure.Data
         public DbSet<BillingTransaction> BillingTransactions { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
         public DbSet<Promotion> Promotions { get; set; }
-        
+        public DbSet<SystemSetting> SystemSettings { get; set; }
+
+        // --- LOOKUPS & STATUSES ---
+        public DbSet<AccountStatus> AccountStatuses { get; set; }
+        public DbSet<AttendanceStatus> AttendanceStatuses { get; set; }
+        public DbSet<SessionStatus> SessionStatuses { get; set; }
+        public DbSet<ReportStatus> ReportStatuses { get; set; }
+        public DbSet<BillingStatus> BillingStatuses { get; set; }
+        public DbSet<PromotionType> PromotionTypes { get; set; }
+        public DbSet<NotificationType> NotificationTypes { get; set; }
+        public DbSet<Gender> Genders { get; set; }
+        public DbSet<EnrollmentStatus> EnrollmentStatuses { get; set; }
+
+        // --- RBAC ---
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<Permission> Permissions { get; set; }
+        public DbSet<RolePermission> RolePermissions { get; set; }
+
+        // --- ACADEMIC MASTERS ---
+        public DbSet<Grade> Grades { get; set; }
+        public DbSet<Subject> Subjects { get; set; }
+
         // --- AUTH ---
         // Token logic is implemented directly on the User entity.
 
@@ -67,7 +96,7 @@ namespace EduOps.Infrastructure.Data
                 {
                     modelBuilder.Entity(entityType.ClrType)
                         .HasQueryFilter(ConvertFilterExpression<TenantEntity>(
-                            e => e.DeletedAt == null && (IsSuperAdmin || e.OrganizationId == CurrentOrgId), 
+                            e => e.DeletedAt == null && (IsSuperAdmin || e.OrganizationId == CurrentOrgId),
                             entityType.ClrType));
                 }
 
@@ -83,11 +112,52 @@ namespace EduOps.Infrastructure.Data
                 }
             }
 
+            // --- MASTER-DETAIL 1:1 CONFIGURE ---
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.UserDetail)
+                .WithOne(ud => ud.User)
+                .HasForeignKey<UserDetail>(ud => ud.UserId);
+
+            modelBuilder.Entity<Organization>()
+                .HasOne(o => o.OrganizationDetail)
+                .WithOne(od => od.Organization)
+                .HasForeignKey<OrganizationDetail>(od => od.OrganizationId);
+
+            modelBuilder.Entity<Student>()
+                .HasOne(s => s.StudentDetail)
+                .WithOne(sd => sd.Student)
+                .HasForeignKey<StudentDetail>(sd => sd.StudentId);
+
+            modelBuilder.Entity<Session>()
+                .HasOne(s => s.SessionDetail)
+                .WithOne(sd => sd.Session)
+                .HasForeignKey<SessionDetail>(sd => sd.SessionId);
+
+            modelBuilder.Entity<Report>()
+                .HasOne(r => r.ReportDetail)
+                .WithOne(rd => rd.Report)
+                .HasForeignKey<ReportDetail>(rd => rd.ReportId);
+
+            modelBuilder.Entity<Class>()
+                .HasOne(c => c.ClassDetail)
+                .WithOne(cd => cd.Class)
+                .HasForeignKey<ClassDetail>(cd => cd.ClassId);
+
+            modelBuilder.Entity<School>()
+                .HasOne(s => s.SchoolDetail)
+                .WithOne(sd => sd.School)
+                .HasForeignKey<SchoolDetail>(sd => sd.SchoolId);
+
+            modelBuilder.Entity<SubscriptionPlan>()
+                .HasOne(p => p.SubscriptionPlanDetail)
+                .WithOne(pd => pd.SubscriptionPlan)
+                .HasForeignKey<SubscriptionPlanDetail>(pd => pd.SubscriptionPlanId);
+
             // ĐÁNH INDEX (TỐI ƯU HIỆU NĂNG TÌM KIẾM TỐC ĐỘ CAO)
             modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
             modelBuilder.Entity<User>().HasIndex(u => u.OrganizationId);
             modelBuilder.Entity<Organization>().HasIndex(o => o.Code).IsUnique();
-            modelBuilder.Entity<Organization>().HasIndex(o => o.Email).IsUnique();
+            modelBuilder.Entity<OrganizationDetail>().HasIndex(o => o.Email).IsUnique();
             modelBuilder.Entity<BillingTransaction>().HasIndex(t => t.ReferenceCode);
             modelBuilder.Entity<School>().HasIndex(s => s.OrganizationId);
             modelBuilder.Entity<Class>().HasIndex(c => c.SchoolId);

@@ -13,6 +13,7 @@ namespace EduOps.Api.Controllers
     [ApiController]
     [Authorize(Roles = "TEACHER,CENTER_ADMIN")]
     [RequirePaidSubscription]
+    [FeatureGate("ENABLE_ATTENDANCE")]
     public class AttendancesController : ControllerBase
     {
         private readonly IAttendanceService _attendanceService;

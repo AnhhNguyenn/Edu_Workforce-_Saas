@@ -36,12 +36,12 @@ namespace EduOps.Api.Controllers
         {
             query.PageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
             query.PageSize = query.PageSize < 1 ? 20 : (query.PageSize > 100 ? 100 : query.PageSize);
-            
+
             var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             var userOrgId = GetOrganizationId();
-            
+
             var targetOrgId = role == "SUPER_ADMIN" ? query.FilterOrgId : userOrgId;
-            
+
             var result = await _userService.GetUsersAsync(targetOrgId, query);
             return Ok(result);
         }
@@ -113,7 +113,7 @@ namespace EduOps.Api.Controllers
         {
             var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             var orgId = GetOrganizationId();
-            
+
             var adminOrgId = role == "SUPER_ADMIN" ? (Guid?)null : orgId;
 
             await _userService.ResetPasswordAsync(adminOrgId, id, request.NewPassword);

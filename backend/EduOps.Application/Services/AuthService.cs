@@ -37,15 +37,15 @@ namespace EduOps.Application.Services
             _logger.LogInformation($"Attempting login for user: {request.Email}");
 
             var userRepository = _unitOfWork.Repository<User>();
-            
+
             request.Email = request.Email.ToLower();
-            var user = await userRepository.FirstOrDefaultAsync(u => u.Email == request.Email, ignoreQueryFilters: true);
+            var user = await userRepository.FirstOrDefaultAsync(u => u.Email == request.Email, ignoreQueryFilters: true, includeProperties: "Status,Role");
 
             Organization? org = null;
             if (user != null && user.OrganizationId.HasValue)
             {
                 var orgRepo = _unitOfWork.Repository<Organization>();
-                org = await orgRepo.GetByIdAsync(user.OrganizationId.Value);
+                org = await orgRepo.FirstOrDefaultAsync(o => o.Id == user.OrganizationId.Value, ignoreQueryFilters: true, includeProperties: "Status");
             }
 
             bool isPasswordValid = false;
@@ -67,44 +67,47 @@ namespace EduOps.Application.Services
 
             if (user.DeletedAt != null)
                 throw new System.UnauthorizedAccessException("Tài khoản không tồn tại hoặc đã bị xóa.");
-            
-            if (user.Status == "INACTIVE")
+
+            if (user.Status?.Code == "INACTIVE")
                 throw new BadRequestException("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
 
             // Check Organization Status
             if (org != null)
             {
-                if (org.Status == AccountStatus.SUSPENDED)
+                if (org.DeletedAt != null)
+                    throw new System.UnauthorizedAccessException("Trung tâm của bạn đã bị xóa khỏi hệ thống. Vui lòng liên hệ quản trị viên.");
+                if (org.Status?.Code == "SUSPENDED")
                     throw new BadRequestException("Trung tâm của bạn đã bị đình chỉ hoạt động. Vui lòng liên hệ quản trị viên hệ thống.");
-                if (org.Status == AccountStatus.INACTIVE)
+                if (org.Status?.Code == "INACTIVE")
                     throw new BadRequestException("Trung tâm của bạn đã ngừng hoạt động.");
                 if (org.SubscriptionEnd < DateTime.UtcNow)
                     throw new BadRequestException("Gói cước của trung tâm đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng.");
             }
 
             // Auto-Unlock nếu đã hết thời gian khóa
-            if (user.Status == "SUSPENDED" && user.LockEndAt.HasValue && user.LockEndAt.Value <= DateTime.UtcNow)
+            if (user.Status?.Code == "SUSPENDED" && user.LockEndAt.HasValue && user.LockEndAt.Value <= DateTime.UtcNow)
             {
-                user.Status = "ACTIVE";
+                var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "ACTIVE");
+                user.StatusId = activeStatus?.Id;
                 user.LockEndAt = null;
             }
-            else if (user.Status == "SUSPENDED" || (user.LockEndAt.HasValue && user.LockEndAt.Value > DateTime.UtcNow))
+            else if (user.Status?.Code == "SUSPENDED" || (user.LockEndAt.HasValue && user.LockEndAt.Value > DateTime.UtcNow))
             {
-                var lockMessage = user.LockEndAt == DateTime.MaxValue 
-                    ? "Tài khoản của bạn đã bị khóa vĩnh viễn." 
+                var lockMessage = user.LockEndAt == DateTime.MaxValue
+                    ? "Tài khoản của bạn đã bị khóa vĩnh viễn."
                     : (user.LockEndAt.HasValue ? $"Tài khoản của bạn bị khóa đến {user.LockEndAt:dd/MM/yyyy HH:mm}." : "Tài khoản của bạn đã bị khóa.");
-                throw new BadRequestException(lockMessage); 
+                throw new BadRequestException(lockMessage);
             }
 
             var userDto = user.ToDetailResponseDto();
 
             var accessToken = GenerateJwtToken(user);
             var refreshToken = GenerateRefreshToken();
-            
+
             user.RefreshToken = refreshToken;
             user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
             user.LastLoginAt = DateTime.UtcNow;
-            
+
             userRepository.Update(user);
             await _unitOfWork.CommitAsync();
 
@@ -131,13 +134,13 @@ namespace EduOps.Application.Services
             }
 
             var userRepository = _unitOfWork.Repository<User>();
-            var user = await userRepository.FirstOrDefaultAsync(u => u.Id == userId, ignoreQueryFilters: true);
+            var user = await userRepository.FirstOrDefaultAsync(u => u.Id == userId, ignoreQueryFilters: true, includeProperties: "Status,Role");
 
             Organization? org = null;
             if (user != null && user.OrganizationId.HasValue)
             {
                 var orgRepo = _unitOfWork.Repository<Organization>();
-                org = await orgRepo.GetByIdAsync(user.OrganizationId.Value);
+                org = await orgRepo.FirstOrDefaultAsync(o => o.Id == user.OrganizationId.Value, ignoreQueryFilters: true, includeProperties: "Status");
             }
 
             if (user == null || user.RefreshToken != request.RefreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
@@ -147,33 +150,34 @@ namespace EduOps.Application.Services
 
             if (user.DeletedAt != null)
                 throw new System.UnauthorizedAccessException("Tài khoản không tồn tại hoặc đã bị xóa.");
-            
-            if (user.Status == "INACTIVE")
+
+            if (user.Status?.Code == "INACTIVE")
                 throw new BadRequestException("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
 
             // Check Organization Status
             if (org != null)
             {
-                if (org.Status == AccountStatus.SUSPENDED)
+                if (org.Status?.Code == "SUSPENDED")
                     throw new BadRequestException("Trung tâm của bạn đã bị đình chỉ hoạt động. Vui lòng liên hệ quản trị viên hệ thống.");
-                if (org.Status == AccountStatus.INACTIVE)
+                if (org.Status?.Code == "INACTIVE")
                     throw new BadRequestException("Trung tâm của bạn đã ngừng hoạt động.");
                 if (org.SubscriptionEnd < DateTime.UtcNow)
                     throw new BadRequestException("Gói cước của trung tâm đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng.");
             }
 
             // Auto-Unlock nếu đã hết thời gian khóa
-            if (user.Status == "SUSPENDED" && user.LockEndAt.HasValue && user.LockEndAt.Value <= DateTime.UtcNow)
+            if (user.Status?.Code == "SUSPENDED" && user.LockEndAt.HasValue && user.LockEndAt.Value <= DateTime.UtcNow)
             {
-                user.Status = "ACTIVE";
+                var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "ACTIVE");
+                user.StatusId = activeStatus?.Id;
                 user.LockEndAt = null;
             }
-            else if (user.Status == "SUSPENDED" || (user.LockEndAt.HasValue && user.LockEndAt.Value > DateTime.UtcNow))
+            else if (user.Status?.Code == "SUSPENDED" || (user.LockEndAt.HasValue && user.LockEndAt.Value > DateTime.UtcNow))
             {
-                var lockMessage = user.LockEndAt == DateTime.MaxValue 
-                    ? "Tài khoản của bạn đã bị khóa vĩnh viễn." 
+                var lockMessage = user.LockEndAt == DateTime.MaxValue
+                    ? "Tài khoản của bạn đã bị khóa vĩnh viễn."
                     : (user.LockEndAt.HasValue ? $"Tài khoản của bạn bị khóa đến {user.LockEndAt:dd/MM/yyyy HH:mm}." : "Tài khoản của bạn đã bị khóa.");
-                throw new BadRequestException(lockMessage); 
+                throw new BadRequestException(lockMessage);
             }
 
             var newAccessToken = GenerateJwtToken(user);
@@ -201,7 +205,8 @@ namespace EduOps.Application.Services
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role),
+                new Claim(ClaimTypes.Role, user.Role?.Code ?? string.Empty),
+                new Claim("role", user.Role?.Code ?? string.Empty),
                 new Claim("OrganizationId", user.OrganizationId?.ToString() ?? string.Empty)
             };
 
@@ -277,10 +282,10 @@ namespace EduOps.Application.Services
 
             // Generate cryptographically secure 6-digit OTP
             var otp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
-            
+
             user.ResetPasswordToken = otp;
             user.ResetPasswordTokenExpiryTime = DateTime.UtcNow.AddMinutes(15);
-            
+
             userRepository.Update(user);
             await _unitOfWork.CommitAsync();
 

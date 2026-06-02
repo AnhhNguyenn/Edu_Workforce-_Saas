@@ -47,7 +47,7 @@ namespace EduOps.Api.Controllers
 
             using var stream = file.OpenReadStream();
             var avatarUrl = await _profileService.UploadAvatarAsync(userId, stream, file.FileName, file.ContentType);
-            
+
             return Ok(new { AvatarUrl = avatarUrl });
         }
 

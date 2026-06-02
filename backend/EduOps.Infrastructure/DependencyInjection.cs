@@ -30,7 +30,7 @@ namespace EduOps.Infrastructure
             services.AddTransient<IEmailService, MockEmailService>();
 
             // Cloudflare R2 (S3 API)
-            services.AddScoped<IStorageService>(provider => 
+            services.AddScoped<IStorageService>(provider =>
                 new CloudflareR2Service(
                     configuration["CloudflareR2:AccessKey"]!,
                     configuration["CloudflareR2:SecretKey"]!,

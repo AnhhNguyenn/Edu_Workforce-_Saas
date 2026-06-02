@@ -10,9 +10,10 @@ namespace EduOps.Application
         {
             // Đăng ký các Business Services
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProfileService, ProfileService>();
-            
+
             // Core Academic
             services.AddScoped<IOrganizationService, OrganizationService>();
             services.AddScoped<ISchoolService, SchoolService>();
@@ -22,7 +23,8 @@ namespace EduOps.Application
             services.AddScoped<IReportService, ReportService>();
             services.AddScoped<ISubscriptionService, SubscriptionService>();
             services.AddScoped<ISePayService, SePayService>();
-            
+            services.AddScoped<ISystemSettingService, SystemSettingService>();
+
             // Notifications & Background Jobs
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<EduOps.Application.BackgroundJobs.NotificationJobs>();

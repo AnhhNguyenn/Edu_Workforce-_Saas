@@ -35,7 +35,7 @@ namespace EduOps.Application.Services
                     UserId = userId,
                     Title = title,
                     Message = message,
-                    Type = type,
+                    TypeId = (await _unitOfWork.Repository<NotificationType>().FirstOrDefaultAsync(t => t.Code == type))?.Id,
                     IsRead = false
                 };
 

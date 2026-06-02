@@ -30,14 +30,14 @@ namespace EduOps.Api.Filters
             if (orgId.HasValue && orgId != Guid.Empty)
             {
                 var cacheKey = $"OrgSubscription_{orgId.Value}";
-                
-                var cachedData = cache != null ? await cache.GetOrCreateAsync(cacheKey, async entry => 
+
+                var cachedData = cache != null ? await cache.GetOrCreateAsync(cacheKey, async entry =>
                 {
                     entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
-                    
+
                     var orgRepo = unitOfWork?.Repository<Organization>();
-                    var org = orgRepo != null ? await orgRepo.GetByIdAsync(orgId.Value) : null;
-                    
+                    var org = orgRepo != null ? await orgRepo.FirstOrDefaultAsync(o => o.Id == orgId.Value, includeProperties: "Status") : null;
+
                     if (org != null)
                     {
                         bool isExpiredCheck = org.SubscriptionEnd.HasValue && org.SubscriptionEnd.Value < DateTime.UtcNow;
@@ -47,20 +47,20 @@ namespace EduOps.Api.Filters
                             orgRepo?.Update(org);
                             if (unitOfWork != null) await unitOfWork.CommitAsync();
                         }
-                        return (Status: org.SubscriptionStatus, EndDate: org.SubscriptionEnd, OrgStatus: (EduOps.Domain.Enums.AccountStatus?)org.Status);
+                        return (Status: org.SubscriptionStatus, EndDate: org.SubscriptionEnd, OrgStatus: org.Status?.Code);
                     }
-                    return (Status: (string?)null, EndDate: (DateTime?)null, OrgStatus: (EduOps.Domain.Enums.AccountStatus?)null);
-                }) : (Status: (string?)null, EndDate: (DateTime?)null, OrgStatus: (EduOps.Domain.Enums.AccountStatus?)null);
+                    return (Status: (string?)null, EndDate: (DateTime?)null, OrgStatus: (string?)null);
+                }) : (Status: (string?)null, EndDate: (DateTime?)null, OrgStatus: (string?)null);
 
-                if (cachedData.OrgStatus == EduOps.Domain.Enums.AccountStatus.SUSPENDED || cachedData.OrgStatus == EduOps.Domain.Enums.AccountStatus.INACTIVE)
+                if (cachedData.OrgStatus == "SUSPENDED" || cachedData.OrgStatus == "INACTIVE")
                 {
-                    context.Result = new ObjectResult(new 
-                    { 
+                    context.Result = new ObjectResult(new
+                    {
                         errorCode = "403_ORG_SUSPENDED",
-                        message = "Trung tâm của bạn đã bị vô hiệu hóa bởi Quản trị viên. Vui lòng liên hệ hỗ trợ." 
-                    }) 
-                    { 
-                        StatusCode = 403 
+                        message = "Trung tâm của bạn đã bị vô hiệu hóa bởi Quản trị viên. Vui lòng liên hệ hỗ trợ."
+                    })
+                    {
+                        StatusCode = 403
                     };
                     return;
                 }
@@ -72,13 +72,13 @@ namespace EduOps.Api.Filters
                     // Nếu gói bị khóa hoặc hết hạn -> Chặn đứng
                     if (isExpired || cachedData.Status == "LOCKED" || cachedData.Status == "EXPIRED")
                     {
-                        context.Result = new ObjectResult(new 
-                        { 
+                        context.Result = new ObjectResult(new
+                        {
                             errorCode = "403_SUBSCRIPTION_REQUIRED",
-                            message = "Tài khoản của bạn đã bị khóa hoặc hết hạn. Vui lòng thanh toán nâng cấp gói cước để sử dụng tính năng này." 
-                        }) 
-                        { 
-                            StatusCode = 403 
+                            message = "Tài khoản của bạn đã bị khóa hoặc hết hạn. Vui lòng thanh toán nâng cấp gói cước để sử dụng tính năng này."
+                        })
+                        {
+                            StatusCode = 403
                         };
                         return;
                     }

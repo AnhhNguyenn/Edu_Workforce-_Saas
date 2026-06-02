@@ -15,5 +15,6 @@ namespace EduOps.Application.Interfaces
         Task UpdateAsync(Guid id, UpdateOrganizationRequestDto request);
         Task SuspendAsync(Guid id);
         Task ActivateAsync(Guid id);
+        Task DeleteAsync(Guid id);
     }
 }

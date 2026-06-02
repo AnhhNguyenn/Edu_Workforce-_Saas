@@ -11,6 +11,7 @@ namespace EduOps.Api.Controllers
     [Route("api/reports")]
     [ApiController]
     [Authorize(Roles = "TEACHER,ASSISTANT,CENTER_ADMIN")]
+    [EduOps.Api.Filters.FeatureGate("ENABLE_REPORTING")]
     public class ReportsController : ControllerBase
     {
         private readonly IReportService _reportService;
@@ -27,7 +28,7 @@ namespace EduOps.Api.Controllers
         {
             var orgIdClaim = User.FindFirst("OrganizationId")?.Value;
             var orgId = Guid.TryParse(orgIdClaim, out var id) ? id : Guid.Empty;
-            
+
             var result = await _reportService.GetReportBySessionIdAsync(sessionId, orgId, _currentUserService.UserId, _currentUserService.Role);
             return Ok(result);
         }

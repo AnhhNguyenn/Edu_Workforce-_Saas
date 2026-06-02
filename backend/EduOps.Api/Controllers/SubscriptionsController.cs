@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs.Billing.Requests;
 using EduOps.Application.DTOs.Billing.Responses;
+using EduOps.Application.DTOs.Subscription;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,7 @@ namespace EduOps.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [EduOps.Api.Filters.FeatureGate("ENABLE_FINANCE")]
     public class SubscriptionsController : ControllerBase
     {
         private readonly ISubscriptionService _subscriptionService;
@@ -33,6 +35,22 @@ namespace EduOps.Api.Controllers
             return Ok(result);
         }
 
+        [HttpPut("plans/{id}")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> UpdatePlan(Guid id, [FromBody] UpdateSubscriptionPlanRequestDto request)
+        {
+            await _subscriptionService.UpdatePlanAsync(id, request);
+            return NoContent();
+        }
+
+        [HttpDelete("plans/{id}")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> DeletePlan(Guid id)
+        {
+            await _subscriptionService.DeletePlanAsync(id);
+            return NoContent();
+        }
+
         [HttpGet("promotions")]
         [Authorize(Roles = "SUPER_ADMIN")]
         public async Task<IActionResult> GetPromotions()
@@ -47,6 +65,22 @@ namespace EduOps.Api.Controllers
         {
             var result = await _subscriptionService.CreatePromotionAsync(request);
             return Ok(result);
+        }
+
+        [HttpPut("promotions/{id}")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> UpdatePromotion(Guid id, [FromBody] UpdatePromotionRequestDto request)
+        {
+            await _subscriptionService.UpdatePromotionAsync(id, request);
+            return NoContent();
+        }
+
+        [HttpDelete("promotions/{id}")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> DeletePromotion(Guid id)
+        {
+            await _subscriptionService.DeletePromotionAsync(id);
+            return NoContent();
         }
 
         [HttpPost("subscribe")]

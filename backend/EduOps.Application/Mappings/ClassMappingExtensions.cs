@@ -14,9 +14,12 @@ namespace EduOps.Application.Mappings
                 Id = c.Id,
                 SchoolId = c.SchoolId,
                 Name = c.Name,
-                Grade = c.Grade,
-                Subject = c.Subject,
-                Status = c.Status.ToString()
+                GradeId = c.GradeId,
+                GradeCode = c.Grade?.Code,
+                SubjectId = c.SubjectId,
+                SubjectCode = c.Subject?.Code,
+                StatusId = c.StatusId,
+                StatusCode = c.Status?.Code ?? string.Empty
             };
         }
 
@@ -29,10 +32,13 @@ namespace EduOps.Application.Mappings
                 Id = c.Id,
                 SchoolId = c.SchoolId,
                 Name = c.Name,
-                Grade = c.Grade,
-                Subject = c.Subject,
-                Description = c.Description,
-                Status = c.Status.ToString(),
+                GradeId = c.GradeId,
+                GradeCode = c.Grade?.Code,
+                SubjectId = c.SubjectId,
+                SubjectCode = c.Subject?.Code,
+                Description = c.ClassDetail?.Description,
+                StatusId = c.StatusId,
+                StatusCode = c.Status?.Code ?? string.Empty,
                 CreatedAt = c.CreatedAt
             };
         }

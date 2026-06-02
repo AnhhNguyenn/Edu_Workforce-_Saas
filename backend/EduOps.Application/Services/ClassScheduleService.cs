@@ -30,17 +30,18 @@ namespace EduOps.Application.Services
                 throw new NotFoundException("Class", classId);
 
             var userRepo = _unitOfWork.Repository<User>();
-            var teacher = await userRepo.GetByIdAsync(request.TeacherId);
-            if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role != "TEACHER" || teacher.Status != "ACTIVE")
+            var teacher = await userRepo.FirstOrDefaultAsync(u => u.Id == request.TeacherId, includeProperties: "Role,Status");
+            if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role?.Code != "TEACHER" || teacher.Status?.Code != "ACTIVE")
                 throw new BadRequestException("Giáo viên không hợp lệ hoặc đã bị khóa tài khoản.");
 
             if (request.AssistantId.HasValue)
             {
-                var assistant = await userRepo.GetByIdAsync(request.AssistantId.Value);
-                if (assistant == null || assistant.OrganizationId != organizationId || assistant.Role != "ASSISTANT" || assistant.Status != "ACTIVE")
+                var assistant = await userRepo.FirstOrDefaultAsync(u => u.Id == request.AssistantId.Value, includeProperties: "Role,Status");
+                if (assistant == null || assistant.OrganizationId != organizationId || assistant.Role?.Code != "ASSISTANT" || assistant.Status?.Code != "ACTIVE")
                     throw new BadRequestException("Trợ giảng không hợp lệ hoặc đã bị khóa tài khoản.");
             }
 
+            var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "ACTIVE");
             var schedule = new ClassSchedule
             {
                 OrganizationId = organizationId,
@@ -50,7 +51,7 @@ namespace EduOps.Application.Services
                 EndTime = request.EndTime,
                 TeacherId = request.TeacherId,
                 AssistantId = request.AssistantId,
-                Status = AccountStatus.ACTIVE
+                StatusId = activeStatus?.Id
             };
 
             await _unitOfWork.Repository<ClassSchedule>().AddAsync(schedule);
@@ -65,26 +66,27 @@ namespace EduOps.Application.Services
                 throw new NotFoundException("Class", classId);
 
             var studentRepo = _unitOfWork.Repository<Student>();
-            var student = await studentRepo.GetByIdAsync(request.StudentId);
+            var student = await studentRepo.FirstOrDefaultAsync(s => s.Id == request.StudentId, includeProperties: "Status");
             if (student == null || student.OrganizationId != organizationId)
                 throw new NotFoundException("Student", request.StudentId);
 
-            if (student.Status != AccountStatus.ACTIVE)
+            if (student.Status?.Code != "ACTIVE")
                 throw new BadRequestException("Không thể ghi danh học viên đang bảo lưu hoặc đã nghỉ học.");
 
             var enrollmentRepo = _unitOfWork.Repository<ClassEnrollment>();
-            var exists = await enrollmentRepo.AnyAsync(e => e.ClassId == classId && e.StudentId == request.StudentId && e.Status == "ENROLLED");
-            
+            var exists = await enrollmentRepo.AnyAsync(e => e.ClassId == classId && e.StudentId == request.StudentId && e.Status != null && e.Status.Code == "ENROLLED");
+
             if (exists)
                 throw new BadRequestException("Học viên đã được ghi danh vào lớp này.");
 
+            var enrolledStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.EnrollmentStatus>().FirstOrDefaultAsync(s => s.Code == "ENROLLED");
             var enrollment = new ClassEnrollment
             {
                 OrganizationId = organizationId,
                 ClassId = classId,
                 StudentId = request.StudentId,
                 EnrollmentDate = DateTime.UtcNow,
-                Status = "ENROLLED"
+                StatusId = enrolledStatus?.Id
             };
 
             await enrollmentRepo.AddAsync(enrollment);
@@ -101,28 +103,29 @@ namespace EduOps.Application.Services
             if (classEntity == null || classEntity.OrganizationId != organizationId)
                 throw new NotFoundException("Class", classId);
 
-            var schedules = await scheduleRepo.FindAsync(s => s.ClassId == classId && s.Status == AccountStatus.ACTIVE);
+            var schedules = await scheduleRepo.FindAsync(s => s.ClassId == classId && s.Status != null && s.Status.Code == "ACTIVE");
             if (!schedules.Any())
                 throw new BadRequestException("Lớp học chưa có lịch cố định nào để sinh buổi học.");
 
             for (DateTime date = request.FromDate.Date; date <= request.ToDate.Date; date = date.AddDays(1))
             {
                 int dayOfWeek = date.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)date.DayOfWeek;
-                
+
                 var matchedSchedules = schedules.Where(s => s.DayOfWeek == dayOfWeek);
-                
+
                 foreach (var schedule in matchedSchedules)
                 {
                     // Check if already generated
-                    var exists = await sessionRepo.AnyAsync(s => 
-                        s.ClassId == classId && 
-                        s.SessionDate.Date == date && 
+                    var exists = await sessionRepo.AnyAsync(s =>
+                        s.ClassId == classId &&
+                        s.SessionDate.Date == date &&
                         s.StartTime == schedule.StartTime);
-                        
+
                     if (!exists)
                     {
                         await _sessionService.CheckConflictAsync(organizationId, schedule.TeacherId, schedule.AssistantId, date, schedule.StartTime, schedule.EndTime);
 
+                        var scheduledStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.SessionStatus>().FirstOrDefaultAsync(s => s.Code == "SCHEDULED");
                         var session = new Session
                         {
                             OrganizationId = organizationId,
@@ -135,7 +138,7 @@ namespace EduOps.Application.Services
                             SessionDate = date,
                             StartTime = schedule.StartTime,
                             EndTime = schedule.EndTime,
-                            Status = SessionStatus.SCHEDULED
+                            StatusId = scheduledStatus?.Id
                         };
                         await sessionRepo.AddAsync(session);
                     }

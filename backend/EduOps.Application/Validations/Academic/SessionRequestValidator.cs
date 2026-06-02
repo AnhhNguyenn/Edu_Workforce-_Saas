@@ -10,7 +10,7 @@ namespace EduOps.Application.Validations.Academic
         {
             RuleFor(x => x.SchoolId)
                 .NotEmpty().WithMessage("Bắt buộc phải chọn Cơ sở (School)");
-                
+
             RuleFor(x => x.TeacherId)
                 .NotEmpty().WithMessage("Bắt buộc phải chọn Giáo viên phụ trách");
 

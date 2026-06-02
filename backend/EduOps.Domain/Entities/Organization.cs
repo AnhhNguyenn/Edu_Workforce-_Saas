@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 using EduOps.Domain.Enums;
 
@@ -8,19 +9,20 @@ namespace EduOps.Domain.Entities
     {
         public string Name { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public string Phone { get; set; } = string.Empty;
-        public string? Address { get; set; }
-        
-        public int MaxUsers { get; set; }
-        public int CurrentUsers { get; set; }
-        
-        public AccountStatus Status { get; set; } = AccountStatus.ACTIVE;
-        
+        public virtual OrganizationDetail? OrganizationDetail { get; set; }
+
+        public Guid? CurrentPlanId { get; set; }
+        public virtual SubscriptionPlan? CurrentPlan { get; set; }
+
+        public Guid? StatusId { get; set; }
+        public virtual AccountStatus? Status { get; set; }
         // Trạng thái Gói cước: TRIAL, ACTIVE, EXPIRED, LOCKED
         public string SubscriptionStatus { get; set; } = "LOCKED";
-        
+
         public DateTime? SubscriptionStart { get; set; }
         public DateTime? SubscriptionEnd { get; set; }
+
+        public virtual ICollection<School> Schools { get; set; } = new List<School>();
+        public virtual ICollection<User> Users { get; set; } = new List<User>();
     }
 }

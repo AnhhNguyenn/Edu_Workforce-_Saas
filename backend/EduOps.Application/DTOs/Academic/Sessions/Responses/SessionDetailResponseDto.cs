@@ -12,6 +12,7 @@ namespace EduOps.Application.DTOs.Academic.Sessions.Responses
         public DateTime SessionDate { get; set; }
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
-        public string Status { get; set; } = string.Empty;
+        public Guid? StatusId { get; set; }
+        public string StatusCode { get; set; } = string.Empty;
     }
 }

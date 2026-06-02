@@ -7,6 +7,7 @@ namespace EduOps.Domain.Entities
         public Guid ClassId { get; set; }
         public Guid StudentId { get; set; }
         public DateTime EnrollmentDate { get; set; }
-        public string Status { get; set; } = "ENROLLED"; // ENROLLED, DROPPED_OUT, COMPLETED
+        public Guid? StatusId { get; set; }
+        public virtual EnrollmentStatus? Status { get; set; }
     }
 }

@@ -17,7 +17,8 @@ namespace EduOps.Application.Mappings
                 SessionDate = s.SessionDate,
                 StartTime = s.StartTime,
                 EndTime = s.EndTime,
-                Status = s.Status.ToString()
+                StatusId = s.StatusId,
+                StatusCode = s.Status?.Code ?? string.Empty
             };
         }
 
@@ -35,7 +36,8 @@ namespace EduOps.Application.Mappings
                 SessionDate = s.SessionDate,
                 StartTime = s.StartTime,
                 EndTime = s.EndTime,
-                Status = s.Status.ToString()
+                StatusId = s.StatusId,
+                StatusCode = s.Status?.Code ?? string.Empty
             };
         }
     }

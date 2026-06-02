@@ -55,7 +55,7 @@ namespace EduOps.Application.Services
                 }
 
                 // Bước 3: Kiểm tra Idempotency (Gạch nợ đúp)
-                if (tx.Status == BillingStatus.PAID)
+                if (tx.Status != null && tx.Status.Code == "PAID")
                 {
                     _logger.LogInformation($"[SePay] Giao dịch {refCode} đã được gạch nợ trước đó. Bỏ qua.");
                     return new SePayResponseDto { success = true, message = "Success: Already Paid" };
@@ -64,17 +64,19 @@ namespace EduOps.Application.Services
                 // Bước 4: Kiểm tra Underpayment (Chuyển khoản thiếu tiền)
                 if (payload.amountIn < tx.Amount)
                 {
-                    tx.Status = BillingStatus.FAILED;
+                    var failedStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.BillingStatus>().FirstOrDefaultAsync(s => s.Code == "FAILED");
+                    tx.StatusId = failedStatus?.Id;
                     tx.SePayTransactionId = payload.referenceNumber;
                     transactionRepo.Update(tx);
                     await _unitOfWork.CommitAsync();
-                    
+
                     _logger.LogWarning($"[SePay] UNDERPAYMENT ALERT: Khách chuyển thiếu tiền cho đơn {refCode}. Cần: {tx.Amount}, Nhận: {payload.amountIn}");
                     return new SePayResponseDto { success = true, message = "Handled: Underpayment" };
                 }
 
                 // Bước 5: Cập nhật Trạng thái Thành Công
-                tx.Status = BillingStatus.PAID;
+                var paidStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.BillingStatus>().FirstOrDefaultAsync(s => s.Code == "PAID");
+                tx.StatusId = paidStatus?.Id;
                 tx.SePayTransactionId = payload.referenceNumber;
                 transactionRepo.Update(tx);
 
@@ -98,30 +100,30 @@ namespace EduOps.Application.Services
                     if (org != null)
                     {
                         org.SubscriptionStatus = tx.PlanName?.ToUpper() ?? "PRO";
-                        
+
                         var plan = await _unitOfWork.Repository<SubscriptionPlan>()
                             .FirstOrDefaultAsync(p => p.Id == tx.PlanId, ignoreQueryFilters: true);
                         if (plan != null)
                         {
-                            org.MaxUsers = plan.MaxUsers;
+                            org.CurrentPlanId = plan.Id;
                         }
 
                         var now = DateTime.UtcNow;
                         var currentEnd = org.SubscriptionEnd ?? now;
                         var startCalculatingFrom = currentEnd > now ? currentEnd : now;
-                        
+
                         org.SubscriptionStart = org.SubscriptionStart ?? now;
                         org.SubscriptionEnd = startCalculatingFrom.AddMonths(tx.MonthsToAdd);
-                        
+
                         _unitOfWork.Repository<Organization>().Update(org);
-                        
+
                         // Bước 6: Xóa Cache RAM để khách hàng dùng được phần mềm ngay lập tức (0.001s)
                         _cache.Remove($"OrgSubscription_{org.Id}");
                     }
                 }
 
                 await _unitOfWork.CommitAsync();
-                
+
                 _logger.LogInformation($"[SePay] GẠCH NỢ THÀNH CÔNG cho đơn {refCode}. Số tiền: {payload.amountIn}");
                 return new SePayResponseDto { success = true, message = "Success: Payment processed and subscription activated" };
             }

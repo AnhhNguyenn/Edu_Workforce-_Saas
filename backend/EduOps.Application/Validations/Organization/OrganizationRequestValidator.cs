@@ -28,8 +28,7 @@ namespace EduOps.Application.Validations.Organization
             RuleFor(x => x.Address)
                 .MaximumLength(500).WithMessage("Address cannot exceed 500 characters.");
 
-            RuleFor(x => x.MaxUsers)
-                .GreaterThan(0).WithMessage("Max users must be greater than 0.");
+
         }
     }
 }

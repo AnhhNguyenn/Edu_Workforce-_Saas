@@ -9,7 +9,9 @@ namespace EduOps.Application.DTOs.User.Responses
         public Guid? OrganizationId { get; set; }
         public string FullName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        public string Role { get; set; } = string.Empty;
-        public AccountStatus Status { get; set; }
+        public Guid? RoleId { get; set; }
+        public string RoleCode { get; set; } = string.Empty;
+        public Guid? StatusId { get; set; }
+        public string StatusCode { get; set; } = string.Empty;
     }
 }

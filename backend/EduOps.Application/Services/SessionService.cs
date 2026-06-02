@@ -28,14 +28,14 @@ namespace EduOps.Application.Services
         public async Task<PagedResult<SessionListResponseDto>> GetSessionsAsync(Guid organizationId, GetSessionListQueryDto query)
         {
             var repo = _unitOfWork.Repository<Session>();
-            
-            var result = await repo.FindPagedAsync(s => 
+
+            var result = await repo.FindPagedAsync(s =>
                 s.OrganizationId == organizationId &&
                 (!query.ClassId.HasValue || s.ClassId == query.ClassId.Value) &&
                 (!query.TeacherId.HasValue || s.TeacherId == query.TeacherId.Value) &&
                 (!query.Date.HasValue || s.SessionDate.Date == query.Date.Value.Date) &&
-                (string.IsNullOrEmpty(query.SearchKeyword) || s.LessonTitle.ToLower().Contains(query.SearchKeyword.ToLower())), 
-                query.PageNumber, query.PageSize);
+                (string.IsNullOrEmpty(query.SearchKeyword) || s.LessonTitle.ToLower().Contains(query.SearchKeyword.ToLower())),
+                query.PageNumber, query.PageSize, includeProperties: "Status");
 
             return new PagedResult<SessionListResponseDto>
             {
@@ -51,12 +51,12 @@ namespace EduOps.Application.Services
             var repo = _unitOfWork.Repository<Session>();
 
             // Tối ưu Performance: Tìm các session trùng lặp của Giáo viên hoặc Trợ giảng trong cùng ngày
-            var exists = await repo.AnyAsync(s => 
+            var exists = await repo.AnyAsync(s =>
                 s.OrganizationId == organizationId &&
                 s.SessionDate.Date == sessionDate.Date &&
-                s.Status != SessionStatus.CANCELLED &&
+                s.Status != null && s.Status.Code != "CANCELLED" &&
                 (s.TeacherId == teacherId || (assistantId.HasValue && s.AssistantId == assistantId.Value)) &&
-                ((startTime >= s.StartTime && startTime < s.EndTime) || 
+                ((startTime >= s.StartTime && startTime < s.EndTime) ||
                  (endTime > s.StartTime && endTime <= s.EndTime) ||
                  (startTime <= s.StartTime && endTime >= s.EndTime))
             );
@@ -78,14 +78,14 @@ namespace EduOps.Application.Services
                 if (!await _unitOfWork.Repository<Class>().AnyAsync(c => c.Id == request.ClassId && c.OrganizationId == organizationId))
                     throw new BadRequestException("Lớp học không tồn tại hoặc đã bị xóa.");
                 var userRepo = _unitOfWork.Repository<User>();
-                var teacher = await userRepo.GetByIdAsync(request.TeacherId);
-                if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role != "TEACHER")
+                var teacher = await userRepo.FirstOrDefaultAsync(u => u.Id == request.TeacherId, includeProperties: "Role");
+                if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role?.Code != "TEACHER")
                     throw new BadRequestException("Giáo viên không hợp lệ hoặc không tồn tại.");
-                    
+
                 if (request.AssistantId.HasValue)
                 {
-                    var assistant = await userRepo.GetByIdAsync(request.AssistantId.Value);
-                    if (assistant == null || assistant.OrganizationId != organizationId || assistant.Role != "ASSISTANT")
+                    var assistant = await userRepo.FirstOrDefaultAsync(u => u.Id == request.AssistantId.Value, includeProperties: "Role");
+                    if (assistant == null || assistant.OrganizationId != organizationId || assistant.Role?.Code != "ASSISTANT")
                         throw new BadRequestException("Trợ giảng không hợp lệ hoặc không tồn tại.");
                 }
 
@@ -103,7 +103,7 @@ namespace EduOps.Application.Services
                     SessionDate = request.SessionDate.Date,
                     StartTime = request.StartTime,
                     EndTime = request.EndTime,
-                    Status = SessionStatus.SCHEDULED
+                    StatusId = (await _unitOfWork.Repository<EduOps.Domain.Entities.SessionStatus>().FirstOrDefaultAsync(s => s.Code == "SCHEDULED"))?.Id
                 };
 
                 await repo.AddAsync(session);

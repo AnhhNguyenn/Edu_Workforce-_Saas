@@ -15,9 +15,9 @@ namespace EduOps.Infrastructure.Notifications
 
         public Task SendEmailAsync(string to, string subject, string body)
         {
-            _logger.LogInformation("\n========== MOCK EMAIL SENT ==========\nTo: {To}\nSubject: {Subject}\nBody: {Body}\n======================================\n", 
+            _logger.LogInformation("\n========== MOCK EMAIL SENT ==========\nTo: {To}\nSubject: {Subject}\nBody: {Body}\n======================================\n",
                 to, subject, body);
-            
+
             return Task.CompletedTask;
         }
     }

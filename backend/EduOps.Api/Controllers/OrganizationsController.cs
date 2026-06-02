@@ -66,5 +66,13 @@ namespace EduOps.Api.Controllers
             await _orgService.ActivateAsync(id);
             return NoContent();
         }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            await _orgService.DeleteAsync(id);
+            return NoContent();
+        }
     }
 }

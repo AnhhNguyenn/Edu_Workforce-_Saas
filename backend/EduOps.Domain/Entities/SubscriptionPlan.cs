@@ -6,14 +6,15 @@ namespace EduOps.Domain.Entities
     public class SubscriptionPlan : BaseEntity
     {
         public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        
+        public virtual SubscriptionPlanDetail? SubscriptionPlanDetail { get; set; }
+
         // Số lượng tối đa GV/TA được tạo trong gói
         public int MaxUsers { get; set; }
-        
+
         public decimal PricePerMonth { get; set; }
         public decimal PricePerYear { get; set; }
-        
-        public AccountStatus Status { get; set; } = AccountStatus.ACTIVE;
+
+        public Guid? StatusId { get; set; }
+        public virtual AccountStatus? Status { get; set; }
     }
 }

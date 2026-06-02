@@ -8,8 +8,11 @@ namespace EduOps.Application.DTOs.Academic.Classes.Responses
         public Guid Id { get; set; }
         public Guid SchoolId { get; set; }
         public string Name { get; set; } = string.Empty;
-        public string? Grade { get; set; }
-        public string? Subject { get; set; }
-        public string Status { get; set; } = string.Empty;
+        public Guid? GradeId { get; set; }
+        public string? GradeCode { get; set; }
+        public Guid? SubjectId { get; set; }
+        public string? SubjectCode { get; set; }
+        public Guid? StatusId { get; set; }
+        public string StatusCode { get; set; } = string.Empty;
     }
 }

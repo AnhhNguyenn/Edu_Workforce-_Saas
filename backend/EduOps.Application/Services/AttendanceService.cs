@@ -31,24 +31,24 @@ namespace EduOps.Application.Services
             var sessionRepo = _unitOfWork.Repository<Session>();
             var session = await sessionRepo.FirstOrDefaultAsync(s => s.Id == request.SessionId);
             if (session == null) throw new NotFoundException("Session", request.SessionId);
-            
+
             if (session.TeacherId != userId && session.AssistantId != userId)
             {
                 throw new ForbiddenException("You are not assigned to this session.");
             }
 
             var schoolRepo = _unitOfWork.Repository<School>();
-            var school = (await schoolRepo.FindAsync(s => s.Id == session.SchoolId, ignoreQueryFilters: true)).FirstOrDefault();
+            var school = await schoolRepo.FirstOrDefaultAsync(s => s.Id == session.SchoolId, ignoreQueryFilters: true, includeProperties: "SchoolDetail");
             if (school == null) throw new NotFoundException("School", session.SchoolId);
 
-            if (school.Latitude.HasValue && school.Longitude.HasValue)
+            if (school.SchoolDetail?.Latitude.HasValue == true && school.SchoolDetail?.Longitude.HasValue == true)
             {
                 var distance = GeoCalculator.HaversineDistanceInMeters(
-                    request.Latitude, request.Longitude, school.Latitude.Value, school.Longitude.Value);
+                    request.Latitude, request.Longitude, school.SchoolDetail.Latitude.Value, school.SchoolDetail.Longitude.Value);
 
-                if (distance > school.AttendanceRadius)
+                if (distance > school.SchoolDetail.AttendanceRadius)
                 {
-                    throw new BadRequestException($"You are out of the attendance zone. Distance: {Math.Round(distance)}m, Max allowed: {school.AttendanceRadius}m.");
+                    throw new BadRequestException($"You are out of the attendance zone. Distance: {Math.Round(distance)}m, Max allowed: {school.SchoolDetail.AttendanceRadius}m.");
                 }
             }
 
@@ -61,16 +61,17 @@ namespace EduOps.Application.Services
             }
 
             var now = DateTime.UtcNow;
-            
+
             // Calculate lateness
             var sessionStartTimeUtc = session.SessionDate.Date.Add(session.StartTime);
             var lateMinutes = 0;
-            var status = EduOps.Domain.Enums.AttendanceStatus.PRESENT;
 
-            if (now > sessionStartTimeUtc.AddMinutes(school.LateThresholdMinutes))
+            string statusCode = "PRESENT";
+            var lateThreshold = school.SchoolDetail?.LateThresholdMinutes ?? 15;
+            if (now > sessionStartTimeUtc.AddMinutes(lateThreshold))
             {
                 lateMinutes = (int)(now - sessionStartTimeUtc).TotalMinutes;
-                status = EduOps.Domain.Enums.AttendanceStatus.LATE;
+                statusCode = "LATE";
             }
 
             var attendance = existingRecord ?? new Attendance
@@ -84,7 +85,8 @@ namespace EduOps.Application.Services
             attendance.CheckinLatitude = request.Latitude;
             attendance.CheckinLongitude = request.Longitude;
             attendance.LateMinutes = lateMinutes;
-            attendance.Status = status;
+            var attendanceStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AttendanceStatus>().FirstOrDefaultAsync(s => s.Code == statusCode);
+            attendance.StatusId = attendanceStatus?.Id;
             attendance.Note = request.Note;
 
             if (existingRecord == null)
@@ -116,31 +118,34 @@ namespace EduOps.Application.Services
             }
 
             var sessionRepo = _unitOfWork.Repository<Session>();
-            var session = (await sessionRepo.FindAsync(s => s.Id == request.SessionId, ignoreQueryFilters: true)).FirstOrDefault();
+            var session = await sessionRepo.FirstOrDefaultAsync(s => s.Id == request.SessionId, ignoreQueryFilters: true);
             if (session == null) throw new NotFoundException("Session", request.SessionId);
 
             var now = DateTime.UtcNow;
             var sessionEndTimeUtc = session.SessionDate.Date.Add(session.EndTime);
             var schoolRepo = _unitOfWork.Repository<School>();
-            var school = (await schoolRepo.FindAsync(s => s.Id == session.SchoolId, ignoreQueryFilters: true)).FirstOrDefault();
+            var school = await schoolRepo.FirstOrDefaultAsync(s => s.Id == session.SchoolId, ignoreQueryFilters: true, includeProperties: "SchoolDetail");
             if (school == null) throw new NotFoundException("School", session.SchoolId);
 
-            if (school.Latitude.HasValue && school.Longitude.HasValue)
+            if (school.SchoolDetail?.Latitude.HasValue == true && school.SchoolDetail?.Longitude.HasValue == true)
             {
                 var distance = GeoCalculator.HaversineDistanceInMeters(
-                    request.Latitude, request.Longitude, school.Latitude.Value, school.Longitude.Value);
+                    request.Latitude, request.Longitude, school.SchoolDetail.Latitude.Value, school.SchoolDetail.Longitude.Value);
 
-                if (distance > school.AttendanceRadius)
+                if (distance > school.SchoolDetail.AttendanceRadius)
                 {
-                    throw new BadRequestException($"You are out of the attendance zone for check-out. Distance: {Math.Round(distance)}m, Max allowed: {school.AttendanceRadius}m.");
+                    throw new BadRequestException($"You are out of the attendance zone for check-out. Distance: {Math.Round(distance)}m, Max allowed: {school.SchoolDetail.AttendanceRadius}m.");
                 }
             }
 
             var earlyMinutes = 0;
-            if (now < sessionEndTimeUtc.AddMinutes(-school.EarlyCheckoutMinutes))
+            var earlyCheckout = school.SchoolDetail?.EarlyCheckoutMinutes ?? 15;
+            if (now < sessionEndTimeUtc.AddMinutes(-earlyCheckout))
             {
                 earlyMinutes = (int)(sessionEndTimeUtc - now).TotalMinutes;
-                record.Status = record.Status == EduOps.Domain.Enums.AttendanceStatus.LATE ? EduOps.Domain.Enums.AttendanceStatus.LATE_AND_EARLY : EduOps.Domain.Enums.AttendanceStatus.EARLY_CHECKOUT;
+                string newCode = record.Status?.Code == "LATE" ? "LATE_AND_EARLY" : "EARLY_CHECKOUT";
+                var newStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AttendanceStatus>().FirstOrDefaultAsync(s => s.Code == newCode);
+                record.StatusId = newStatus?.Id;
             }
 
             record.CheckoutTime = now;
@@ -172,10 +177,10 @@ namespace EduOps.Application.Services
         {
             var sessionRepo = _unitOfWork.Repository<Session>();
             var session = await sessionRepo.FirstOrDefaultAsync(s => s.Id == sessionId);
-            
-            if (session == null || session.OrganizationId != organizationId) 
+
+            if (session == null || session.OrganizationId != organizationId)
                 throw new NotFoundException("Session", sessionId);
-                
+
             if (role != "CENTER_ADMIN" && session.TeacherId != userId && session.AssistantId != userId)
             {
                 // Only assigned teachers/assistants or Center Admins can mark attendance
@@ -183,8 +188,11 @@ namespace EduOps.Application.Services
             }
 
             var classEnrollmentRepo = _unitOfWork.Repository<ClassEnrollment>();
-            var enrollments = await classEnrollmentRepo.FindAsync(e => e.ClassId == session.ClassId && e.Status == "ENROLLED");
+            var enrollments = await classEnrollmentRepo.FindAsync(e => e.ClassId == session.ClassId && e.Status != null && e.Status.Code == "ENROLLED");
             var enrolledStudentIds = enrollments.Select(e => e.StudentId).ToHashSet();
+
+            var presentStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AttendanceStatus>().FirstOrDefaultAsync(s => s.Code == "PRESENT");
+            var absentStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AttendanceStatus>().FirstOrDefaultAsync(s => s.Code == "ABSENT");
 
             // Lọc các bản ghi trùng lặp (nếu Client vô tình gửi 2 lần cùng 1 học sinh)
             var uniqueRecords = request.Records
@@ -206,7 +214,7 @@ namespace EduOps.Application.Services
                 if (existing != null)
                 {
                     existing.IsPresent = record.IsPresent;
-                    existing.Status = record.IsPresent ? EduOps.Domain.Enums.AttendanceStatus.PRESENT : EduOps.Domain.Enums.AttendanceStatus.ABSENT;
+                    existing.StatusId = record.IsPresent ? presentStatus?.Id : absentStatus?.Id;
                     existing.Note = record.Note;
                     studentAttendanceRepo.Update(existing);
                 }
@@ -218,7 +226,7 @@ namespace EduOps.Application.Services
                         SessionId = sessionId,
                         StudentId = record.StudentId,
                         IsPresent = record.IsPresent,
-                        Status = record.IsPresent ? EduOps.Domain.Enums.AttendanceStatus.PRESENT : EduOps.Domain.Enums.AttendanceStatus.ABSENT,
+                        StatusId = record.IsPresent ? presentStatus?.Id : absentStatus?.Id,
                         Note = record.Note
                     };
                     await studentAttendanceRepo.AddAsync(newAttendance);

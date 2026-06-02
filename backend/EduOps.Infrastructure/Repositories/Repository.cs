@@ -24,7 +24,7 @@ namespace EduOps.Infrastructure.Repositories
         {
             if (!asNoTracking)
                 return await _dbSet.FindAsync(id);
-                
+
             var entity = await _dbSet.FindAsync(id);
             if (entity != null)
                 _context.Entry(entity).State = EntityState.Detached;
@@ -36,24 +36,35 @@ namespace EduOps.Infrastructure.Repositories
             return asNoTracking ? await _dbSet.AsNoTracking().ToListAsync() : await _dbSet.ToListAsync();
         }
 
-        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, bool ignoreQueryFilters = false, bool asNoTracking = false)
+        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, bool ignoreQueryFilters = false, bool asNoTracking = false, string includeProperties = "")
         {
             IQueryable<T> query = _dbSet;
             if (ignoreQueryFilters) query = query.IgnoreQueryFilters();
             if (asNoTracking) query = query.AsNoTracking();
+
+            foreach (var includeProperty in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                query = query.Include(includeProperty);
+            }
+
             return await query.Where(predicate).ToListAsync();
         }
 
-        public async Task<(IEnumerable<T> Items, int TotalCount)> FindPagedAsync(Expression<Func<T, bool>> predicate, int pageNumber, int pageSize, bool asNoTracking = false)
+        public async Task<(IEnumerable<T> Items, int TotalCount)> FindPagedAsync(Expression<Func<T, bool>> predicate, int pageNumber, int pageSize, bool asNoTracking = false, string includeProperties = "")
         {
             IQueryable<T> query = _dbSet.Where(predicate);
             if (asNoTracking) query = query.AsNoTracking();
-            
+
+            foreach (var includeProperty in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                query = query.Include(includeProperty);
+            }
+
             if (typeof(EduOps.Domain.Entities.BaseEntity).IsAssignableFrom(typeof(T)))
             {
                 query = query.OrderByDescending(e => EF.Property<DateTime>(e, "CreatedAt"));
             }
-            
+
             var totalCount = await query.CountAsync();
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
             return (items, totalCount);
@@ -66,11 +77,17 @@ namespace EduOps.Infrastructure.Repositories
             return await query.AnyAsync(predicate);
         }
 
-        public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate, bool ignoreQueryFilters = false, bool asNoTracking = false)
+        public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate, bool ignoreQueryFilters = false, bool asNoTracking = false, string includeProperties = "")
         {
             IQueryable<T> query = _dbSet;
             if (ignoreQueryFilters) query = query.IgnoreQueryFilters();
             if (asNoTracking) query = query.AsNoTracking();
+
+            foreach (var includeProperty in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                query = query.Include(includeProperty);
+            }
+
             return await query.FirstOrDefaultAsync(predicate);
         }
 

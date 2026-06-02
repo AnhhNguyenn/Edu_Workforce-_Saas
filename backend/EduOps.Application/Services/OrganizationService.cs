@@ -34,21 +34,41 @@ namespace EduOps.Application.Services
             try
             {
                 // Chống tràn RAM (DoS) do request pageSize quá lớn
-                pageSize = Math.Min(pageSize, 100);
-                pageNumber = Math.Max(pageNumber, 1);
+                query.PageSize = Math.Min(query.PageSize, 100);
+                query.PageNumber = Math.Max(query.PageNumber, 1);
 
                 var repo = _unitOfWork.Repository<Organization>();
 
-                
-                System.Linq.Expressions.Expression<Func<Organization, bool>> predicate = o => 
-                    (string.IsNullOrEmpty(query.SearchKeyword) || o.Name.ToLower().Contains(query.SearchKeyword.ToLower()) || o.Code.ToLower().Contains(query.SearchKeyword.ToLower())) &&
-                    (!query.Status.HasValue || o.Status == query.Status.Value);
 
-                var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize);
+                System.Linq.Expressions.Expression<Func<Organization, bool>> predicate = o =>
+                    (string.IsNullOrEmpty(query.SearchKeyword) || o.Name.ToLower().Contains(query.SearchKeyword.ToLower()) || o.Code.ToLower().Contains(query.SearchKeyword.ToLower())) &&
+                    (!query.Status.HasValue || o.Status != null && o.Status.Code == query.Status.Value.ToString());
+
+                var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Status");
+
+                var orgIds = result.Items.Select(o => o.Id).ToList();
+                var planIds = result.Items.Where(o => o.CurrentPlanId.HasValue).Select(o => o.CurrentPlanId!.Value).Distinct().ToList();
+
+                var plans = await _unitOfWork.Repository<SubscriptionPlan>().FindAsync(p => planIds.Contains(p.Id));
+                var planDict = plans.ToDictionary(p => p.Id, p => p.MaxUsers);
+
+                var users = await _unitOfWork.Repository<User>().FindAsync(u => 
+                    u.OrganizationId.HasValue && orgIds.Contains(u.OrganizationId.Value) &&
+                    u.DeletedAt == null && u.Role != null && (u.Role.Code == "TEACHER" || u.Role.Code == "ASSISTANT"));
                 
+                var userCounts = users.GroupBy(u => u.OrganizationId!.Value)
+                                      .ToDictionary(g => g.Key, g => g.Count());
+
+                var dtos = result.Items.Select(o => 
+                {
+                    int maxUsers = o.CurrentPlanId.HasValue && planDict.ContainsKey(o.CurrentPlanId.Value) ? planDict[o.CurrentPlanId.Value] : 0;
+                    int currentUsers = userCounts.ContainsKey(o.Id) ? userCounts[o.Id] : 0;
+                    return o.ToListResponseDto(maxUsers, currentUsers);
+                }).ToList();
+
                 return new PagedResult<OrganizationListResponseDto>
                 {
-                    Items = result.Items.Select(o => o.ToListResponseDto()),
+                    Items = dtos,
                     TotalCount = result.TotalCount,
                     PageNumber = query.PageNumber,
                     PageSize = query.PageSize
@@ -63,14 +83,24 @@ namespace EduOps.Application.Services
 
         public async Task<OrganizationDetailResponseDto> GetByIdAsync(Guid id)
         {
-            var org = await _unitOfWork.Repository<Organization>().GetByIdAsync(id);
+            var org = await _unitOfWork.Repository<Organization>().FirstOrDefaultAsync(o => o.Id == id, includeProperties: "Status,OrganizationDetail");
             if (org == null)
             {
                 _logger.LogWarning($"Organization with ID {id} not found.");
                 throw new NotFoundException("Organization", id);
             }
 
-            return org.ToDetailResponseDto();
+            int maxUsers = 0;
+            if (org.CurrentPlanId.HasValue)
+            {
+                var plan = await _unitOfWork.Repository<SubscriptionPlan>().GetByIdAsync(org.CurrentPlanId.Value);
+                if (plan != null) maxUsers = plan.MaxUsers;
+            }
+
+            int currentUsers = await _unitOfWork.Repository<User>().CountAsync(u => 
+                u.OrganizationId == id && u.DeletedAt == null && u.Role != null && (u.Role.Code == "TEACHER" || u.Role.Code == "ASSISTANT"));
+
+            return org.ToDetailResponseDto(maxUsers, currentUsers);
         }
 
         public async Task<OrganizationDetailResponseDto> CreateAsync(CreateOrganizationRequestDto request)
@@ -86,25 +116,40 @@ namespace EduOps.Application.Services
                         throw new BadRequestException("Mã trung tâm đã tồn tại trên hệ thống. Vui lòng chọn mã khác.");
                 }
 
-                var emailExists = await repo.AnyAsync(x => x.Email == request.Email);
+                var emailExists = await repo.AnyAsync(x => x.OrganizationDetail != null && x.OrganizationDetail.Email == request.Email);
                 if (emailExists)
                 {
                     throw new BadRequestException($"Email '{request.Email}' đã được sử dụng.");
                 }
 
+                var plan = await _unitOfWork.Repository<SubscriptionPlan>().GetByIdAsync(request.PlanId);
+                if (plan == null) throw new NotFoundException("Gói cước", request.PlanId);
+
+                // Lấy Trial Days từ SystemSettings
+                var trialSetting = await _unitOfWork.Repository<SystemSetting>().FirstOrDefaultAsync(s => s.SettingKey == "DEFAULT_TRIAL_DAYS");
+                int trialDays = 14; // Default
+                if (trialSetting != null && int.TryParse(trialSetting.SettingValue, out int configuredDays))
+                {
+                    trialDays = configuredDays;
+                }
+
+                var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "ACTIVE");
+                
                 var org = new Organization
                 {
                     Name = request.Name,
                     Code = request.Code ?? string.Empty,
-                    Email = request.Email,
-                    Phone = request.Phone,
-                    Address = request.Address,
-                    MaxUsers = request.MaxUsers,
-                    CurrentUsers = 0,
-                    Status = AccountStatus.ACTIVE,
+                    OrganizationDetail = new OrganizationDetail
+                    {
+                        Email = request.Email,
+                        Phone = request.Phone,
+                        Address = request.Address
+                    },
+                    CurrentPlanId = plan.Id,
+                    StatusId = activeStatus?.Id,
                     SubscriptionStatus = "TRIAL",
                     SubscriptionStart = DateTime.UtcNow,
-                    SubscriptionEnd = DateTime.UtcNow.AddDays(14)
+                    SubscriptionEnd = DateTime.UtcNow.AddDays(trialDays)
                 };
 
                 await repo.AddAsync(org);
@@ -130,35 +175,22 @@ namespace EduOps.Application.Services
 
             var repo = _unitOfWork.Repository<Organization>();
             var org = await repo.GetByIdAsync(id);
-            
+
             if (org == null) throw new NotFoundException("Organization", id);
 
-            if (_currentUserService.Role == "SUPER_ADMIN" && request.MaxUsers.HasValue)
-            {
-                if (request.MaxUsers.Value < org.MaxUsers)
-                {
-                    var activeStaffCount = await _unitOfWork.Repository<User>().CountAsync(u => 
-                        u.OrganizationId == id && 
-                        u.DeletedAt == null && 
-                        (u.Role == "TEACHER" || u.Role == "ASSISTANT"));
-                    
-                    if (activeStaffCount > request.MaxUsers.Value)
-                    {
-                        throw new BadRequestException($"Không thể hạ cấp gói cước. Trung tâm hiện có {activeStaffCount} nhân sự đang hoạt động, vượt quá mức {request.MaxUsers.Value} của gói mới. Vui lòng xóa bớt nhân sự trước!");
-                    }
-                }
-                
-                org.MaxUsers = request.MaxUsers.Value;
-            }
+
 
             org.Name = request.Name;
-            org.Email = request.Email;
-            org.Phone = request.Phone;
-            org.Address = request.Address;
+            
+            if (org.OrganizationDetail == null) org.OrganizationDetail = new OrganizationDetail();
+            
+            org.OrganizationDetail.Email = request.Email;
+            org.OrganizationDetail.Phone = request.Phone;
+            org.OrganizationDetail.Address = request.Address;
 
             repo.Update(org);
             await _unitOfWork.CommitAsync();
-            
+
             // Xóa Cache để cập nhật trạng thái ngay lập tức
             _cache.Remove($"OrgSubscription_{id}");
             _logger.LogInformation($"Updated Organization: {org.Code}");
@@ -170,10 +202,11 @@ namespace EduOps.Application.Services
             var org = await repo.GetByIdAsync(id);
             if (org == null) throw new NotFoundException("Organization", id);
 
-            org.Status = AccountStatus.SUSPENDED;
+            var suspendedStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "SUSPENDED");
+            org.StatusId = suspendedStatus?.Id;
             repo.Update(org);
             await _unitOfWork.CommitAsync();
-            
+
             // Xóa Cache để lệnh Đình chỉ có hiệu lực ngay lập tức (0.001 giây)
             _cache.Remove($"OrgSubscription_{id}");
             _logger.LogWarning($"Suspended Organization: {org.Code}");
@@ -185,13 +218,31 @@ namespace EduOps.Application.Services
             var org = await repo.GetByIdAsync(id);
             if (org == null) throw new NotFoundException("Organization", id);
 
-            org.Status = AccountStatus.ACTIVE;
+            var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "ACTIVE");
+            org.StatusId = activeStatus?.Id;
             repo.Update(org);
             await _unitOfWork.CommitAsync();
-            
+
             // Xóa Cache để cập nhật trạng thái ngay lập tức
             _cache.Remove($"OrgSubscription_{id}");
             _logger.LogInformation($"Activated Organization: {org.Code}");
+        }
+
+        public async Task DeleteAsync(Guid id)
+        {
+            var repo = _unitOfWork.Repository<Organization>();
+            var org = await repo.GetByIdAsync(id);
+            if (org == null || org.DeletedAt != null) throw new NotFoundException("Organization", id);
+
+            var inactiveStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "INACTIVE");
+            org.StatusId = inactiveStatus?.Id;
+            org.DeletedAt = DateTime.UtcNow;
+            
+            repo.Update(org);
+            await _unitOfWork.CommitAsync();
+
+            _cache.Remove($"OrgSubscription_{id}");
+            _logger.LogWarning($"Soft Deleted Organization: {org.Code}");
         }
     }
 }

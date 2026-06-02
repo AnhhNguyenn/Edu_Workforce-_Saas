@@ -7,8 +7,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace EduOps.Api.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/sepay")]
     [ApiController]
+    [EduOps.Api.Filters.FeatureGate("ENABLE_FINANCE")]
     public class SePayController : ControllerBase
     {
         private readonly ISePayService _sePayService;
@@ -26,13 +27,13 @@ namespace EduOps.Api.Controllers
         {
             // Bảo vệ Webhook bằng API Key (Tránh Hacker bơm tiền giả)
             var expectedToken = _configuration["SePay:WebhookToken"];
-            
+
             // Lấy token từ Header (Ví dụ: Authorization: Bearer <token> hoặc x-sepay-token)
             var authHeader = Request.Headers["Authorization"].ToString();
             var sePayHeader = Request.Headers["x-sepay-token"].ToString();
-            
-            var providedToken = !string.IsNullOrEmpty(sePayHeader) 
-                ? sePayHeader 
+
+            var providedToken = !string.IsNullOrEmpty(sePayHeader)
+                ? sePayHeader
                 : (authHeader.StartsWith("Bearer ") ? authHeader.Substring(7) : string.Empty);
 
             if (string.IsNullOrEmpty(expectedToken) || providedToken != expectedToken)

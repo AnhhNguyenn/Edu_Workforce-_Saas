@@ -5,7 +5,7 @@ namespace EduOps.Application.Mappings
 {
     public static class OrganizationMappingExtensions
     {
-        public static OrganizationListResponseDto ToListResponseDto(this Organization org)
+        public static OrganizationListResponseDto ToListResponseDto(this Organization org, int maxUsers, int currentUsers)
         {
             if (org == null) return null!;
 
@@ -14,13 +14,14 @@ namespace EduOps.Application.Mappings
                 Id = org.Id,
                 Name = org.Name,
                 Code = org.Code,
-                MaxUsers = org.MaxUsers,
-                CurrentUsers = org.CurrentUsers,
-                Status = org.Status
+                MaxUsers = maxUsers,
+                CurrentUsers = currentUsers,
+                StatusId = org.StatusId,
+                StatusCode = org.Status?.Code ?? string.Empty
             };
         }
 
-        public static OrganizationDetailResponseDto ToDetailResponseDto(this Organization org)
+        public static OrganizationDetailResponseDto ToDetailResponseDto(this Organization org, int maxUsers, int currentUsers)
         {
             if (org == null) return null!;
 
@@ -29,12 +30,13 @@ namespace EduOps.Application.Mappings
                 Id = org.Id,
                 Name = org.Name,
                 Code = org.Code,
-                Email = org.Email,
-                Phone = org.Phone,
-                Address = org.Address,
-                MaxUsers = org.MaxUsers,
-                CurrentUsers = org.CurrentUsers,
-                Status = org.Status,
+                Email = org.OrganizationDetail?.Email ?? string.Empty,
+                Phone = org.OrganizationDetail?.Phone ?? string.Empty,
+                Address = org.OrganizationDetail?.Address,
+                MaxUsers = maxUsers,
+                CurrentUsers = currentUsers,
+                StatusId = org.StatusId,
+                StatusCode = org.Status?.Code ?? string.Empty,
                 SubscriptionStart = org.SubscriptionStart,
                 SubscriptionEnd = org.SubscriptionEnd
             };

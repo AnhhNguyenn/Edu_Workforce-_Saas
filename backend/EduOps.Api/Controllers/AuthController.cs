@@ -56,11 +56,22 @@ namespace EduOps.Api.Controllers
             return Ok(new { Message = "Nếu email hợp lệ, mã OTP sẽ được gửi đến hộp thư của bạn." });
         }
 
-        [HttpPost("reset-password-via-token")]
+        [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPasswordViaToken([FromBody] ResetPasswordViaTokenRequestDto request)
         {
             await _authService.ResetPasswordViaTokenAsync(request);
-            return Ok(new { Message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
+            return Ok(new { message = "Mật khẩu đã được khôi phục thành công." });
+        }
+
+        [HttpGet("debug-claims")]
+        [Authorize]
+        public IActionResult DebugClaims()
+        {
+            var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
+            return Ok(new {
+                Message = "Đây là danh sách các quyền hiện tại đang có trong Token của bạn. Nếu không thấy 'role': 'SUPER_ADMIN' tức là bạn đang dùng Token cũ!",
+                Claims = claims
+            });
         }
     }
 }

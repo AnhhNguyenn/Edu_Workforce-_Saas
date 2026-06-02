@@ -18,7 +18,7 @@ namespace EduOps.Api.Hubs
                 // Để khi bắn thông báo, ta chỉ cần bắn vào Group(UserId)
                 await Groups.AddToGroupAsync(Context.ConnectionId, userId);
             }
-            
+
             await base.OnConnectedAsync();
         }
 

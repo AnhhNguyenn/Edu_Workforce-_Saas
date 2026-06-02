@@ -9,9 +9,11 @@ namespace EduOps.Application.DTOs.User.Responses
         public Guid? OrganizationId { get; set; }
         public string FullName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        public string Role { get; set; } = string.Empty;
+        public Guid? RoleId { get; set; }
+        public string RoleCode { get; set; } = string.Empty;
         public string? AvatarUrl { get; set; }
-        public AccountStatus Status { get; set; }
+        public Guid? StatusId { get; set; }
+        public string StatusCode { get; set; } = string.Empty;
         public DateTime? LastLoginAt { get; set; }
         public DateTime? LockEndAt { get; set; }
     }

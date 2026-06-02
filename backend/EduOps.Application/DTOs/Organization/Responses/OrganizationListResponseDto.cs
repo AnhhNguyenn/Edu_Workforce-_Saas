@@ -10,6 +10,7 @@ namespace EduOps.Application.DTOs.Organization.Responses
         public string Code { get; set; } = string.Empty;
         public int MaxUsers { get; set; }
         public int CurrentUsers { get; set; }
-        public AccountStatus Status { get; set; }
+        public Guid? StatusId { get; set; }
+        public string StatusCode { get; set; } = string.Empty;
     }
 }

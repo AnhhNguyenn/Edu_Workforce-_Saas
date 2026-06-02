@@ -36,7 +36,7 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .Enrich.FromLogContext()
     .WriteTo.Console(outputTemplate: outputTemplate)
-    .WriteTo.File("Logs/eduops-log-.txt", 
+    .WriteTo.File("Logs/eduops-log-.txt",
                   rollingInterval: RollingInterval.Day,
                   outputTemplate: outputTemplate,
                   fileSizeLimitBytes: fileSizeLimit,
@@ -68,7 +68,7 @@ try
                     QueueLimit = 0,
                     Window = TimeSpan.FromMinutes(1)
                 }));
-                
+
         // Rate Limiter riêng cho Auth (Chống Brute-force mật khẩu)
         options.AddPolicy("AuthLimit", httpContext =>
             RateLimitPartition.GetFixedWindowLimiter(
@@ -80,7 +80,7 @@ try
                     QueueLimit = 0,
                     Window = TimeSpan.FromMinutes(1)
                 }));
-                
+
         options.RejectionStatusCode = 429;
     });
 
@@ -92,6 +92,7 @@ try
         });
     builder.Services.AddFluentValidationAutoValidation();
     builder.Services.AddValidatorsFromAssembly(typeof(EduOps.Application.Interfaces.IUserService).Assembly);
+    FluentValidation.ValidatorOptions.Global.DefaultRuleLevelCascadeMode = FluentValidation.CascadeMode.Stop;
 
     // Cấu hình CORS cho Frontend từ appsettings.json
     var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
@@ -184,7 +185,7 @@ try
         .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
         .UseSimpleAssemblyNameTypeSerializer()
         .UseRecommendedSerializerSettings()
-        .UsePostgreSqlStorage(options => 
+        .UsePostgreSqlStorage(options =>
             options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
 
     builder.Services.AddHangfireServer();
@@ -201,7 +202,7 @@ try
     app.UseHttpsRedirection();
 
     app.UseCors("AllowFrontend");
-    
+
     app.UseRateLimiter();
 
     app.UseAuthentication();
@@ -217,28 +218,31 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var recurringJobManager = scope.ServiceProvider.GetRequiredService<Hangfire.IRecurringJobManager>();
-        
-        var cronConfig = builder.Configuration["HangfireSettings:DailyReminderCron"] ?? "0 21 * * *";
-        
-            recurringJobManager.AddOrUpdate<EduOps.Application.BackgroundJobs.NotificationJobs>(
-                "Daily_Reminder_Job",
-                job => job.SendDailyRemindersAsync(),
-                cronConfig,
-                new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
-            );
+        var dbContext = scope.ServiceProvider.GetRequiredService<EduOps.Infrastructure.Data.EduOpsDbContext>();
 
-            // Đăng ký Job kiểm tra gia hạn Gói cước (Chạy lúc 8:00 sáng mỗi ngày)
-            var expiryCron = builder.Configuration["HangfireSettings:SubscriptionExpiryCron"] ?? "0 8 * * *";
-            recurringJobManager.AddOrUpdate<EduOps.Application.BackgroundJobs.NotificationJobs>(
-                "Subscription_Expiry_Job",
-                job => job.CheckSubscriptionExpiryAsync(),
-                expiryCron,
-                new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
-            );
+        var dailyCronDb = dbContext.SystemSettings.FirstOrDefault(s => s.SettingKey == "DAILY_REMINDER_CRON")?.SettingValue;
+        var cronConfig = dailyCronDb ?? builder.Configuration["HangfireSettings:DailyReminderCron"] ?? "0 21 * * *";
 
-            // Tự động Seed Dữ liệu Test
-            EduOps.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
-        }
+        recurringJobManager.AddOrUpdate<EduOps.Application.BackgroundJobs.NotificationJobs>(
+            "Daily_Reminder_Job",
+            job => job.SendDailyRemindersAsync(),
+            cronConfig,
+            new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
+        );
+
+        // Đăng ký Job kiểm tra gia hạn Gói cước (Chạy lúc 8:00 sáng mỗi ngày)
+        var expiryCronDb = dbContext.SystemSettings.FirstOrDefault(s => s.SettingKey == "SUBSCRIPTION_EXPIRY_CRON")?.SettingValue;
+        var expiryCron = expiryCronDb ?? builder.Configuration["HangfireSettings:SubscriptionExpiryCron"] ?? "0 8 * * *";
+        recurringJobManager.AddOrUpdate<EduOps.Application.BackgroundJobs.NotificationJobs>(
+            "Subscription_Expiry_Job",
+            job => job.CheckSubscriptionExpiryAsync(),
+            expiryCron,
+            new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
+        );
+
+        // Tự động Seed Dữ liệu Test
+        EduOps.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
+    }
 
     app.Run();
 }

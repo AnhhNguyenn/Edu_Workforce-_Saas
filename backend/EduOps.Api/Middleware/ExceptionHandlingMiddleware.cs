@@ -44,6 +44,11 @@ namespace EduOps.Api.Middleware
                 statusCode = customEx.StatusCode;
                 message = customEx.Message;
             }
+            else if (exception is UnauthorizedAccessException unauthEx)
+            {
+                statusCode = HttpStatusCode.Unauthorized;
+                message = unauthEx.Message;
+            }
 
             context.Response.StatusCode = (int)statusCode;
 

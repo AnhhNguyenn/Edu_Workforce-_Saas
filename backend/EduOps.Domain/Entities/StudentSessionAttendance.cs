@@ -9,9 +9,10 @@ namespace EduOps.Domain.Entities
         public Guid SessionId { get; set; }
         public Guid StudentId { get; set; }
         public bool IsPresent { get; set; }
-        
-        public AttendanceStatus Status { get; set; } = AttendanceStatus.PRESENT;
-        
+
+        public Guid? StatusId { get; set; }
+        public virtual AttendanceStatus? Status { get; set; }
+
         public string? Note { get; set; }
     }
 }

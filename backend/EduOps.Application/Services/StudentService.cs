@@ -25,12 +25,12 @@ namespace EduOps.Application.Services
         public async Task<PagedResult<StudentListResponseDto>> GetStudentsAsync(Guid organizationId, GetStudentListQueryDto query)
         {
             var repo = _unitOfWork.Repository<Student>();
-            
-            System.Linq.Expressions.Expression<Func<Student, bool>> predicate = s => 
-                s.OrganizationId == organizationId &&
-                (string.IsNullOrEmpty(query.SearchKeyword) || s.FullName.ToLower().Contains(query.SearchKeyword.ToLower()) || s.StudentCode.ToLower().Contains(query.SearchKeyword.ToLower()) || (s.ParentPhone != null && s.ParentPhone.ToLower().Contains(query.SearchKeyword.ToLower())));
 
-            var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize);
+            System.Linq.Expressions.Expression<Func<Student, bool>> predicate = s =>
+                s.OrganizationId == organizationId &&
+                (string.IsNullOrEmpty(query.SearchKeyword) || s.FullName.ToLower().Contains(query.SearchKeyword.ToLower()) || s.StudentCode.ToLower().Contains(query.SearchKeyword.ToLower()) || (s.StudentDetail != null && s.StudentDetail.ParentPhone != null && s.StudentDetail.ParentPhone.ToLower().Contains(query.SearchKeyword.ToLower())));
+
+            var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Status");
 
             return new PagedResult<StudentListResponseDto>
             {
@@ -43,37 +43,41 @@ namespace EduOps.Application.Services
 
         public async Task<StudentDetailResponseDto> GetByIdAsync(Guid id, Guid organizationId)
         {
-            var student = await _unitOfWork.Repository<Student>().GetByIdAsync(id);
+            var student = await _unitOfWork.Repository<Student>().FirstOrDefaultAsync(s => s.Id == id, includeProperties: "Status,StudentDetail");
             if (student == null || student.OrganizationId != organizationId)
                 throw new NotFoundException("Student", id);
-                
+
             return student.ToDetailResponseDto();
         }
 
         public async Task<StudentDetailResponseDto> CreateAsync(Guid organizationId, CreateStudentRequestDto request)
         {
             var repo = _unitOfWork.Repository<Student>();
-            
+
             request.StudentCode = request.StudentCode.Trim();
             request.FullName = request.FullName.Trim();
             if (request.ParentName != null) request.ParentName = request.ParentName.Trim();
             if (request.ParentPhone != null) request.ParentPhone = request.ParentPhone.Trim();
             if (request.ParentEmail != null) request.ParentEmail = request.ParentEmail.Trim();
 
-            var existing = await repo.FindAsync(s => s.OrganizationId == organizationId && s.StudentCode == request.StudentCode, ignoreQueryFilters: true);
-            if (existing.Any())
+            var existing = await repo.AnyAsync(s => s.OrganizationId == organizationId && s.StudentCode == request.StudentCode, ignoreQueryFilters: true);
+            if (existing)
                 throw new BadRequestException("Mã học viên đã tồn tại trong hệ thống (bao gồm cả học viên đã nghỉ học).");
 
+            var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "ACTIVE");
             var student = new Student
             {
                 OrganizationId = organizationId,
                 FullName = request.FullName,
                 StudentCode = request.StudentCode,
-                BirthDate = request.BirthDate,
-                ParentName = request.ParentName ?? "",
-                ParentPhone = request.ParentPhone ?? "",
-                ParentEmail = request.ParentEmail ?? "",
-                Status = request.Status ?? AccountStatus.ACTIVE
+                StudentDetail = new EduOps.Domain.Entities.StudentDetail
+                {
+                    BirthDate = request.BirthDate,
+                    ParentName = request.ParentName ?? "",
+                    ParentPhone = request.ParentPhone ?? "",
+                    ParentEmail = request.ParentEmail ?? ""
+                },
+                StatusId = activeStatus?.Id
             };
 
             await repo.AddAsync(student);
@@ -95,15 +99,13 @@ namespace EduOps.Application.Services
             if (request.ParentEmail != null) request.ParentEmail = request.ParentEmail.Trim();
             student.FullName = request.FullName;
             // StudentCode is immutable, omitted from update
-            student.BirthDate = request.BirthDate;
-            student.ParentName = request.ParentName ?? "";
-            student.ParentPhone = request.ParentPhone ?? "";
-            student.ParentEmail = request.ParentEmail ?? "";
-            
-            if (request.Status.HasValue)
-            {
-                student.Status = request.Status.Value;
-            }
+            if (student.StudentDetail == null) student.StudentDetail = new EduOps.Domain.Entities.StudentDetail();
+            student.StudentDetail.BirthDate = request.BirthDate;
+            student.StudentDetail.ParentName = request.ParentName ?? "";
+            student.StudentDetail.ParentPhone = request.ParentPhone ?? "";
+            student.StudentDetail.ParentEmail = request.ParentEmail ?? "";
+
+            // student.Status = request.Status;
 
             repo.Update(student);
             await _unitOfWork.CommitAsync();
@@ -117,7 +119,8 @@ namespace EduOps.Application.Services
                 throw new NotFoundException("Student", id);
 
             student.DeletedAt = DateTime.UtcNow;
-            student.Status = AccountStatus.INACTIVE;
+            var inactiveStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "INACTIVE");
+            student.StatusId = inactiveStatus?.Id;
             repo.Update(student);
             await _unitOfWork.CommitAsync();
         }
