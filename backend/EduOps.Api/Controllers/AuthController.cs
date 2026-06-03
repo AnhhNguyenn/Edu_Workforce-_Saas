@@ -1,10 +1,10 @@
 using System;
 using System.Threading.Tasks;
+using System.Linq;
 using EduOps.Application.DTOs.Auth;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace EduOps.Api.Controllers
@@ -27,6 +27,13 @@ namespace EduOps.Api.Controllers
         public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
         {
             var result = await _authService.LoginAsync(request);
+            return Ok(result);
+        }
+
+        [HttpPost("verify-2fa")]
+        public async Task<IActionResult> Verify2FA([FromBody] Verify2FARequestDto request)
+        {
+            var result = await _authService.Verify2FAAsync(request);
             return Ok(result);
         }
 

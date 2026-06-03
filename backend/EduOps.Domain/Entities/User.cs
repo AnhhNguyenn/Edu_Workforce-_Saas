@@ -28,5 +28,9 @@ namespace EduOps.Domain.Entities
 
         public string? ResetPasswordToken { get; set; }
         public DateTime? ResetPasswordTokenExpiryTime { get; set; }
+
+        public bool TwoFactorEnabled { get; set; } = false;
+        public string? TwoFactorCode { get; set; }
+        public DateTime? TwoFactorCodeExpiryTime { get; set; }
     }
 }

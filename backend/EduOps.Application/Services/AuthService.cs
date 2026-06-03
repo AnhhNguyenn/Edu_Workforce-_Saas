@@ -80,8 +80,6 @@ namespace EduOps.Application.Services
                     throw new BadRequestException("Trung tâm của bạn đã bị đình chỉ hoạt động. Vui lòng liên hệ quản trị viên hệ thống.");
                 if (org.Status?.Code == "INACTIVE")
                     throw new BadRequestException("Trung tâm của bạn đã ngừng hoạt động.");
-                if (org.SubscriptionEnd < DateTime.UtcNow)
-                    throw new BadRequestException("Gói cước của trung tâm đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng.");
             }
 
             // Auto-Unlock nếu đã hết thời gian khóa
@@ -99,6 +97,26 @@ namespace EduOps.Application.Services
                 throw new BadRequestException(lockMessage);
             }
 
+            if (user.TwoFactorEnabled)
+            {
+                var otp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+                user.TwoFactorCode = otp;
+                user.TwoFactorCodeExpiryTime = DateTime.UtcNow.AddMinutes(5);
+                userRepository.Update(user);
+                await _unitOfWork.CommitAsync();
+
+                var emailBody = $"Mã xác nhận (OTP) 2FA của bạn là: {otp}\nMã này có hiệu lực trong 5 phút.";
+                await _emailService.SendEmailAsync(user.Email, "Xác thực 2 lớp (2FA)", emailBody);
+
+                var tempToken = GenerateTempToken(user.Id);
+
+                return new LoginResponseDto
+                {
+                    Requires2FA = true,
+                    TempToken = tempToken
+                };
+            }
+
             var userDto = user.ToDetailResponseDto();
 
             var accessToken = GenerateJwtToken(user);
@@ -113,6 +131,50 @@ namespace EduOps.Application.Services
 
             return new LoginResponseDto
             {
+                Requires2FA = false,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                User = userDto
+            };
+        }
+
+        public async Task<LoginResponseDto> Verify2FAAsync(Verify2FARequestDto request)
+        {
+            var principal = GetPrincipalFromExpiredToken(request.TempToken);
+            var isTempToken = principal?.FindFirstValue("TempToken");
+            if (isTempToken != "true") throw new BadRequestException("Invalid token.");
+
+            var userIdString = principal?.FindFirstValue(ClaimTypes.NameIdentifier) ?? principal?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            if (!Guid.TryParse(userIdString, out Guid userId))
+            {
+                throw new BadRequestException("Invalid token payload");
+            }
+
+            var userRepository = _unitOfWork.Repository<User>();
+            var user = await userRepository.FirstOrDefaultAsync(u => u.Id == userId, ignoreQueryFilters: true, includeProperties: "Status,Role");
+
+            if (user == null || user.TwoFactorCode != request.Code || user.TwoFactorCodeExpiryTime <= DateTime.UtcNow)
+            {
+                throw new BadRequestException("Mã xác nhận 2FA không hợp lệ hoặc đã hết hạn.");
+            }
+
+            user.TwoFactorCode = null;
+            user.TwoFactorCodeExpiryTime = null;
+
+            var userDto = user.ToDetailResponseDto();
+            var accessToken = GenerateJwtToken(user);
+            var refreshToken = GenerateRefreshToken();
+
+            user.RefreshToken = refreshToken;
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+            user.LastLoginAt = DateTime.UtcNow;
+
+            userRepository.Update(user);
+            await _unitOfWork.CommitAsync();
+
+            return new LoginResponseDto
+            {
+                Requires2FA = false,
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
                 User = userDto
@@ -161,8 +223,6 @@ namespace EduOps.Application.Services
                     throw new BadRequestException("Trung tâm của bạn đã bị đình chỉ hoạt động. Vui lòng liên hệ quản trị viên hệ thống.");
                 if (org.Status?.Code == "INACTIVE")
                     throw new BadRequestException("Trung tâm của bạn đã ngừng hoạt động.");
-                if (org.SubscriptionEnd < DateTime.UtcNow)
-                    throw new BadRequestException("Gói cước của trung tâm đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng.");
             }
 
             // Auto-Unlock nếu đã hết thời gian khóa
@@ -206,7 +266,6 @@ namespace EduOps.Application.Services
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
                 new Claim(ClaimTypes.Role, user.Role?.Code ?? string.Empty),
-                new Claim("role", user.Role?.Code ?? string.Empty),
                 new Claim("OrganizationId", user.OrganizationId?.ToString() ?? string.Empty)
             };
 
@@ -216,6 +275,30 @@ namespace EduOps.Application.Services
                 Expires = DateTime.UtcNow.AddMinutes(double.Parse(jwtSettings["AccessTokenExpirationMinutes"]!)),
                 Issuer = jwtSettings["Issuer"],
                 Audience = jwtSettings["Audience"],
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+
+            return tokenHandler.WriteToken(token);
+        }
+
+        private string GenerateTempToken(Guid userId)
+        {
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var key = Encoding.ASCII.GetBytes(jwtSettings["Secret"]!);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+                new Claim("TempToken", "true")
+            };
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.UtcNow.AddMinutes(5),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 

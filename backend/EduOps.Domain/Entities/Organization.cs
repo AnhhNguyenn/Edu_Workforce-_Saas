@@ -22,6 +22,8 @@ namespace EduOps.Domain.Entities
         public DateTime? SubscriptionStart { get; set; }
         public DateTime? SubscriptionEnd { get; set; }
 
+        public int? CustomTrialMaxUsers { get; set; }
+
         public virtual ICollection<School> Schools { get; set; } = new List<School>();
         public virtual ICollection<User> Users { get; set; } = new List<User>();
     }

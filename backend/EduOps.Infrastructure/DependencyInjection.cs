@@ -29,6 +29,15 @@ namespace EduOps.Infrastructure
             // Email & Notifications
             services.AddTransient<IEmailService, MockEmailService>();
 
+            // Redis Distributed Cache
+            var redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = redisConnectionString;
+                options.InstanceName = "EduOps_";
+            });
+            services.AddScoped<ICacheService, EduOps.Infrastructure.Services.RedisCacheService>();
+
             // Cloudflare R2 (S3 API)
             services.AddScoped<IStorageService>(provider =>
                 new CloudflareR2Service(

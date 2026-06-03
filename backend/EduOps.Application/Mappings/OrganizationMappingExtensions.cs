@@ -17,7 +17,8 @@ namespace EduOps.Application.Mappings
                 MaxUsers = maxUsers,
                 CurrentUsers = currentUsers,
                 StatusId = org.StatusId,
-                StatusCode = org.Status?.Code ?? string.Empty
+                StatusCode = org.Status?.Code ?? string.Empty,
+                SubscriptionStatus = org.SubscriptionStatus
             };
         }
 
@@ -37,8 +38,10 @@ namespace EduOps.Application.Mappings
                 CurrentUsers = currentUsers,
                 StatusId = org.StatusId,
                 StatusCode = org.Status?.Code ?? string.Empty,
+                SubscriptionStatus = org.SubscriptionStatus,
                 SubscriptionStart = org.SubscriptionStart,
-                SubscriptionEnd = org.SubscriptionEnd
+                SubscriptionEnd = org.SubscriptionEnd,
+                CustomTrialMaxUsers = org.CustomTrialMaxUsers
             };
         }
     }

@@ -15,5 +15,6 @@ namespace EduOps.Application.Interfaces
         Task UpdateRoleAsync(Guid id, UpdateRoleRequestDto request, Guid? organizationId);
         Task DeleteRoleAsync(Guid id, Guid? organizationId);
         Task<IEnumerable<PermissionResponseDto>> GetAllPermissionsAsync();
+        Task AssignPermissionsToRoleAsync(Guid roleId, AssignPermissionsRequestDto request, Guid? organizationId);
     }
 }

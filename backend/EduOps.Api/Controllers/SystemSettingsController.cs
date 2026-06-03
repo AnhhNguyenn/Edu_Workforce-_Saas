@@ -40,5 +40,12 @@ namespace EduOps.Api.Controllers
             await _settingService.UpdateSettingAsync(key, request);
             return NoContent();
         }
+
+        [HttpGet("audit-logs")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<ActionResult<List<AuditLogResponseDto>>> GetAuditLogs()
+        {
+            return Ok(await _settingService.GetAuditLogsAsync());
+        }
     }
 }

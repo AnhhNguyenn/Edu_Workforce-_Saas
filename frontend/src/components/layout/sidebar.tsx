@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { LayoutDashboard, Building2, Users, CreditCard, LineChart, FileText, Settings, BookOpen, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, CreditCard, LineChart, Activity, Settings, Shield, BookOpen, LogOut } from 'lucide-react';
 import { cn } from '@/components/ui/stat-card';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -12,11 +12,13 @@ const SUPER_ADMIN_NAV = [
   { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/super-admin/dashboard' },
   { id: 'organizations', icon: Building2, label: 'Organizations', path: '/super-admin/organizations' },
   { id: 'admins', icon: Users, label: 'Admins', path: '/super-admin/admins' },
-  { id: 'subscriptions', icon: CreditCard, label: 'Subscriptions', path: '/super-admin/subscriptions' },
-  { section: 'THEO DÕI' },
-  { id: 'analytics', icon: LineChart, label: 'Analytics', path: '/super-admin/analytics' },
-  { id: 'audit-logs', icon: FileText, label: 'Audit Logs', path: '/super-admin/audit-logs', badge: '6' },
-  { id: 'settings', icon: Settings, label: 'Settings', path: '/super-admin/settings' }
+  { section: 'BÁO CÁO & TÀI CHÍNH' },
+  { id: 'subscriptions', icon: CreditCard, label: 'Gói dịch vụ (SaaS)', path: '/super-admin/subscriptions' },
+  { id: 'analytics', icon: LineChart, label: 'Thống kê tổng quan', path: '/super-admin/analytics' },
+  { section: 'HỆ THỐNG' },
+  { id: 'roles', icon: Shield, label: 'Phân quyền & Vai trò', path: '/super-admin/roles' },
+  { id: 'audit-logs', icon: Activity, label: 'Audit Logs', path: '/super-admin/audit-logs' },
+  { id: 'settings', icon: Settings, label: 'Cài đặt hệ thống', path: '/super-admin/settings' }
 ];
 
 export function Sidebar() {

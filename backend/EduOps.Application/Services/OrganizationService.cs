@@ -59,9 +59,26 @@ namespace EduOps.Application.Services
                 var userCounts = users.GroupBy(u => u.OrganizationId!.Value)
                                       .ToDictionary(g => g.Key, g => g.Count());
 
+                var trialMaxUserSetting = await _unitOfWork.Repository<SystemSetting>().FirstOrDefaultAsync(s => s.SettingKey == "DEFAULT_TRIAL_MAX_USERS");
+                int defaultTrialMaxUsers = 5;
+                if (trialMaxUserSetting != null && int.TryParse(trialMaxUserSetting.SettingValue, out int v)) defaultTrialMaxUsers = v;
+
                 var dtos = result.Items.Select(o => 
                 {
-                    int maxUsers = o.CurrentPlanId.HasValue && planDict.ContainsKey(o.CurrentPlanId.Value) ? planDict[o.CurrentPlanId.Value] : 0;
+                    int maxUsers = 0;
+                    if (o.SubscriptionStatus == "UNPAID" || o.SubscriptionStatus == "EXPIRED")
+                    {
+                        maxUsers = 0;
+                    }
+                    else if (o.SubscriptionStatus == "TRIAL")
+                    {
+                        maxUsers = o.CustomTrialMaxUsers ?? defaultTrialMaxUsers;
+                    }
+                    else
+                    {
+                        maxUsers = o.CurrentPlanId.HasValue && planDict.ContainsKey(o.CurrentPlanId.Value) ? planDict[o.CurrentPlanId.Value] : 0;
+                    }
+
                     int currentUsers = userCounts.ContainsKey(o.Id) ? userCounts[o.Id] : 0;
                     return o.ToListResponseDto(maxUsers, currentUsers);
                 }).ToList();
@@ -91,7 +108,19 @@ namespace EduOps.Application.Services
             }
 
             int maxUsers = 0;
-            if (org.CurrentPlanId.HasValue)
+            if (org.SubscriptionStatus == "UNPAID" || org.SubscriptionStatus == "EXPIRED")
+            {
+                maxUsers = 0;
+            }
+            else if (org.SubscriptionStatus == "TRIAL")
+            {
+                var trialMaxUserSetting = await _unitOfWork.Repository<SystemSetting>().FirstOrDefaultAsync(s => s.SettingKey == "DEFAULT_TRIAL_MAX_USERS");
+                int defaultTrialMaxUsers = 5;
+                if (trialMaxUserSetting != null && int.TryParse(trialMaxUserSetting.SettingValue, out int v)) defaultTrialMaxUsers = v;
+                
+                maxUsers = org.CustomTrialMaxUsers ?? defaultTrialMaxUsers;
+            }
+            else if (org.CurrentPlanId.HasValue)
             {
                 var plan = await _unitOfWork.Repository<SubscriptionPlan>().GetByIdAsync(org.CurrentPlanId.Value);
                 if (plan != null) maxUsers = plan.MaxUsers;
@@ -133,6 +162,13 @@ namespace EduOps.Application.Services
                     trialDays = configuredDays;
                 }
 
+                var enableTrialSetting = await _unitOfWork.Repository<SystemSetting>().FirstOrDefaultAsync(s => s.SettingKey == "ENABLE_TRIAL");
+                bool isTrialEnabled = true; // default
+                if (enableTrialSetting != null && bool.TryParse(enableTrialSetting.SettingValue, out bool val))
+                {
+                    isTrialEnabled = val;
+                }
+
                 var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "ACTIVE");
                 
                 var org = new Organization
@@ -145,12 +181,24 @@ namespace EduOps.Application.Services
                         Phone = request.Phone,
                         Address = request.Address
                     },
-                    CurrentPlanId = plan.Id,
                     StatusId = activeStatus?.Id,
-                    SubscriptionStatus = "TRIAL",
-                    SubscriptionStart = DateTime.UtcNow,
-                    SubscriptionEnd = DateTime.UtcNow.AddDays(trialDays)
+                    CustomTrialMaxUsers = request.CustomTrialMaxUsers
                 };
+
+                if (!isTrialEnabled || request.SkipTrial)
+                {
+                    org.SubscriptionStatus = "UNPAID";
+                    org.CurrentPlanId = plan.Id;
+                    org.SubscriptionStart = null;
+                    org.SubscriptionEnd = null;
+                }
+                else
+                {
+                    org.SubscriptionStatus = "TRIAL";
+                    org.CurrentPlanId = plan.Id;
+                    org.SubscriptionStart = DateTime.UtcNow;
+                    org.SubscriptionEnd = DateTime.UtcNow.AddDays(trialDays);
+                }
 
                 await repo.AddAsync(org);
                 await _unitOfWork.CommitAsync();
@@ -187,6 +235,11 @@ namespace EduOps.Application.Services
             org.OrganizationDetail.Email = request.Email;
             org.OrganizationDetail.Phone = request.Phone;
             org.OrganizationDetail.Address = request.Address;
+
+            if (_currentUserService.Role == "SUPER_ADMIN")
+            {
+                org.CustomTrialMaxUsers = request.CustomTrialMaxUsers;
+            }
 
             repo.Update(org);
             await _unitOfWork.CommitAsync();

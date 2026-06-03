@@ -15,5 +15,9 @@ namespace EduOps.Application.DTOs.Organization.Requests
         public string? Address { get; set; }
 
         public Guid PlanId { get; set; }
+
+        public bool SkipTrial { get; set; } = false;
+
+        public int? CustomTrialMaxUsers { get; set; }
     }
 }

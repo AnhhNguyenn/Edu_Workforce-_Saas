@@ -679,6 +679,9 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid?>("CurrentPlanId")
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("CustomTrialMaxUsers")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 

@@ -12,5 +12,6 @@ namespace EduOps.Application.DTOs.Organization.Requests
 
         public string? Address { get; set; }
 
+        public int? CustomTrialMaxUsers { get; set; }
     }
 }

@@ -6,10 +6,16 @@ using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
 using EduOps.Application.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace EduOps.Api.Filters
 {
+    public class CachedOrgStatus
+    {
+        public string? Status { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string? OrgStatus { get; set; }
+    }
+
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
     public class RequirePaidSubscriptionAttribute : ActionFilterAttribute, IAsyncActionFilter
     {
@@ -24,20 +30,21 @@ namespace EduOps.Api.Filters
 
             var currentUserService = context.HttpContext.RequestServices.GetService<ICurrentUserService>();
             var unitOfWork = context.HttpContext.RequestServices.GetService<IUnitOfWork>();
-            var cache = context.HttpContext.RequestServices.GetService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+            var cache = context.HttpContext.RequestServices.GetService<ICacheService>();
 
             var orgId = currentUserService?.OrganizationId;
             if (orgId.HasValue && orgId != Guid.Empty)
             {
                 var cacheKey = $"OrgSubscription_{orgId.Value}";
 
-                var cachedData = cache != null ? await cache.GetOrCreateAsync(cacheKey, async entry =>
+                var cachedData = cache != null ? await cache.GetAsync<CachedOrgStatus>(cacheKey) : null;
+                
+                if (cachedData == null)
                 {
-                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
-
                     var orgRepo = unitOfWork?.Repository<Organization>();
                     var org = orgRepo != null ? await orgRepo.FirstOrDefaultAsync(o => o.Id == orgId.Value, includeProperties: "Status") : null;
 
+                    cachedData = new CachedOrgStatus();
                     if (org != null)
                     {
                         bool isExpiredCheck = org.SubscriptionEnd.HasValue && org.SubscriptionEnd.Value < DateTime.UtcNow;
@@ -47,10 +54,16 @@ namespace EduOps.Api.Filters
                             orgRepo?.Update(org);
                             if (unitOfWork != null) await unitOfWork.CommitAsync();
                         }
-                        return (Status: org.SubscriptionStatus, EndDate: org.SubscriptionEnd, OrgStatus: org.Status?.Code);
+                        cachedData.Status = org.SubscriptionStatus;
+                        cachedData.EndDate = org.SubscriptionEnd;
+                        cachedData.OrgStatus = org.Status?.Code;
                     }
-                    return (Status: (string?)null, EndDate: (DateTime?)null, OrgStatus: (string?)null);
-                }) : (Status: (string?)null, EndDate: (DateTime?)null, OrgStatus: (string?)null);
+
+                    if (cache != null)
+                    {
+                        await cache.SetAsync(cacheKey, cachedData, TimeSpan.FromMinutes(5));
+                    }
+                }
 
                 if (cachedData.OrgStatus == "SUSPENDED" || cachedData.OrgStatus == "INACTIVE")
                 {
@@ -69,13 +82,13 @@ namespace EduOps.Api.Filters
                 {
                     bool isExpired = cachedData.EndDate.HasValue && cachedData.EndDate.Value < DateTime.UtcNow;
 
-                    // Nếu gói bị khóa hoặc hết hạn -> Chặn đứng
-                    if (isExpired || cachedData.Status == "LOCKED" || cachedData.Status == "EXPIRED")
+                    // Nếu gói bị khóa, hết hạn hoặc chưa thanh toán (tắt dùng thử) -> Chặn đứng
+                    if (isExpired || cachedData.Status == "LOCKED" || cachedData.Status == "EXPIRED" || cachedData.Status == "UNPAID")
                     {
                         context.Result = new ObjectResult(new
                         {
                             errorCode = "403_SUBSCRIPTION_REQUIRED",
-                            message = "Tài khoản của bạn đã bị khóa hoặc hết hạn. Vui lòng thanh toán nâng cấp gói cước để sử dụng tính năng này."
+                            message = "Tài khoản của bạn chưa mua gói, đã bị khóa hoặc hết hạn. Vui lòng thanh toán nâng cấp gói cước để sử dụng tính năng này."
                         })
                         {
                             StatusCode = 403

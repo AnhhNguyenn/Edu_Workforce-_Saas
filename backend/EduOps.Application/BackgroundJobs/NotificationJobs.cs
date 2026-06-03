@@ -65,8 +65,9 @@ namespace EduOps.Application.BackgroundJobs
             var userRepo = _unitOfWork.Repository<User>();
             var now = DateTime.UtcNow.Date;
 
-            // Tìm các Organization đang ACTIVE và có ngày hết hạn
-            var activeOrgs = await orgRepo.FindAsync(o => o.SubscriptionStatus == "ACTIVE" && o.SubscriptionEnd.HasValue);
+            // Tìm các Organization có SubscriptionEnd và trạng thái hợp lệ (ACTIVE, TRIAL, BASIC, PRO...)
+            // Không quét các gói UNPAID hoặc EXPIRED
+            var activeOrgs = await orgRepo.FindAsync(o => o.SubscriptionEnd.HasValue && o.SubscriptionStatus != "UNPAID" && o.SubscriptionStatus != "EXPIRED" && o.SubscriptionStatus != "INACTIVE" && o.SubscriptionStatus != "LOCKED");
 
             foreach (var org in activeOrgs)
             {

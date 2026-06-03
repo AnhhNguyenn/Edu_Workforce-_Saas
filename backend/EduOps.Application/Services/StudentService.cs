@@ -1,6 +1,9 @@
 using System;
+using System.IO;
 using System.Linq;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using ClosedXML.Excel;
 using EduOps.Application.DTOs;
 using EduOps.Application.DTOs.Academic.Students.Requests;
 using EduOps.Application.DTOs.Academic.Students.Responses;
@@ -123,6 +126,128 @@ namespace EduOps.Application.Services
             student.StatusId = inactiveStatus?.Id;
             repo.Update(student);
             await _unitOfWork.CommitAsync();
+        }
+
+        public async Task<byte[]> ExportToExcelAsync(Guid organizationId)
+        {
+            var students = await _unitOfWork.Repository<Student>().FindAsync(s => s.OrganizationId == organizationId, asNoTracking: true, includeProperties: "StudentDetail,Status");
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Students");
+
+            worksheet.Cell(1, 1).Value = "Mã học viên";
+            worksheet.Cell(1, 2).Value = "Họ và tên";
+            worksheet.Cell(1, 3).Value = "Ngày sinh";
+            worksheet.Cell(1, 4).Value = "Tên phụ huynh";
+            worksheet.Cell(1, 5).Value = "SĐT phụ huynh";
+            worksheet.Cell(1, 6).Value = "Email phụ huynh";
+            worksheet.Cell(1, 7).Value = "Trạng thái";
+
+            // Style headers
+            var headerRange = worksheet.Range("A1:G1");
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+
+            int row = 2;
+            foreach (var student in students)
+            {
+                worksheet.Cell(row, 1).Value = student.StudentCode;
+                worksheet.Cell(row, 2).Value = student.FullName;
+                worksheet.Cell(row, 3).Value = student.StudentDetail?.BirthDate?.ToString("dd/MM/yyyy") ?? "";
+                worksheet.Cell(row, 4).Value = student.StudentDetail?.ParentName ?? "";
+                worksheet.Cell(row, 5).Value = student.StudentDetail?.ParentPhone ?? "";
+                worksheet.Cell(row, 6).Value = student.StudentDetail?.ParentEmail ?? "";
+                worksheet.Cell(row, 7).Value = student.Status?.Name ?? "";
+                row++;
+            }
+
+            worksheet.Columns().AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        public async Task<StudentImportResultDto> ImportFromExcelAsync(Guid organizationId, Stream fileStream)
+        {
+            var result = new StudentImportResultDto();
+            using var workbook = new XLWorkbook(fileStream);
+            var worksheet = workbook.Worksheets.FirstOrDefault();
+
+            if (worksheet == null)
+            {
+                result.Errors.Add("File Excel không có sheet nào.");
+                return result;
+            }
+
+            var repo = _unitOfWork.Repository<Student>();
+            var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "ACTIVE");
+
+            // Row 1 is header
+            int totalRows = worksheet.LastRowUsed()?.RowNumber() ?? 0;
+            var studentsToAdd = new List<Student>();
+
+            for (int row = 2; row <= totalRows; row++)
+            {
+                try
+                {
+                    var studentCode = worksheet.Cell(row, 1).GetString().Trim();
+                    var fullName = worksheet.Cell(row, 2).GetString().Trim();
+                    
+                    if (string.IsNullOrEmpty(studentCode) || string.IsNullOrEmpty(fullName))
+                    {
+                        result.FailureCount++;
+                        result.Errors.Add($"Dòng {row}: Mã học viên và Họ tên là bắt buộc.");
+                        continue;
+                    }
+
+                    var exists = await repo.AnyAsync(s => s.OrganizationId == organizationId && s.StudentCode == studentCode, ignoreQueryFilters: true);
+                    if (exists || studentsToAdd.Any(s => s.StudentCode == studentCode))
+                    {
+                        result.FailureCount++;
+                        result.Errors.Add($"Dòng {row}: Mã học viên '{studentCode}' đã tồn tại.");
+                        continue;
+                    }
+
+                    var birthDateStr = worksheet.Cell(row, 3).GetString().Trim();
+                    DateTime? birthDate = null;
+                    if (DateTime.TryParseExact(birthDateStr, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out var parsedDate))
+                    {
+                        birthDate = parsedDate;
+                    }
+
+                    var student = new Student
+                    {
+                        OrganizationId = organizationId,
+                        StudentCode = studentCode,
+                        FullName = fullName,
+                        StatusId = activeStatus?.Id,
+                        StudentDetail = new EduOps.Domain.Entities.StudentDetail
+                        {
+                            BirthDate = birthDate,
+                            ParentName = worksheet.Cell(row, 4).GetString().Trim(),
+                            ParentPhone = worksheet.Cell(row, 5).GetString().Trim(),
+                            ParentEmail = worksheet.Cell(row, 6).GetString().Trim()
+                        }
+                    };
+
+                    studentsToAdd.Add(student);
+                    result.SuccessCount++;
+                }
+                catch (Exception ex)
+                {
+                    result.FailureCount++;
+                    result.Errors.Add($"Dòng {row}: Lỗi xử lý dữ liệu - {ex.Message}");
+                }
+            }
+
+            if (studentsToAdd.Any())
+            {
+                await repo.AddRangeAsync(studentsToAdd);
+                await _unitOfWork.CommitAsync();
+            }
+
+            return result;
         }
     }
 }

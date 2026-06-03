@@ -127,5 +127,27 @@ namespace EduOps.Application.Services
                 );
             }
         }
+
+        public async Task<List<AuditLogResponseDto>> GetAuditLogsAsync()
+        {
+            if (_currentUserService.Role != "SUPER_ADMIN")
+                throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới được xem Audit Logs.");
+
+            var logs = await _unitOfWork.Repository<AuditLog>().FindAsync(x => true, ignoreQueryFilters: true);
+            // Sort by CreatedAt Desc and limit to 100 for now to prevent massive payloads
+            return logs.OrderByDescending(x => x.CreatedAt).Take(100).Select(x => new AuditLogResponseDto
+            {
+                Id = x.Id,
+                UserId = x.UserId,
+                Action = x.Action,
+                EntityType = x.EntityType,
+                EntityId = x.EntityId,
+                OldData = x.OldData,
+                NewData = x.NewData,
+                IpAddress = x.IpAddress,
+                UserAgent = x.UserAgent,
+                CreatedAt = x.CreatedAt
+            }).ToList();
+        }
     }
 }

@@ -82,5 +82,14 @@ namespace EduOps.Api.Controllers
             await _roleService.DeleteRoleAsync(id, orgId);
             return NoContent();
         }
+
+        [HttpPost("{id}/permissions")]
+        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        public async Task<IActionResult> AssignPermissions(Guid id, [FromBody] AssignPermissionsRequestDto request)
+        {
+            var orgId = GetOrganizationId();
+            await _roleService.AssignPermissionsToRoleAsync(id, request, orgId);
+            return NoContent();
+        }
     }
 }

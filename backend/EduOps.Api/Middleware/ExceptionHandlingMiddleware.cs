@@ -49,6 +49,11 @@ namespace EduOps.Api.Middleware
                 statusCode = HttpStatusCode.Unauthorized;
                 message = unauthEx.Message;
             }
+            else if (exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+            {
+                statusCode = HttpStatusCode.Conflict;
+                message = "Dữ liệu đã bị thay đổi bởi người dùng khác. Vui lòng tải lại trang và thử lại.";
+            }
 
             context.Response.StatusCode = (int)statusCode;
 

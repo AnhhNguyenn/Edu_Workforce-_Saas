@@ -138,7 +138,7 @@ namespace EduOps.Application.Services
 
         public async Task<ReportDto> GetReportBySessionIdAsync(Guid sessionId, Guid organizationId, Guid userId, string role)
         {
-            var report = await _unitOfWork.Repository<Report>().FirstOrDefaultAsync(r => r.SessionId == sessionId);
+            var report = await _unitOfWork.Repository<Report>().FirstOrDefaultAsync(r => r.SessionId == sessionId, includeProperties: "Status,ReportDetail");
             if (report == null || report.OrganizationId != organizationId) throw new NotFoundException("Report", sessionId);
 
             if (role != "CENTER_ADMIN" && report.TeacherId != userId && report.AssistantId != userId)

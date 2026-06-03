@@ -14,27 +14,40 @@ namespace EduOps.Application.Services
     public class RoleService : IRoleService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICacheService _cache;
         private readonly string[] _systemRoles = { "SUPER_ADMIN", "CENTER_ADMIN", "TEACHER", "ASSISTANT" };
 
-        public RoleService(IUnitOfWork unitOfWork)
+        public RoleService(IUnitOfWork unitOfWork, ICacheService cache)
         {
             _unitOfWork = unitOfWork;
+            _cache = cache;
         }
 
         public async Task<IEnumerable<PermissionResponseDto>> GetAllPermissionsAsync()
         {
+            var cacheKey = "AllPermissions";
+            var cached = await _cache.GetAsync<IEnumerable<PermissionResponseDto>>(cacheKey);
+            if (cached != null) return cached;
+
             var permissions = await _unitOfWork.Repository<Permission>().GetAllAsync(asNoTracking: true);
-            return permissions.Select(p => new PermissionResponseDto
+            var result = permissions.Select(p => new PermissionResponseDto
             {
                 Id = p.Id,
                 Module = p.Module,
                 Action = p.Action,
                 Description = p.Description
             }).OrderBy(p => p.Module).ThenBy(p => p.Action).ToList();
+
+            await _cache.SetAsync(cacheKey, result, TimeSpan.FromHours(12));
+            return result;
         }
 
         public async Task<IEnumerable<RoleResponseDto>> GetRolesAsync(Guid? organizationId)
         {
+            var cacheKey = $"Roles_{organizationId?.ToString() ?? "System"}";
+            var cached = await _cache.GetAsync<IEnumerable<RoleResponseDto>>(cacheKey);
+            if (cached != null) return cached;
+
             var repo = _unitOfWork.Repository<Role>();
             var roles = await repo.FindAsync(
                 r => r.DeletedAt == null && (r.OrganizationId == organizationId || r.OrganizationId == null),
@@ -42,7 +55,9 @@ namespace EduOps.Application.Services
                 includeProperties: "RolePermissions,RolePermissions.Permission"
             );
 
-            return roles.Select(MapToDto).OrderByDescending(r => r.IsSystemRole).ThenBy(r => r.Name).ToList();
+            var result = roles.Select(MapToDto).OrderByDescending(r => r.IsSystemRole).ThenBy(r => r.Name).ToList();
+            await _cache.SetAsync(cacheKey, result, TimeSpan.FromHours(1));
+            return result;
         }
 
         public async Task<RoleResponseDto> GetRoleByIdAsync(Guid id, Guid? organizationId)
@@ -91,6 +106,8 @@ namespace EduOps.Application.Services
 
             await _unitOfWork.CommitAsync();
 
+            await _cache.RemoveAsync($"Roles_{organizationId?.ToString() ?? "System"}");
+
             // Fetch to return with permissions
             return await GetRoleByIdAsync(newRole.Id, organizationId);
         }
@@ -135,6 +152,8 @@ namespace EduOps.Application.Services
 
             repo.Update(role);
             await _unitOfWork.CommitAsync();
+
+            await _cache.RemoveAsync($"Roles_{organizationId?.ToString() ?? "System"}");
         }
 
         public async Task DeleteRoleAsync(Guid id, Guid? organizationId)
@@ -158,6 +177,8 @@ namespace EduOps.Application.Services
             role.DeletedAt = DateTime.UtcNow;
             repo.Update(role);
             await _unitOfWork.CommitAsync();
+
+            await _cache.RemoveAsync($"Roles_{organizationId?.ToString() ?? "System"}");
         }
 
         private RoleResponseDto MapToDto(Role role)
@@ -180,6 +201,50 @@ namespace EduOps.Application.Services
                     Description = rp.Permission.Description
                 }).ToList() ?? new List<PermissionResponseDto>()
             };
+        }
+
+        public async Task AssignPermissionsToRoleAsync(Guid roleId, EduOps.Application.DTOs.Auth.Requests.AssignPermissionsRequestDto request, Guid? organizationId)
+        {
+            var repo = _unitOfWork.Repository<Role>();
+            var role = await repo.FirstOrDefaultAsync(
+                r => r.Id == roleId && r.DeletedAt == null,
+                includeProperties: "RolePermissions"
+            );
+
+            if (role == null) throw new NotFoundException("Role", roleId);
+
+            // Chỉ System Admin mới set quyền cho System Roles
+            if (_systemRoles.Contains(role.Code) && organizationId != null)
+                throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới có quyền phân quyền cho System Role.");
+
+            // Verify tất cả PermissionId gửi lên tồn tại trong DB
+            if (request.PermissionIds.Any())
+            {
+                var validPermIds = (await _unitOfWork.Repository<Permission>().GetAllAsync(asNoTracking: true))
+                    .Select(p => p.Id).ToHashSet();
+
+                var invalidIds = request.PermissionIds.Where(id => !validPermIds.Contains(id)).ToList();
+                if (invalidIds.Any())
+                    throw new BadRequestException($"Permission ID không tồn tại: {string.Join(", ", invalidIds)}");
+            }
+
+            // Xóa quyền cũ, gán quyền mới
+            _unitOfWork.Repository<RolePermission>().RemoveRange(role.RolePermissions);
+
+            if (request.PermissionIds.Any())
+            {
+                var newPermissions = request.PermissionIds.Distinct().Select(pId => new RolePermission
+                {
+                    RoleId = role.Id,
+                    PermissionId = pId
+                });
+                await _unitOfWork.Repository<RolePermission>().AddRangeAsync(newPermissions);
+            }
+
+            repo.Update(role);
+            await _unitOfWork.CommitAsync();
+
+            await _cache.RemoveAsync($"Roles_{organizationId?.ToString() ?? "System"}");
         }
     }
 }

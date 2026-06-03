@@ -12,5 +12,6 @@ namespace EduOps.Application.Interfaces
         Task<string?> GetSettingValueAsync(string key);
         Task<bool> IsFeatureEnabledAsync(string featureKey);
         Task UpdateSettingAsync(string key, SystemSettingUpdateRequestDto request);
+        Task<List<AuditLogResponseDto>> GetAuditLogsAsync();
     }
 }

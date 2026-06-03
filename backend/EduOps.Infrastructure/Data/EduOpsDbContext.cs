@@ -84,6 +84,12 @@ namespace EduOps.Infrastructure.Data
             // BẮT BUỘC LỌC GLOBAL: Soft Delete & Multi-Tenant
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
+                // Cấu hình Optimistic Concurrency Token (PostgreSQL xmin)
+                if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+                {
+                    modelBuilder.Entity(entityType.ClrType).UseXminAsConcurrencyToken();
+                }
+
                 // Soft Delete
                 if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
                 {
@@ -167,28 +173,83 @@ namespace EduOps.Infrastructure.Data
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+            OnBeforeSaveChanges();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void OnBeforeSaveChanges()
+        {
+            var userId = _currentUserService.UserId;
+            
+            // Lọc ra các entry có thay đổi (bỏ qua AuditLog để tránh lặp vô tận)
+            var entries = ChangeTracker.Entries().Where(e => 
+                e.Entity is not AuditLog && 
+                (e.State == EntityState.Added || e.State == EntityState.Modified || e.State == EntityState.Deleted)).ToList();
+
+            foreach (var entry in entries)
             {
-                switch (entry.State)
+                // 1. Soft Delete & Base Fields Handling
+                if (entry.Entity is BaseEntity baseEntity)
                 {
-                    case EntityState.Added:
-                        entry.Entity.CreatedAt = DateTime.UtcNow;
-                        if (entry.Entity is TenantEntity tenantEntity && tenantEntity.OrganizationId == null)
+                    switch (entry.State)
+                    {
+                        case EntityState.Added:
+                            baseEntity.CreatedAt = DateTime.UtcNow;
+                            if (baseEntity is TenantEntity tenantEntity && tenantEntity.OrganizationId == null)
+                            {
+                                tenantEntity.OrganizationId = _currentUserService.OrganizationId;
+                            }
+                            break;
+                        case EntityState.Modified:
+                            baseEntity.UpdatedAt = DateTime.UtcNow;
+                            break;
+                        case EntityState.Deleted:
+                            entry.State = EntityState.Modified;
+                            baseEntity.DeletedAt = DateTime.UtcNow;
+                            break;
+                    }
+                }
+
+                // 2. Tự động ghi Audit Log
+                if (userId != Guid.Empty && entry.Entity is BaseEntity entityWithId)
+                {
+                    var action = entry.State == EntityState.Added ? "CREATE" : (entityWithId.DeletedAt != null ? "DELETE" : "UPDATE");
+
+                    var auditLog = new AuditLog
+                    {
+                        UserId = userId,
+                        OrganizationId = (entry.Entity as TenantEntity)?.OrganizationId,
+                        EntityType = entry.Entity.GetType().Name,
+                        EntityId = entityWithId.Id,
+                        Action = action,
+                        IpAddress = _currentUserService.IpAddress,
+                        UserAgent = _currentUserService.UserAgent,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    if (action == "UPDATE" || action == "DELETE")
+                    {
+                        var originalValues = new System.Collections.Generic.Dictionary<string, object?>();
+                        foreach (var prop in entry.OriginalValues.Properties)
                         {
-                            tenantEntity.OrganizationId = _currentUserService.OrganizationId;
+                            originalValues[prop.Name] = entry.OriginalValues[prop];
                         }
-                        break;
-                    case EntityState.Modified:
-                        entry.Entity.UpdatedAt = DateTime.UtcNow;
-                        break;
-                    case EntityState.Deleted:
-                        entry.State = EntityState.Modified;
-                        entry.Entity.DeletedAt = DateTime.UtcNow;
-                        break;
+                        auditLog.OldData = System.Text.Json.JsonSerializer.Serialize(originalValues);
+                    }
+
+                    if (action == "CREATE" || action == "UPDATE")
+                    {
+                        var currentValues = new System.Collections.Generic.Dictionary<string, object?>();
+                        foreach (var prop in entry.CurrentValues.Properties)
+                        {
+                            currentValues[prop.Name] = entry.CurrentValues[prop];
+                        }
+                        auditLog.NewData = System.Text.Json.JsonSerializer.Serialize(currentValues);
+                    }
+
+                    AuditLogs.Add(auditLog);
                 }
             }
-
-            return base.SaveChangesAsync(cancellationToken);
         }
 
         private static System.Linq.Expressions.LambdaExpression ConvertFilterExpression<TInterface>(

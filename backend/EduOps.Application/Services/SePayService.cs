@@ -6,7 +6,6 @@ using EduOps.Application.Interfaces;
 using EduOps.Domain.Entities;
 using EduOps.Domain.Enums;
 using EduOps.Domain.Interfaces;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace EduOps.Application.Services
 {
@@ -14,9 +13,9 @@ namespace EduOps.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICustomLogger _logger;
-        private readonly IMemoryCache _cache;
+        private readonly ICacheService _cache;
 
-        public SePayService(IUnitOfWork unitOfWork, ICustomLogger logger, IMemoryCache cache)
+        public SePayService(IUnitOfWork unitOfWork, ICustomLogger logger, ICacheService cache)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -118,7 +117,7 @@ namespace EduOps.Application.Services
                         _unitOfWork.Repository<Organization>().Update(org);
 
                         // Bước 6: Xóa Cache RAM để khách hàng dùng được phần mềm ngay lập tức (0.001s)
-                        _cache.Remove($"OrgSubscription_{org.Id}");
+                        await _cache.RemoveAsync($"OrgSubscription_{org.Id}");
                     }
                 }
 

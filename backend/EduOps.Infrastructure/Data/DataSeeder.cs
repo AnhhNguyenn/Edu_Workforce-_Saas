@@ -166,7 +166,9 @@ namespace EduOps.Infrastructure.Data
                     new SystemSetting { SettingKey = "PAYMENT_BANK_NAME", SettingValue = "BIDV", Description = "Tên ngân hàng nhận tiền", IsPublic = true },
                     new SystemSetting { SettingKey = "DAILY_REMINDER_CRON", SettingValue = "0 21 * * *", Description = "Lịch chạy Job thông báo (Cron Expression)", IsPublic = false },
                     new SystemSetting { SettingKey = "SUBSCRIPTION_EXPIRY_CRON", SettingValue = "0 8 * * *", Description = "Lịch chạy Job kiểm tra gói hạn (Cron Expression)", IsPublic = false },
-                    new SystemSetting { SettingKey = "DEFAULT_TRIAL_DAYS", SettingValue = "14", Description = "Số ngày dùng thử mặc định cho Trung tâm mới", IsPublic = false }
+                    new SystemSetting { SettingKey = "DEFAULT_TRIAL_DAYS", SettingValue = "14", Description = "Số ngày dùng thử mặc định cho Trung tâm mới", IsPublic = false },
+                    new SystemSetting { SettingKey = "ENABLE_TRIAL", SettingValue = "true", Description = "Bật/Tắt chế độ dùng thử cho Trung tâm mới", IsPublic = true },
+                    new SystemSetting { SettingKey = "DEFAULT_TRIAL_MAX_USERS", SettingValue = "5", Description = "Số lượng giáo viên/nhân sự tối đa trong gói dùng thử", IsPublic = true }
                 );
             }
 

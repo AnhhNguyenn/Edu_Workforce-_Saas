@@ -12,7 +12,7 @@ namespace EduOps.Api.Controllers
 {
     [Route("api/classes")]
     [ApiController]
-    [Authorize(Roles = "CENTER_ADMIN,TEACHER")]
+    [Authorize]
     [RequirePaidSubscription]
     public class ClassesController : ControllerBase
     {
@@ -31,6 +31,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Classes", "View")]
         public async Task<IActionResult> Get([FromQuery] GetClassListQueryDto query)
         {
             Guid? teacherId = null;
@@ -45,6 +46,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission("Classes", "View")]
         public async Task<IActionResult> GetById(Guid id)
         {
             Guid? teacherId = null;
@@ -59,7 +61,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "CENTER_ADMIN")]
+        [RequirePermission("Classes", "Create")]
         public async Task<IActionResult> Create([FromBody] CreateClassRequestDto request)
         {
             var result = await _classService.CreateAsync(GetOrganizationId(), request);
@@ -67,7 +69,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "CENTER_ADMIN")]
+        [RequirePermission("Classes", "Update")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateClassRequestDto request)
         {
             await _classService.UpdateAsync(id, GetOrganizationId(), request);
@@ -75,7 +77,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "CENTER_ADMIN")]
+        [RequirePermission("Classes", "Delete")]
         public async Task<IActionResult> Delete(Guid id)
         {
             await _classService.DeleteAsync(id, GetOrganizationId());

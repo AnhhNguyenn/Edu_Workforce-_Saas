@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Calendar, ClipboardCheck, BookOpen, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, ClipboardCheck, BookOpen, Settings, GraduationCap } from 'lucide-react';
 import { cn } from '@/components/ui/stat-card';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -10,6 +10,7 @@ const CENTER_ADMIN_NAV = [
   { section: 'VẬN HÀNH TRUNG TÂM' },
   { id: 'dashboard', icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/classes/dashboard' }, // Giả định path hoặc sửa lại
   { id: 'classes', icon: BookOpen, label: 'Lớp học', path: '/classes' },
+  { id: 'students', icon: GraduationCap, label: 'Học sinh', path: '/students' },
   { id: 'schedules', icon: Calendar, label: 'Lịch giảng dạy', path: '/schedules' },
   { id: 'teachers', icon: Users, label: 'Giáo viên', path: '/teachers' },
   { section: 'BÁO CÁO & CÀI ĐẶT' },
@@ -22,6 +23,7 @@ const NAV = [
   { section: 'VẬN HÀNH TRUNG TÂM' },
   { id: 'dashboard', icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/dashboard' },
   { id: 'classes', icon: BookOpen, label: 'Lớp học', path: '/classes' },
+  { id: 'students', icon: GraduationCap, label: 'Học sinh', path: '/students' },
   { id: 'schedules', icon: Calendar, label: 'Lịch giảng dạy', path: '/schedules' },
   { id: 'teachers', icon: Users, label: 'Giáo viên', path: '/teachers' },
   { section: 'BÁO CÁO & CÀI ĐẶT' },

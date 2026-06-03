@@ -1,6 +1,38 @@
 version: '3.8'
 
 services:
+  # 1. Database PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: eduops_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: EduOpsDb
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      # Map ra cổng 5433 để tránh xung đột với Postgres cài trên máy thật của Host
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - eduops_network
+    restart: unless-stopped
+
+  # 2. Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: eduops_redis
+    ports:
+      # Map ra cổng 6380 để tránh xung đột với Redis cài trên máy thật
+      - "6380:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - eduops_network
+    restart: unless-stopped
+
+  # 3. .NET 8 Backend
   backend:
     build:
       context: ./backend
@@ -9,12 +41,22 @@ services:
     ports:
       - "5001:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      # Ví dụ cấu hình DB nếu có DB container:
-      # - ConnectionStrings__DefaultConnection=Host=db;Database=eduops;Username=postgres;Password=postgres
+      - ASPNETCORE_ENVIRONMENT=Production
+      # Link trực tiếp tới service 'db' và 'redis' qua network nội bộ của Docker
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=EduOpsDb;Username=postgres;Password=mysecretpassword
+      - ConnectionStrings__Redis=redis:6379
+      - TZ=Asia/Ho_Chi_Minh
+    volumes:
+      # Mount file appsettings.json từ máy Host vào Container lúc runtime (rất quan trọng)
+      - ./backend/EduOps.Api/appsettings.json:/app/appsettings.json:ro
+    depends_on:
+      - db
+      - redis
     networks:
       - eduops_network
+    restart: unless-stopped
 
+  # 4. Next.js Frontend
   frontend:
     build:
       context: ./frontend
@@ -23,14 +65,20 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:5001/api # Cloudflare sẽ map API này
+      - NEXT_PUBLIC_API_URL=http://localhost:5001/api # URL để Client fetch API từ Host
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=eduops-secret-key-2024
+      - TZ=Asia/Ho_Chi_Minh
     depends_on:
       - backend
     networks:
       - eduops_network
+    restart: unless-stopped
 
 networks:
   eduops_network:
     driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:

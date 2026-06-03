@@ -15,7 +15,9 @@ namespace EduOps.Application.DTOs.Organization.Responses
         public int CurrentUsers { get; set; }
         public Guid? StatusId { get; set; }
         public string StatusCode { get; set; } = string.Empty;
+        public string SubscriptionStatus { get; set; } = string.Empty;
         public DateTime? SubscriptionStart { get; set; }
         public DateTime? SubscriptionEnd { get; set; }
+        public int? CustomTrialMaxUsers { get; set; }
     }
 }

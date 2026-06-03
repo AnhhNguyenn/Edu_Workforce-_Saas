@@ -162,7 +162,7 @@ namespace EduOps.Application.Services
         public async Task<PagedResult<AttendanceDto>> GetMyAttendancesAsync(Guid userId, int pageNumber, int pageSize)
         {
             var repo = _unitOfWork.Repository<Attendance>();
-            var result = await repo.FindPagedAsync(a => a.UserId == userId, pageNumber, pageSize);
+            var result = await repo.FindPagedAsync(a => a.UserId == userId, pageNumber, pageSize, includeProperties: "Status");
 
             return new PagedResult<AttendanceDto>
             {

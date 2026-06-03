@@ -8,5 +8,7 @@ namespace EduOps.Application.Interfaces
         Guid? OrganizationId { get; }
         string Role { get; }
         bool IsBackgroundJob { get; }
+        string? IpAddress { get; }
+        string? UserAgent { get; }
     }
 }

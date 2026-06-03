@@ -9,7 +9,6 @@ using EduOps.Application.Interfaces;
 using EduOps.Domain.Entities;
 
 using EduOps.Domain.Interfaces;
-using Microsoft.Extensions.Caching.Memory;
 using EduOps.Application.DTOs.Subscription;
 
 namespace EduOps.Application.Services
@@ -19,12 +18,12 @@ namespace EduOps.Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICustomLogger _logger;
-        private readonly IMemoryCache _cache;
+        private readonly ICacheService _cache;
         private readonly ISystemSettingService _settingService;
 
         private const string PLANS_CACHE_KEY = "ALL_SUBSCRIPTION_PLANS";
 
-        public SubscriptionService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, ICustomLogger logger, IMemoryCache cache, ISystemSettingService settingService)
+        public SubscriptionService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, ICustomLogger logger, ICacheService cache, ISystemSettingService settingService)
         {
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
@@ -35,31 +34,37 @@ namespace EduOps.Application.Services
 
         public async Task<List<SubscriptionPlanResponseDto>> GetPlansAsync()
         {
-            var cachedPlans = await _cache.GetOrCreateAsync(PLANS_CACHE_KEY, async entry =>
+            var cachedPlans = await _cache.GetAsync<List<SubscriptionPlanResponseDto>>(PLANS_CACHE_KEY);
+            if (cachedPlans != null)
             {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
+                return cachedPlans;
+            }
 
-                var plans = await _unitOfWork.Repository<SubscriptionPlan>()
-                    .FindAsync(p => p.Status != null && p.Status.Code == "ACTIVE" && p.DeletedAt == null);
+            var plans = await _unitOfWork.Repository<SubscriptionPlan>()
+                .FindAsync(
+                    p => p.Status != null && p.Status.Code == "ACTIVE" && p.DeletedAt == null,
+                    includeProperties: "Status"
+                );
 
-                foreach(var p in plans)
-                {
-                    p.SubscriptionPlanDetail = await _unitOfWork.Repository<SubscriptionPlanDetail>().FirstOrDefaultAsync(d => d.SubscriptionPlanId == p.Id);
-                }
+            foreach(var p in plans)
+            {
+                p.SubscriptionPlanDetail = await _unitOfWork.Repository<SubscriptionPlanDetail>().FirstOrDefaultAsync(d => d.SubscriptionPlanId == p.Id);
+            }
 
-                return plans.Select(p => new SubscriptionPlanResponseDto
-                {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Description = p.SubscriptionPlanDetail?.Description ?? string.Empty,
-                    MaxUsers = p.MaxUsers,
-                    PricePerMonth = p.PricePerMonth,
-                    PricePerYear = p.PricePerYear,
-                    Status = p.Status?.Code
-                }).ToList();
-            });
+            cachedPlans = plans.Select(p => new SubscriptionPlanResponseDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.SubscriptionPlanDetail?.Description ?? string.Empty,
+                MaxUsers = p.MaxUsers,
+                PricePerMonth = p.PricePerMonth,
+                PricePerYear = p.PricePerYear,
+                Status = p.Status?.Code
+            }).ToList();
 
-            return cachedPlans ?? new List<SubscriptionPlanResponseDto>();
+            await _cache.SetAsync(PLANS_CACHE_KEY, cachedPlans, TimeSpan.FromHours(24));
+
+            return cachedPlans;
         }
 
         public async Task<SubscriptionPlanResponseDto> CreatePlanAsync(CreateSubscriptionPlanRequestDto request)
@@ -80,7 +85,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.Repository<SubscriptionPlan>().AddAsync(plan);
             await _unitOfWork.CommitAsync();
 
-            _cache.Remove(PLANS_CACHE_KEY);
+            await _cache.RemoveAsync(PLANS_CACHE_KEY);
 
             return new SubscriptionPlanResponseDto
             {
@@ -90,7 +95,7 @@ namespace EduOps.Application.Services
                 MaxUsers = plan.MaxUsers,
                 PricePerMonth = plan.PricePerMonth,
                 PricePerYear = plan.PricePerYear,
-                Status = plan.Status?.Code
+                Status = "ACTIVE"
             };
         }
 
@@ -99,7 +104,10 @@ namespace EduOps.Application.Services
             if (_currentUserService.Role != "SUPER_ADMIN")
                 throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới được xem danh sách khuyến mãi.");
 
-            var promos = await _unitOfWork.Repository<Promotion>().FindAsync(p => p.Status != null && p.Status.Code == "ACTIVE");
+            var promos = await _unitOfWork.Repository<Promotion>().FindAsync(
+                p => p.Status != null && p.Status.Code == "ACTIVE",
+                includeProperties: "Status,Type"
+            );
 
             return promos.Select(p => new PromotionResponseDto
             {
@@ -181,7 +189,7 @@ namespace EduOps.Application.Services
             _unitOfWork.Repository<SubscriptionPlan>().Update(plan);
             await _unitOfWork.CommitAsync();
 
-            _cache.Remove(PLANS_CACHE_KEY);
+            await _cache.RemoveAsync(PLANS_CACHE_KEY);
         }
 
         public async Task DeletePlanAsync(Guid id)
@@ -206,7 +214,7 @@ namespace EduOps.Application.Services
             _unitOfWork.Repository<SubscriptionPlan>().Update(plan);
             await _unitOfWork.CommitAsync();
 
-            _cache.Remove(PLANS_CACHE_KEY);
+            await _cache.RemoveAsync(PLANS_CACHE_KEY);
         }
 
         public async Task UpdatePromotionAsync(Guid id, UpdatePromotionRequestDto request)
@@ -336,7 +344,7 @@ namespace EduOps.Application.Services
                     _unitOfWork.Repository<Organization>().Update(org);
 
                     // CHÚ Ý: BẮT BUỘC PHẢI XÓA CACHE ĐỂ MIDDLEWARE MỞ KHÓA NGAY LẬP TỨC
-                    _cache.Remove($"OrgSubscription_{orgId.Value}");
+                    await _cache.RemoveAsync($"OrgSubscription_{orgId.Value}");
                 }
             }
 
@@ -388,7 +396,23 @@ namespace EduOps.Application.Services
             if (org == null) throw new NotFoundException("Organization", orgId.Value);
 
             int maxUsers = 0;
-            if (org.CurrentPlanId.HasValue)
+            string planName = org.SubscriptionStatus;
+
+            if (org.SubscriptionStatus == "UNPAID" || org.SubscriptionStatus == "EXPIRED")
+            {
+                maxUsers = 0;
+                planName = org.SubscriptionStatus == "UNPAID" ? "Chưa đăng ký gói" : "Gói đã hết hạn";
+            }
+            else if (org.SubscriptionStatus == "TRIAL")
+            {
+                planName = "Gói Dùng Thử";
+                var trialMaxUserSetting = await _unitOfWork.Repository<SystemSetting>().FirstOrDefaultAsync(s => s.SettingKey == "DEFAULT_TRIAL_MAX_USERS");
+                int defaultTrialMaxUsers = 5;
+                if (trialMaxUserSetting != null && int.TryParse(trialMaxUserSetting.SettingValue, out int v)) defaultTrialMaxUsers = v;
+
+                maxUsers = org.CustomTrialMaxUsers ?? defaultTrialMaxUsers;
+            }
+            else if (org.CurrentPlanId.HasValue)
             {
                 var plan = await _unitOfWork.Repository<SubscriptionPlan>().GetByIdAsync(org.CurrentPlanId.Value);
                 if (plan != null) maxUsers = plan.MaxUsers;
@@ -401,7 +425,7 @@ namespace EduOps.Application.Services
 
             return new MySubscriptionDto
             {
-                PlanName = org.SubscriptionStatus == "TRIAL" ? "Gói Dùng Thử" : org.SubscriptionStatus,
+                PlanName = planName,
                 SubscriptionStart = org.SubscriptionStart,
                 SubscriptionEnd = org.SubscriptionEnd,
                 SubscriptionStatus = org.SubscriptionStatus,

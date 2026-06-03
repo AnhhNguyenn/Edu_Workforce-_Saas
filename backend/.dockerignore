@@ -1,0 +1,28 @@
+# Docker/Git
+.dockerignore
+.env
+.git
+.gitignore
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.jfm
+*.dbmdl
+
+# Build results
+**/bin/
+**/obj/
+**/out/
+**/TestResults/
+**/logs/
+
+# Development AppSettings (Tránh lọt cấu hình Dev/Local vào Image Production)
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/appsettings.Testing.json
+# (Lưu ý: appsettings.json gốc vẫn sẽ được giữ lại vì nó chứa cấu hình default)
