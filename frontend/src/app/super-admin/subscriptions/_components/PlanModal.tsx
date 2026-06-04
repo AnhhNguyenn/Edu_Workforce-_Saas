@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { X, Save, Loader2 } from 'lucide-react';
 import { SubscriptionPlanDto, useCreatePlan, useUpdatePlan } from '@/hooks/queries/useSubscriptions';
 import { toast } from 'react-hot-toast';
@@ -77,27 +76,27 @@ export function PlanModal({ plan, onClose }: PlanModalProps) {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="space-y-2">
-            <Label>Tên gói cước <span className="text-red-500">*</span></Label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tên gói cước <span className="text-red-500">*</span></label>
             <Input name="name" value={formData.name} onChange={handleChange} required placeholder="Ví dụ: Gói Cơ Bản" />
           </div>
 
           <div className="space-y-2">
-            <Label>Mô tả ngắn gọn</Label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả ngắn gọn</label>
             <Input name="description" value={formData.description} onChange={handleChange} placeholder="Phù hợp cho trung tâm nhỏ..." />
           </div>
 
           <div className="space-y-2">
-            <Label>Giới hạn số lượng tài khoản (Users) <span className="text-red-500">*</span></Label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Giới hạn số lượng tài khoản (Users) <span className="text-red-500">*</span></label>
             <Input name="maxUsers" type="number" min="1" value={formData.maxUsers} onChange={handleChange} required />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Giá 1 Tháng (VNĐ) <span className="text-red-500">*</span></Label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Giá 1 Tháng (VNĐ) <span className="text-red-500">*</span></label>
               <Input name="pricePerMonth" type="number" min="0" value={formData.pricePerMonth} onChange={handleChange} required />
             </div>
             <div className="space-y-2">
-              <Label>Giá 1 Năm (VNĐ) <span className="text-red-500">*</span></Label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Giá 1 Năm (VNĐ) <span className="text-red-500">*</span></label>
               <Input name="pricePerYear" type="number" min="0" value={formData.pricePerYear} onChange={handleChange} required />
             </div>
           </div>

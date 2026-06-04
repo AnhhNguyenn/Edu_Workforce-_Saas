@@ -21,6 +21,13 @@ export interface CreateOrganizationDto {
   maxUsers?: number;
 }
 
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+}
+
 export const useOrganizations = () => {
   return useQuery({
     queryKey: ['organizations'],

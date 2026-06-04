@@ -216,7 +216,7 @@ export default function AdminsPage() {
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Trực thuộc Trung tâm</label>
                 <Select 
-                  options={orgs?.map((o: any) => ({ value: o.id, label: o.name })) || []}
+                  options={orgs?.items?.map((o: any) => ({ value: o.id, label: o.name })) || []}
                   value={formData.organizationId}
                   onChange={v => setFormData({...formData, organizationId: v})}
                   placeholder="Chọn trung tâm..."

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { X, Loader2 } from 'lucide-react';
 import { PromotionDto, useCreatePromotion, useUpdatePromotion } from '@/hooks/queries/useSubscriptions';
 import { toast } from 'react-hot-toast';
@@ -84,7 +83,7 @@ export function PromotionModal({ promo, onClose }: PromotionModalProps) {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Loại khuyến mãi <span className="text-red-500">*</span></Label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Loại khuyến mãi <span className="text-red-500">*</span></label>
               <select name="type" value={formData.type} onChange={handleChange} className="w-full h-10 px-3 border border-gray-200 rounded-md bg-white text-sm">
                 <option value="PROMO_CODE">Nhập mã Code</option>
                 <option value="AUTO_DISCOUNT">Giảm trực tiếp (Auto)</option>
@@ -92,29 +91,29 @@ export function PromotionModal({ promo, onClose }: PromotionModalProps) {
             </div>
             
             <div className="space-y-2">
-              <Label>Mã Code {formData.type === 'AUTO_DISCOUNT' && <span className="text-xs text-gray-400">(Có thể bỏ trống)</span>}</Label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mã Code {formData.type === 'AUTO_DISCOUNT' && <span className="text-xs text-gray-400">(Có thể bỏ trống)</span>}</label>
               <Input name="code" value={formData.code} onChange={handleChange} required={formData.type === 'PROMO_CODE'} placeholder="Ví dụ: SUMMER26" />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>% Giảm giá <span className="text-red-500">*</span></Label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">% Giảm giá <span className="text-red-500">*</span></label>
             <Input name="discountPercentage" type="number" min="0" max="100" value={formData.discountPercentage} onChange={handleChange} required placeholder="Ví dụ: 20" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Từ ngày <span className="text-red-500">*</span></Label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Từ ngày <span className="text-red-500">*</span></label>
               <Input name="startDate" type="date" value={formData.startDate} onChange={handleChange} required />
             </div>
             <div className="space-y-2">
-              <Label>Đến ngày <span className="text-red-500">*</span></Label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Đến ngày <span className="text-red-500">*</span></label>
               <Input name="endDate" type="date" value={formData.endDate} onChange={handleChange} required />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Giới hạn số lượt dùng</Label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Giới hạn số lượt dùng</label>
             <Input name="maxUses" type="number" min="1" value={formData.maxUses} onChange={handleChange} placeholder="Để trống nếu không giới hạn" />
           </div>
 

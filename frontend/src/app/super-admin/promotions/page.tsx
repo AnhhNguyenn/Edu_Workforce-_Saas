@@ -83,7 +83,7 @@ export default function PromotionsPage() {
               <TableRow key={promo.id}>
                 <TableCell className="font-bold text-edu-fg">{promo.code || '(Tự động giảm)'}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="bg-gray-50">{promo.type === 'AUTO_DISCOUNT' ? 'Giảm trực tiếp' : 'Nhập mã code'}</Badge>
+                  <Badge variant="muted" className="bg-gray-50 border border-gray-200">{promo.type === 'AUTO_DISCOUNT' ? 'Giảm trực tiếp' : 'Nhập mã code'}</Badge>
                 </TableCell>
                 <TableCell className="font-semibold text-edu-accent">{promo.discountPercentage}%</TableCell>
                 <TableCell>
