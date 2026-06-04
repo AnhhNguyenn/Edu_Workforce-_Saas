@@ -31,9 +31,9 @@ namespace EduOps.Application.Services
             var repo = _unitOfWork.Repository<User>();
 
             var queryPredicate = string.IsNullOrEmpty(query.SearchKeyword)
-                ? (System.Linq.Expressions.Expression<Func<User, bool>>)(u => (!organizationId.HasValue || u.OrganizationId == organizationId) && u.DeletedAt == null && (string.IsNullOrEmpty(query.FilterRoleCode) || (u.Role != null && u.Role.Code == query.FilterRoleCode)))
+                ? (System.Linq.Expressions.Expression<Func<User, bool>>)(u => (!organizationId.HasValue || u.OrganizationId == organizationId) && u.DeletedAt == null && (string.IsNullOrEmpty(query.FilterRoleCode) || (u.Role != null && query.FilterRoleCode.Contains(u.Role.Code))))
                 : (System.Linq.Expressions.Expression<Func<User, bool>>)(u => (!organizationId.HasValue || u.OrganizationId == organizationId) && u.DeletedAt == null &&
-                                                                              (string.IsNullOrEmpty(query.FilterRoleCode) || (u.Role != null && u.Role.Code == query.FilterRoleCode)) &&
+                                                                              (string.IsNullOrEmpty(query.FilterRoleCode) || (u.Role != null && query.FilterRoleCode.Contains(u.Role.Code))) &&
                                                                               (u.FullName.ToLower().Contains(query.SearchKeyword.ToLower()) ||
                                                                                u.Email.ToLower().Contains(query.SearchKeyword.ToLower()) ||
                                                                                (u.Phone != null && u.Phone.ToLower().Contains(query.SearchKeyword.ToLower()))));

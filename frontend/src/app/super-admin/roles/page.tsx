@@ -12,6 +12,8 @@ const PermissionModal = dynamic(() => import('./_components/PermissionModal').th
 const CreateRoleModal = dynamic(() => import('./_components/CreateRoleModal'), { ssr: false });
 const EditRoleModal = dynamic(() => import('./_components/EditRoleModal'), { ssr: false });
 
+import { FeatureGuard } from '@/components/ui/feature-guard';
+
 export default function RolesPage() {
   const { data: roles = [], isLoading: loadingRoles } = useRoles();
   const { data: permissions = [], isLoading: loadingPerms } = usePermissions();
@@ -65,46 +67,48 @@ export default function RolesPage() {
   }, {} as Record<string, any[]>);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-7">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold mb-1 text-edu-fg">Phân quyền Hệ thống</h2>
-          <p className="text-edu-muted text-sm">Quản lý các vai trò và quyền truy cập vào các module trong hệ thống</p>
+    <FeatureGuard featureKey="FEATURE_ROLES">
+      <div className="max-w-7xl mx-auto space-y-7">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h2 className="text-2xl font-bold mb-1 text-edu-fg">Phân quyền Hệ thống</h2>
+            <p className="text-edu-muted text-sm">Quản lý các vai trò và quyền truy cập vào các module trong hệ thống</p>
+          </div>
+          <Button className="gap-2 bg-[#7B1FA2] hover:bg-[#6A1B9A]" onClick={() => setShowCreate(true)}>
+            <Plus size={18} />
+            Tạo chức vụ mới
+          </Button>
         </div>
-        <Button className="gap-2 bg-[#7B1FA2] hover:bg-[#6A1B9A]" onClick={() => setShowCreate(true)}>
-          <Plus size={18} />
-          Tạo chức vụ mới
-        </Button>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {isLoading ? (
-          <div className="col-span-3 text-center text-edu-muted py-10">Đang tải dữ liệu...</div>
-        ) : roles.map((r: any, i: number) => (
-          <RoleCard 
-            key={i} 
-            role={r} 
-            onOpenPermissionModal={openPermissionModal} 
-            onEdit={setEditingRole}
-            onDelete={(id) => deleteMutation.mutate(id)}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {isLoading ? (
+            <div className="col-span-3 text-center text-edu-muted py-10">Đang tải dữ liệu...</div>
+          ) : roles.map((r: any, i: number) => (
+            <RoleCard 
+              key={i} 
+              role={r} 
+              onOpenPermissionModal={openPermissionModal} 
+              onEdit={setEditingRole}
+              onDelete={(id) => deleteMutation.mutate(id)}
+            />
+          ))}
+        </div>
+
+        {showModal && (
+          <PermissionModal 
+            selectedRole={selectedRole}
+            permissions={permissions}
+            rolePermissions={rolePermissions}
+            isSaving={updatePermissionsMutation.isPending}
+            onTogglePermission={togglePermission}
+            onClose={() => setShowModal(false)}
+            onSave={savePermissions}
           />
-        ))}
+        )}
+
+        {showCreate && <CreateRoleModal onClose={() => setShowCreate(false)} />}
+        {editingRole && <EditRoleModal role={editingRole} onClose={() => setEditingRole(null)} />}
       </div>
-
-      {showModal && (
-        <PermissionModal 
-          selectedRole={selectedRole}
-          permissions={permissions}
-          rolePermissions={rolePermissions}
-          isSaving={updatePermissionsMutation.isPending}
-          onTogglePermission={togglePermission}
-          onClose={() => setShowModal(false)}
-          onSave={savePermissions}
-        />
-      )}
-
-      {showCreate && <CreateRoleModal onClose={() => setShowCreate(false)} />}
-      {editingRole && <EditRoleModal role={editingRole} onClose={() => setEditingRole(null)} />}
-    </div>
+    </FeatureGuard>
   );
 }

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { X, Loader2 } from 'lucide-react';
 import { PromotionDto, useCreatePromotion, useUpdatePromotion } from '@/hooks/queries/useSubscriptions';
 import { toast } from 'react-hot-toast';
+import { DatePicker } from '@/components/ui/date-picker';
 
 interface PromotionModalProps {
   promo?: PromotionDto | null;
@@ -102,13 +103,20 @@ export function PromotionModal({ promo, onClose }: PromotionModalProps) {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-2 flex flex-col justify-end">
               <label className="block text-sm font-medium text-gray-700 mb-1">Từ ngày <span className="text-red-500">*</span></label>
-              <Input name="startDate" type="date" value={formData.startDate} onChange={handleChange} required />
+              <DatePicker 
+                selected={formData.startDate ? new Date(formData.startDate) : null}
+                onChange={(date) => setFormData(prev => ({...prev, startDate: date ? date.toISOString().split('T')[0] : ''}))}
+              />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 flex flex-col justify-end">
               <label className="block text-sm font-medium text-gray-700 mb-1">Đến ngày <span className="text-red-500">*</span></label>
-              <Input name="endDate" type="date" value={formData.endDate} onChange={handleChange} required />
+              <DatePicker 
+                selected={formData.endDate ? new Date(formData.endDate) : null}
+                onChange={(date) => setFormData(prev => ({...prev, endDate: date ? date.toISOString().split('T')[0] : ''}))}
+                minDate={formData.startDate ? new Date(formData.startDate) : undefined}
+              />
             </div>
           </div>
 

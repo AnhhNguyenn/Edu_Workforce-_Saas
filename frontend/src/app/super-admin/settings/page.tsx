@@ -103,6 +103,39 @@ export default function SettingsPage() {
             </Button>
           </div>
         </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden p-6 col-span-1 md:col-span-2">
+          <h3 className="font-semibold text-edu-fg mb-4">Công tắc Tính năng (Feature Toggles)</h3>
+          <p className="text-sm text-edu-muted mb-4">Bật/tắt các module tính năng trên toàn bộ hệ thống. (Lưu lại để áp dụng ngay)</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              { key: 'FEATURE_AUDIT_LOGS', label: 'Audit Logs (Nhật ký hệ thống)' },
+              { key: 'FEATURE_ANALYTICS', label: 'System Analytics (Thống kê)' },
+              { key: 'FEATURE_ROLES', label: 'Roles & Permissions (Phân quyền)' },
+              { key: 'FEATURE_PROMOTIONS', label: 'Promotions (Mã giảm giá)' }
+            ].map(feature => (
+              <div key={feature.key} className="flex items-center justify-between p-3 border border-edu-border rounded-lg">
+                <span className="text-sm font-medium text-edu-fg">{feature.label}</span>
+                <Select 
+                  options={[
+                    { value: 'true', label: 'Bật (ON)' },
+                    { value: 'false', label: 'Tắt (OFF)' }
+                  ]}
+                  value={form[feature.key] || 'true'}
+                  onChange={(v) => handleChange(feature.key, v)}
+                  className="w-[120px]"
+                />
+              </div>
+            ))}
+          </div>
+          <Button 
+            className="mt-6"
+            onClick={() => handleSave(['FEATURE_AUDIT_LOGS', 'FEATURE_ANALYTICS', 'FEATURE_ROLES', 'FEATURE_PROMOTIONS'])}
+            disabled={updateMutation.isPending}
+          >
+            Lưu Công Tắc
+          </Button>
+        </div>
       </div>
     </div>
   );

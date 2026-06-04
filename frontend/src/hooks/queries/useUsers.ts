@@ -22,12 +22,15 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export const useUsers = (roleFilter?: string) => {
+export const useUsers = (roleFilter?: string, searchKeyword?: string) => {
   return useQuery({
-    queryKey: ['users', roleFilter],
+    queryKey: ['users', roleFilter, searchKeyword],
     queryFn: async () => {
       const response = await apiClient.get<PagedResult<UserDto>>('/users', {
-        params: { role: roleFilter }
+        params: { 
+          FilterRoleCode: roleFilter,
+          SearchKeyword: searchKeyword || undefined
+        }
       });
       return response.data;
     }
