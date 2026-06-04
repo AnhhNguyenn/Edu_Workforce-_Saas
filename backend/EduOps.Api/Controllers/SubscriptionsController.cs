@@ -83,6 +83,14 @@ namespace EduOps.Api.Controllers
             return NoContent();
         }
 
+        [HttpGet("promotions/{id}/history")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> GetPromotionHistory(Guid id)
+        {
+            var result = await _subscriptionService.GetPromotionUsageHistoryAsync(id);
+            return Ok(result);
+        }
+
         [HttpPost("subscribe")]
         [Authorize(Roles = "CENTER_ADMIN")]
         public async Task<IActionResult> Subscribe([FromBody] SubscribeRequestDto request)
@@ -104,6 +112,14 @@ namespace EduOps.Api.Controllers
         public async Task<IActionResult> GetMyTransactions()
         {
             var result = await _subscriptionService.GetMyTransactionsAsync();
+            return Ok(result);
+        }
+
+        [HttpGet("transactions")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> GetAllTransactions()
+        {
+            var result = await _subscriptionService.GetAllTransactionsAsync();
             return Ok(result);
         }
 

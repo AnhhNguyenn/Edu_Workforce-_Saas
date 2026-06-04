@@ -30,7 +30,7 @@ export function TransactionTable({ transactions, isLoading }: TransactionTablePr
             <TableRow>
               <TableCell colSpan={6} className="text-center py-10 text-edu-muted">Chưa có giao dịch nào.</TableCell>
             </TableRow>
-          ) : transactions.map((inv) => (
+          ) : transactions.map((inv: any) => (
             <TableRow key={inv.id}>
               <TableCell className="font-semibold text-edu-fg">{inv.referenceCode}</TableCell>
               <TableCell className="font-medium">{inv.organizationId}</TableCell>

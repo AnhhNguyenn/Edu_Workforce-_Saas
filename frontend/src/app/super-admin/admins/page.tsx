@@ -8,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import { getAvatarInitials } from "@/lib/mock-data";
+import { getAvatarInitials } from "@/lib/utils";
 import { useUsers, useDeleteUser, useLockUser, useUnlockUser, useCreateUser, UserDto } from "@/hooks/queries/useUsers";
+import { useOrganizations } from "@/hooks/queries/useOrganizations";
 
 export default function AdminsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -20,8 +21,9 @@ export default function AdminsPage() {
   const [lockDate, setLockDate] = useState('');
   
   // Create form state
-  const [formData, setFormData] = useState({ fullName: '', email: '', password: '', role: 'SUPER_ADMIN', phone: '' });
+  const [formData, setFormData] = useState({ fullName: '', email: '', password: '', role: 'SUPER_ADMIN', phone: '', organizationId: '' });
 
+  const { data: orgs } = useOrganizations();
   const { data: admins, isLoading, isError, error } = useUsers('SUPER_ADMIN'); // Assuming backend expects SUPER_ADMIN or we just fetch all for now, wait backend doesn't filter exactly yet.
   
   const createMutation = useCreateUser();
@@ -33,7 +35,7 @@ export default function AdminsPage() {
     createMutation.mutate(formData, {
       onSuccess: () => {
         setIsCreateOpen(false);
-        setFormData({ fullName: '', email: '', password: '', role: 'SUPER_ADMIN', phone: '' });
+        setFormData({ fullName: '', email: '', password: '', role: 'SUPER_ADMIN', phone: '', organizationId: '' });
       }
     });
   };
@@ -76,7 +78,7 @@ export default function AdminsPage() {
         <div className="p-5 flex justify-between items-center border-b border-edu-border gap-4">
           <h3 className="text-base font-semibold text-edu-fg flex items-center gap-2">
             Danh sách Admin
-            <Badge variant="info">{admins?.length || 0}</Badge>
+            <Badge variant="info">{admins?.totalCount || 0}</Badge>
           </h3>
           <div className="flex flex-1 max-w-md gap-2">
             <div className="relative flex-1">
@@ -111,7 +113,7 @@ export default function AdminsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {admins?.map((a) => (
+              {admins?.items?.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -210,6 +212,17 @@ export default function AdminsPage() {
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Số điện thoại</label>
               <Input placeholder="09xxxx" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
             </div>
+            {formData.role === 'CENTER_ADMIN' && (
+              <div className="col-span-2">
+                <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Trực thuộc Trung tâm</label>
+                <Select 
+                  options={orgs?.map((o: any) => ({ value: o.id, label: o.name })) || []}
+                  value={formData.organizationId}
+                  onChange={v => setFormData({...formData, organizationId: v})}
+                  placeholder="Chọn trung tâm..."
+                />
+              </div>
+            )}
           </div>
         </div>
       </Modal>

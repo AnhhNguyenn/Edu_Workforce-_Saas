@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import Link from "next/link";
-import { Home, CalendarDays, MapPin, User, Bell } from "lucide-react";
+import { Home, CalendarDays, MapPin, User, Bell, Signal, BatteryFull } from "lucide-react";
 
 export default function TeacherLayout({ children }: { children: ReactNode }) {
   // We use a strictly mobile-constrained layout here for easy React Native conversion
@@ -12,9 +12,9 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
         {/* Status bar mock (hide on actual mobile, show on desktop) */}
         <div className="h-[44px] hidden sm:flex items-end justify-between px-7 pb-1.5 text-xs font-semibold text-edu-fg">
           <span>9:41</span>
-          <div className="flex gap-1.5">
-            <span>📶</span>
-            <span>🔋</span>
+          <div className="flex gap-1.5 items-center">
+            <Signal size={14} />
+            <BatteryFull size={14} />
           </div>
         </div>
 

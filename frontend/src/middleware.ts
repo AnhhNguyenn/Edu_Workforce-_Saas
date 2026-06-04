@@ -7,12 +7,6 @@ export default withAuth(
     const path = req.nextUrl.pathname;
     
     const role = (token?.role as string)?.toUpperCase()?.replace('-', '_'); // Chuẩn hóa thành SUPER_ADMIN hoặc CENTER_ADMIN
-    
-    console.log("=== MIDDLEWARE DEBUG ===");
-    console.log("Path:", path);
-    console.log("Token Role Gốc:", token?.role);
-    console.log("Token Role Chuẩn Hóa:", role);
-    console.log("========================");
 
     // Route Guard Logic theo Role (Backend trả về chữ Hoa: SUPER_ADMIN, CENTER_ADMIN, TEACHER)
     if (path.startsWith("/super-admin") && role !== "SUPER_ADMIN") {
@@ -23,7 +17,7 @@ export default withAuth(
       return NextResponse.redirect(new URL("/login?error=AccessDenied", req.url));
     }
 
-    if (path.startsWith("/teacher") && role !== "TEACHER") {
+    if (path.startsWith("/teacher") && role !== "TEACHER" && role !== "ASSISTANT") {
       // Logic tuỳ biến: Center admin/Super admin có thể không được vào giao diện app giáo viên
       return NextResponse.redirect(new URL("/login?error=AccessDenied", req.url));
     }
@@ -35,6 +29,10 @@ export default withAuth(
       // Chỉ chạy middleware với các request có token hợp lệ
       authorized: ({ token }) => !!token,
     },
+    pages: {
+      signIn: '/login',
+    },
+    secret: process.env.NEXTAUTH_SECRET,
   }
 );
 

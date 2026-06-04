@@ -166,6 +166,19 @@ try
             ValidateLifetime = true,
             ClockSkew = System.TimeSpan.Zero
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hub/notifications"))
+                {
+                    context.Token = accessToken;
+                }
+                return System.Threading.Tasks.Task.CompletedTask;
+            }
+        };
     });
 
     // Cấu hình SignalR và Realtime Service (Nằm ở Tầng API)
@@ -199,7 +212,7 @@ try
 
     app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-    app.UseHttpsRedirection();
+    // app.UseHttpsRedirection(); // Tắt HTTPS Redirect để cho phép internal HTTP từ Docker Next.js
 
     app.UseCors("AllowFrontend");
 
@@ -240,8 +253,8 @@ try
             new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
         );
 
-        // Tự động Seed Dữ liệu Test
-        EduOps.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
+        // Tự động Seed Dữ liệu Test (Đã tắt cho môi trường Product)
+        // EduOps.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
     }
 
     app.Run();

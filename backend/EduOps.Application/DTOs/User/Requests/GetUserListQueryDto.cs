@@ -8,5 +8,6 @@ namespace EduOps.Application.DTOs.User.Requests
         public int PageSize { get; set; } = 20;
         public string? SearchKeyword { get; set; }
         public Guid? FilterOrgId { get; set; }
+        public string? FilterRoleCode { get; set; }
     }
 }

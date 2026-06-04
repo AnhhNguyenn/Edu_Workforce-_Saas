@@ -1,30 +1,74 @@
+'use client';
+
 import { Building2, Users, Calendar, Clock } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
+import { useClasses } from "@/hooks/queries/useClasses";
+import { useUsers } from "@/hooks/queries/useUsers";
+import { useReports } from "@/hooks/queries/useReports";
+import { useSessions } from "@/hooks/queries/useSessions";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 export default function CenterAdminDashboard() {
+  const { data: classes } = useClasses();
+  const { data: teachers } = useUsers('TEACHER');
+  const { data: reports } = useReports();
+  const { data: sessions } = useSessions();
+
+  // Filter today's sessions
+  const today = new Date().toISOString().split('T')[0];
+  const todaySessions = sessions?.items?.filter(s => s.sessionDate.startsWith(today)) || [];
+
   return (
     <div className="max-w-7xl mx-auto space-y-7">
       <div className="mb-7">
         <h2 className="text-2xl font-bold mb-1 text-edu-fg">Tổng quan trung tâm</h2>
-        <p className="text-edu-muted text-sm">Quản lý lớp học và giáo viên — EduCenter Sài Gòn</p>
+        <p className="text-edu-muted text-sm">Quản lý lớp học và giáo viên — Dữ liệu thời gian thực</p>
       </div>
 
       {/* STATS GRID */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-7">
-        <StatCard icon={<Users size={20} />} label="Giáo viên trực thuộc" value="45" type="accent" />
-        <StatCard icon={<Building2 size={20} />} label="Lớp đang mở" value="12" type="success" />
-        <StatCard icon={<Calendar size={20} />} label="Ca học hôm nay" value="8" type="warn" />
-        <StatCard icon={<Clock size={20} />} label="Báo cáo điểm danh" value="5/8" change="Đã nộp" type="accent" />
+        <StatCard icon={<Users size={20} />} label="Giáo viên trực thuộc" value={teachers?.totalCount || 0} type="accent" />
+        <StatCard icon={<Building2 size={20} />} label="Lớp đang mở" value={classes?.totalCount || 0} type="success" />
+        <StatCard icon={<Calendar size={20} />} label="Ca học hôm nay" value={todaySessions.length} type="warn" />
+        <StatCard icon={<Clock size={20} />} label="Báo cáo điểm danh" value={reports?.totalCount || 0} type="accent" />
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border p-6 hover:shadow-md transition-shadow">
         <div className="flex justify-between items-center mb-5">
           <span className="font-semibold text-base text-edu-fg">Ca dạy hôm nay</span>
         </div>
-        {/* Placeholder for Schedule Table */}
-        <div className="text-sm text-edu-muted text-center py-10 border border-dashed border-edu-border rounded-xl bg-gray-50/50">
-          Danh sách ca học hôm nay (Sẽ được lấy từ API)
-        </div>
+        
+        {todaySessions.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Mã Lớp</TableHead>
+                <TableHead>Chủ đề</TableHead>
+                <TableHead>Thời gian</TableHead>
+                <TableHead>Trạng thái</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {todaySessions.map(s => (
+                <TableRow key={s.id}>
+                  <TableCell className="font-semibold">{s.classId.substring(0, 8)}...</TableCell>
+                  <TableCell>{s.lessonTitle || 'Chưa cập nhật'}</TableCell>
+                  <TableCell>{s.startTime.substring(0, 5)} - {s.endTime.substring(0, 5)}</TableCell>
+                  <TableCell>
+                    <Badge variant={s.statusCode === 'COMPLETED' ? 'success' : s.statusCode === 'ONGOING' ? 'warn' : 'info'}>
+                      {s.statusCode === 'COMPLETED' ? 'Đã xong' : s.statusCode === 'ONGOING' ? 'Đang diễn ra' : 'Sắp học'}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="text-sm text-edu-muted text-center py-10 border border-dashed border-edu-border rounded-xl bg-gray-50/50">
+            Không có ca học nào được xếp lịch trong hôm nay.
+          </div>
+        )}
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ namespace EduOps.Application.Interfaces
     {
         Task<PagedResult<ClassListResponseDto>> GetClassesAsync(Guid organizationId, GetClassListQueryDto query, Guid? teacherId);
         Task<ClassDetailResponseDto> GetByIdAsync(Guid id, Guid organizationId, Guid? teacherId = null);
+        Task<List<EduOps.Application.DTOs.Academic.Students.Responses.StudentListResponseDto>> GetClassStudentsAsync(Guid classId, Guid organizationId);
         Task<ClassDetailResponseDto> CreateAsync(Guid organizationId, CreateClassRequestDto request);
         Task UpdateAsync(Guid id, Guid organizationId, UpdateClassRequestDto request);
         Task DeleteAsync(Guid id, Guid organizationId);

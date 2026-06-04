@@ -5,8 +5,12 @@
  */
 
 export const ENV = {
-  // Đường dẫn API Backend
+  // Đường dẫn API Backend (Dành cho trình duyệt gọi)
   API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api',
+  
+  // Đường dẫn API Backend nội bộ (Dành cho NextAuth Server gọi trong mạng Docker)
+  INTERNAL_API_URL: process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api',
+
   HUB_URL: process.env.NEXT_PUBLIC_HUB_URL || 'http://localhost:5001/hub/notifications',
   
   // Môi trường chạy (development, production)

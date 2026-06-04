@@ -60,6 +60,14 @@ namespace EduOps.Api.Controllers
             return Ok(result);
         }
 
+        [HttpGet("{id}/students")]
+        [RequirePermission("Classes", "View")]
+        public async Task<IActionResult> GetStudents(Guid id)
+        {
+            var result = await _classService.GetClassStudentsAsync(id, GetOrganizationId());
+            return Ok(result);
+        }
+
         [HttpPost]
         [RequirePermission("Classes", "Create")]
         public async Task<IActionResult> Create([FromBody] CreateClassRequestDto request)

@@ -5,18 +5,28 @@ export interface UserDto {
   id: string;
   fullName: string;
   email: string;
-  role: string;
+  roleCode: string;
+  statusCode: string;
+  status?: string;
+  organizationId?: string;
   organizationName?: string;
-  status: string;
+  role?: string;
   lastLoginAt?: string;
   lockEndAt?: string;
+}
+
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
 }
 
 export const useUsers = (roleFilter?: string) => {
   return useQuery({
     queryKey: ['users', roleFilter],
     queryFn: async () => {
-      const response = await apiClient.get<UserDto[]>('/users', {
+      const response = await apiClient.get<PagedResult<UserDto>>('/users', {
         params: { role: roleFilter }
       });
       return response.data;

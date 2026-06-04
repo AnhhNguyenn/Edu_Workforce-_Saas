@@ -33,6 +33,7 @@ namespace EduOps.Application.Services
                 s.OrganizationId == organizationId &&
                 (!query.ClassId.HasValue || s.ClassId == query.ClassId.Value) &&
                 (!query.TeacherId.HasValue || s.TeacherId == query.TeacherId.Value) &&
+                (!query.AssistantId.HasValue || s.AssistantId == query.AssistantId.Value) &&
                 (!query.Date.HasValue || s.SessionDate.Date == query.Date.Value.Date) &&
                 (string.IsNullOrEmpty(query.SearchKeyword) || s.LessonTitle.ToLower().Contains(query.SearchKeyword.ToLower())),
                 query.PageNumber, query.PageSize, includeProperties: "Status");
@@ -44,6 +45,17 @@ namespace EduOps.Application.Services
                 PageNumber = query.PageNumber,
                 PageSize = query.PageSize
             };
+        }
+
+        public async Task<SessionDetailResponseDto> GetSessionByIdAsync(Guid id, Guid organizationId)
+        {
+            var repo = _unitOfWork.Repository<Session>();
+            var session = await repo.FirstOrDefaultAsync(s => s.Id == id && s.OrganizationId == organizationId, includeProperties: "Status,Class,Teacher,Assistant");
+            if (session == null)
+            {
+                throw new EduOps.Application.Exceptions.NotFoundException("Session", id);
+            }
+            return session.ToDetailResponseDto();
         }
 
         public async Task CheckConflictAsync(Guid organizationId, Guid teacherId, Guid? assistantId, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime)

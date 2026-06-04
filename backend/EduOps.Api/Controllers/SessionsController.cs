@@ -38,8 +38,20 @@ namespace EduOps.Api.Controllers
                 var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 if (Guid.TryParse(userIdString, out var uid)) query.TeacherId = uid;
             }
+            else if (User.IsInRole("ASSISTANT"))
+            {
+                var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (Guid.TryParse(userIdString, out var uid)) query.AssistantId = uid;
+            }
 
             var result = await _sessionService.GetSessionsAsync(GetOrganizationId(), query);
+            return Ok(result);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(Guid id)
+        {
+            var result = await _sessionService.GetSessionByIdAsync(id, GetOrganizationId());
             return Ok(result);
         }
 

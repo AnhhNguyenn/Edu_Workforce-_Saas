@@ -23,7 +23,7 @@ export function PermissionModal({
   if (!selectedRole) return null;
 
   // Nhóm permissions theo Module
-  const groupedPermissions = permissions.reduce((acc, curr) => {
+  const groupedPermissions = permissions.reduce((acc: Record<string, any[]>, curr: any) => {
     const group = curr.module || 'Chung';
     if (!acc[group]) acc[group] = [];
     acc[group].push(curr);
@@ -52,7 +52,7 @@ export function PermissionModal({
                   {group}
                 </h3>
                 <div className="space-y-3">
-                  {(perms as any[]).map(p => {
+                  {(perms as any[]).map((p: any) => {
                     const isChecked = rolePermissions.includes(p.id);
                     return (
                       <div 

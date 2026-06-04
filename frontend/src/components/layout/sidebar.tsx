@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { LayoutDashboard, Building2, Users, CreditCard, LineChart, Activity, Settings, Shield, BookOpen, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, CreditCard, LineChart, Activity, Settings, Shield, BookOpen, LogOut, Tag } from 'lucide-react';
 import { cn } from '@/components/ui/stat-card';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -14,6 +14,7 @@ const SUPER_ADMIN_NAV = [
   { id: 'admins', icon: Users, label: 'Admins', path: '/super-admin/admins' },
   { section: 'BÁO CÁO & TÀI CHÍNH' },
   { id: 'subscriptions', icon: CreditCard, label: 'Gói dịch vụ (SaaS)', path: '/super-admin/subscriptions' },
+  { id: 'promotions', icon: Tag, label: 'Mã giảm giá', path: '/super-admin/promotions' },
   { id: 'analytics', icon: LineChart, label: 'Thống kê tổng quan', path: '/super-admin/analytics' },
   { section: 'HỆ THỐNG' },
   { id: 'roles', icon: Shield, label: 'Phân quyền & Vai trò', path: '/super-admin/roles' },
@@ -69,9 +70,9 @@ export function Sidebar() {
                 <IconComponent size={18} />
               </div>
               <span>{item.label}</span>
-              {item.badge && (
+              {(item as any).badge && (
                 <span className="ml-auto bg-edu-danger text-white text-[0.65rem] px-2 py-0.5 rounded-full font-bold">
-                  {item.badge}
+                  {(item as any).badge}
                 </span>
               )}
             </Link>

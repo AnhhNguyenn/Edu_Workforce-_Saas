@@ -2,32 +2,23 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Calendar, ClipboardCheck, BookOpen, Settings, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, ClipboardCheck, BookOpen, Settings, GraduationCap, Building2, LineChart } from 'lucide-react';
 import { cn } from '@/components/ui/stat-card';
 import { useAppStore } from '@/store/useAppStore';
 
-const CENTER_ADMIN_NAV = [
-  { section: 'VẬN HÀNH TRUNG TÂM' },
-  { id: 'dashboard', icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/classes/dashboard' }, // Giả định path hoặc sửa lại
-  { id: 'classes', icon: BookOpen, label: 'Lớp học', path: '/classes' },
-  { id: 'students', icon: GraduationCap, label: 'Học sinh', path: '/students' },
-  { id: 'schedules', icon: Calendar, label: 'Lịch giảng dạy', path: '/schedules' },
-  { id: 'teachers', icon: Users, label: 'Giáo viên', path: '/teachers' },
-  { section: 'BÁO CÁO & CÀI ĐẶT' },
-  { id: 'reports', icon: ClipboardCheck, label: 'Báo cáo điểm danh', path: '/reports' },
-  { id: 'settings', icon: Settings, label: 'Cài đặt trung tâm', path: '/settings' }
-];
-
-// Sửa lại path chuẩn cho Center Admin
+// Path chuẩn cho Center Admin
 const NAV = [
   { section: 'VẬN HÀNH TRUNG TÂM' },
   { id: 'dashboard', icon: LayoutDashboard, label: 'Bảng điều khiển', path: '/dashboard' },
+  { id: 'schools', icon: Building2, label: 'Cơ sở', path: '/schools' },
   { id: 'classes', icon: BookOpen, label: 'Lớp học', path: '/classes' },
   { id: 'students', icon: GraduationCap, label: 'Học sinh', path: '/students' },
   { id: 'schedules', icon: Calendar, label: 'Lịch giảng dạy', path: '/schedules' },
   { id: 'teachers', icon: Users, label: 'Giáo viên', path: '/teachers' },
   { section: 'BÁO CÁO & CÀI ĐẶT' },
-  { id: 'reports', icon: ClipboardCheck, label: 'Báo cáo điểm danh', path: '/reports' },
+  { id: 'attendance', icon: ClipboardCheck, label: 'Điểm danh', path: '/attendance' },
+  { id: 'reports', icon: ClipboardCheck, label: 'Báo cáo buổi học', path: '/reports' },
+  { id: 'analytics', icon: LineChart, label: 'Thống kê', path: '/analytics' },
   { id: 'settings', icon: Settings, label: 'Cài đặt trung tâm', path: '/settings' }
 ]
 

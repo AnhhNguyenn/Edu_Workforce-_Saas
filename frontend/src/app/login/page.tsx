@@ -17,6 +17,10 @@ function LoginContent() {
   const [requires2FA, setRequires2FA] = useState(false);
   const [tempToken, setTempToken] = useState('');
   const [otp, setOtp] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +142,7 @@ function LoginContent() {
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Email</label>
               <Input 
                 type="email" 
-                placeholder="admin@eduops.vn" 
+                placeholder="Nhập địa chỉ email..." 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -152,7 +156,7 @@ function LoginContent() {
               </div>
               <Input 
                 type="password" 
-                placeholder="••••••••" 
+                placeholder="Nhập mật khẩu..." 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -167,13 +171,7 @@ function LoginContent() {
           </form>
         )}
 
-        <div className="mt-8 pt-6 border-t border-edu-border text-center">
-          <p className="text-xs text-edu-muted">
-            Tài khoản test: <br/>
-            <code className="text-edu-accent font-semibold">admin@eduops.vn / 123456</code><br/>
-            <code className="text-edu-accent font-semibold">center@eduops.vn / 123456</code>
-          </p>
-        </div>
+
       </div>
     </div>
   );

@@ -6,14 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { REPORTS } from "@/lib/mock-data";
+import { useReports } from "@/hooks/queries/useReports";
 
 export default function ReportsPage() {
+  const { data: reports, isLoading } = useReports();
+
   const handleExport = () => {
-    const headers = ['Ngày', 'Lớp học', 'Giáo viên', 'Sĩ số hiện diện', 'Trạng thái báo cáo'];
+    const headers = ['Mã Session', 'Sĩ số hiện diện', 'Số vắng', 'Trạng thái', 'Ngày nộp'];
     const csvContent = [
       headers.join(','),
-      ...REPORTS.map(r => `"${r.date}","${r.cls}","${r.teacher}","${r.attendance}","${r.status}"`)
+      ...(reports?.items || []).map(r => `${r.sessionId},${r.attendanceCount},${r.absentCount},${r.status},${r.submittedAt || ''}`)
     ].join('\n');
     
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -49,8 +51,8 @@ export default function ReportsPage() {
               <Select 
                 options={[
                   { value: 'all', label: 'Tất cả trạng thái' },
-                  { value: 'submitted', label: 'Đã nộp' },
-                  { value: 'missing', label: 'Chưa nộp' }
+                  { value: 'SUBMITTED', label: 'Đã nộp' },
+                  { value: 'DRAFT', label: 'Chưa nộp' }
                 ]}
                 placeholder="Trạng thái"
                 className="h-9 focus:border-[#4CAF50] focus:ring-[#4CAF50]/30 w-full"
@@ -65,36 +67,45 @@ export default function ReportsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Ngày</TableHead>
-              <TableHead>Lớp học</TableHead>
-              <TableHead>Giáo viên</TableHead>
+              <TableHead>Mã Buổi Học</TableHead>
               <TableHead>Sĩ số hiện diện</TableHead>
+              <TableHead>Số học viên vắng</TableHead>
+              <TableHead>Ngày nộp</TableHead>
               <TableHead>Trạng thái báo cáo</TableHead>
               <TableHead>Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {REPORTS.map((r, i) => (
-              <TableRow key={i}>
-                <TableCell className="font-medium">{r.date}</TableCell>
-                <TableCell className="font-bold text-[#2E7D32]">{r.cls}</TableCell>
-                <TableCell>{r.teacher}</TableCell>
-                <TableCell className="font-semibold text-edu-fg">{r.attendance}</TableCell>
+            {reports?.items?.map(r => (
+              <TableRow key={r.sessionId}>
+                <TableCell className="font-medium text-edu-fg">{r.sessionId.substring(0, 8)}...</TableCell>
+                <TableCell>{r.attendanceCount}</TableCell>
+                <TableCell>{r.absentCount}</TableCell>
+                <TableCell>{r.submittedAt ? new Date(r.submittedAt).toLocaleDateString('vi-VN') : '-'}</TableCell>
                 <TableCell>
-                  <Badge variant={
-                    r.status === 'submitted' ? 'success' : 
-                    r.status === 'missing' ? 'danger' : 'warn'
-                  }>
-                    {r.status === 'submitted' ? 'Đã nộp' : r.status === 'missing' ? 'Chưa nộp' : 'Bản nháp'}
+                  <Badge variant={r.status === 'SUBMITTED' ? 'success' : 'warn'}>
+                    {r.status === 'SUBMITTED' ? 'Đã nộp' : 'Chưa nộp'}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Button variant="secondary" size="sm" className="hover:border-[#4CAF50] hover:text-[#4CAF50]">
-                    Xem chi tiết
-                  </Button>
+                  <Button variant="secondary" size="sm" className="hover:border-[#4CAF50] hover:text-[#4CAF50]">Xem</Button>
                 </TableCell>
               </TableRow>
             ))}
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  Đang tải dữ liệu báo cáo điểm danh...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && (!reports?.items || reports.items.length === 0) && (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center text-edu-muted">
+                  Chưa có báo cáo điểm danh nào.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

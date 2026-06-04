@@ -11,7 +11,7 @@ namespace EduOps.Api.Controllers
 {
     [Route("api/attendances")]
     [ApiController]
-    [Authorize(Roles = "TEACHER,CENTER_ADMIN")]
+    [Authorize(Roles = "TEACHER,ASSISTANT,CENTER_ADMIN")]
     [RequirePaidSubscription]
     [FeatureGate("ENABLE_ATTENDANCE")]
     public class AttendancesController : ControllerBase

@@ -87,7 +87,7 @@ namespace EduOps.Infrastructure.Data
                 // Cấu hình Optimistic Concurrency Token (PostgreSQL xmin)
                 if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
                 {
-                    modelBuilder.Entity(entityType.ClrType).UseXminAsConcurrencyToken();
+                    modelBuilder.Entity(entityType.ClrType).Property<uint>("Version").IsRowVersion();
                 }
 
                 // Soft Delete

@@ -45,8 +45,8 @@ export default function RolesPage() {
     if (!selectedRole) return;
     try {
       await updatePermissionsMutation.mutateAsync({
-        roleId: selectedRole.id,
-        permissions: rolePermissions
+        id: selectedRole.id,
+        permissionIds: rolePermissions
       });
       setShowModal(false);
       // Optional: show toast success
@@ -57,7 +57,7 @@ export default function RolesPage() {
   };
 
   // Nhom permissions by EntityType
-  const groupedPermissions = permissions.reduce((acc, curr) => {
+  const groupedPermissions = permissions.reduce((acc: Record<string, any[]>, curr: any) => {
     const group = curr.groupName || 'Chung';
     if (!acc[group]) acc[group] = [];
     acc[group].push(curr);

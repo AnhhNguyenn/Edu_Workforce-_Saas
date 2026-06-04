@@ -23,6 +23,17 @@ namespace EduOps.Api.Controllers
             _currentUserService = currentUserService;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        {
+            var orgIdClaim = User.FindFirst("OrganizationId")?.Value;
+            var orgId = Guid.TryParse(orgIdClaim, out var id) ? id : Guid.Empty;
+            if (orgId == Guid.Empty) return Unauthorized();
+
+            var result = await _reportService.GetAllReportsAsync(orgId, pageNumber, pageSize);
+            return Ok(result);
+        }
+
         [HttpGet("session/{sessionId}")]
         public async Task<IActionResult> GetBySession(Guid sessionId)
         {

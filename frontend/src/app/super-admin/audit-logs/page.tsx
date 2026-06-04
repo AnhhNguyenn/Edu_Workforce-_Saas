@@ -29,12 +29,14 @@ export default function AuditLogsPage() {
           <Input placeholder="Tìm kiếm theo người dùng, hành động..." className="pl-10 bg-white" />
         </div>
         <div className="flex gap-2">
-          <Select>
-            <option value="">Tất cả loại hình</option>
-            <option value="security">Bảo mật</option>
-            <option value="billing">Thanh toán</option>
-            <option value="create">Tạo mới</option>
-          </Select>
+          <Select 
+            options={[
+              { value: "", label: "Tất cả loại hình" },
+              { value: "security", label: "Bảo mật" },
+              { value: "billing", label: "Thanh toán" },
+              { value: "create", label: "Tạo mới" }
+            ]}
+          />
           <Button variant="outline" className="gap-2 bg-white">
             <Filter size={18} /> Lọc
           </Button>

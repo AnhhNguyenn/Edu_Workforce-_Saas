@@ -66,6 +66,7 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:5001/api # URL để Client fetch API từ Host
+      - INTERNAL_API_URL=http://backend:8080/api # Cho NextAuth Server side kết nối nội bộ
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=eduops-secret-key-2024
       - TZ=Asia/Ho_Chi_Minh

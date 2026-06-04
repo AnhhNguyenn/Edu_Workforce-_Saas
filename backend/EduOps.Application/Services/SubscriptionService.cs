@@ -257,6 +257,33 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
         }
 
+        public async Task<List<PromotionUsageResponseDto>> GetPromotionUsageHistoryAsync(Guid promotionId)
+        {
+            if (_currentUserService.Role != "SUPER_ADMIN")
+                throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới được xem lịch sử khuyến mãi.");
+
+            var promo = await _unitOfWork.Repository<Promotion>().GetByIdAsync(promotionId);
+            if (promo == null) throw new NotFoundException("Khuyến mãi", promotionId);
+
+            var transactions = await _unitOfWork.Repository<BillingTransaction>().FindAsync(
+                t => t.PromotionId == promotionId
+            );
+
+            var orgIds = transactions.Where(t => t.OrganizationId != null).Select(t => t.OrganizationId!.Value).Distinct().ToList();
+            var organizations = await _unitOfWork.Repository<Organization>().FindAsync(o => orgIds.Contains(o.Id));
+            var orgDict = organizations.ToDictionary(o => o.Id, o => o.Name);
+
+            return transactions.Select(t => new PromotionUsageResponseDto
+            {
+                TransactionId = t.Id,
+                OrganizationName = t.OrganizationId.HasValue && orgDict.ContainsKey(t.OrganizationId.Value) ? orgDict[t.OrganizationId.Value] : "N/A",
+                PlanName = t.PlanName ?? string.Empty,
+                AmountPaid = t.Amount,
+                PaymentDate = t.PaymentDate,
+                ReferenceCode = t.ReferenceCode ?? string.Empty
+            }).OrderByDescending(x => x.PaymentDate).ToList();
+        }
+
         public async Task<SubscribeResponseDto> SubscribeAsync(SubscribeRequestDto request)
         {
             var orgId = _currentUserService.OrganizationId;
@@ -441,6 +468,25 @@ namespace EduOps.Application.Services
 
             var trans = await _unitOfWork.Repository<BillingTransaction>()
                 .FindAsync(t => t.OrganizationId == orgId.Value);
+
+            return trans.OrderByDescending(t => t.CreatedAt).Select(t => new BillingTransactionDto
+            {
+                Id = t.Id,
+                Amount = t.Amount,
+                PlanName = t.PlanName,
+                MonthsToAdd = t.MonthsToAdd,
+                PaymentDate = t.PaymentDate,
+                Status = t.Status?.Code ?? "",
+                ReferenceCode = t.ReferenceCode
+            }).ToList();
+        }
+
+        public async Task<IEnumerable<BillingTransactionDto>> GetAllTransactionsAsync()
+        {
+            if (_currentUserService.Role != "SUPER_ADMIN")
+                throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới được xem tất cả giao dịch.");
+
+            var trans = await _unitOfWork.Repository<BillingTransaction>().GetAllAsync();
 
             return trans.OrderByDescending(t => t.CreatedAt).Select(t => new BillingTransactionDto
             {

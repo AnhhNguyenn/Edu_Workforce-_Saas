@@ -2,13 +2,14 @@ import React from 'react';
 import { cn } from './stat-card';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'icon';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'icon' | 'outline';
   size?: 'default' | 'sm' | 'icon';
 }
 
 const buttonVariants = {
   primary: 'bg-edu-accent text-white hover:bg-edu-accentHover hover:-translate-y-[1px] hover:shadow-[0_4px_12px_rgba(77,163,255,0.3)]',
   secondary: 'bg-white text-edu-fg border border-edu-border hover:border-edu-accent hover:text-edu-accent',
+  outline: 'bg-white text-edu-fg border border-edu-border hover:border-edu-accent hover:text-edu-accent',
   danger: 'bg-edu-dangerLight text-edu-danger hover:bg-edu-danger hover:text-white',
   ghost: 'bg-transparent text-edu-fg hover:bg-edu-accentLighter',
   icon: 'bg-transparent text-edu-muted hover:bg-edu-accentLight hover:text-edu-accent p-0',

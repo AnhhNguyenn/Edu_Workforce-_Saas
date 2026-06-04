@@ -20,10 +20,12 @@ namespace EduOps.Application.Interfaces
         Task<PromotionResponseDto> CreatePromotionAsync(CreatePromotionRequestDto request);
         Task UpdatePromotionAsync(Guid id, UpdatePromotionRequestDto request);
         Task DeletePromotionAsync(Guid id);
+        Task<List<PromotionUsageResponseDto>> GetPromotionUsageHistoryAsync(Guid promotionId);
 
         Task<SubscribeResponseDto> SubscribeAsync(SubscribeRequestDto request);
         Task<MySubscriptionDto> GetMySubscriptionAsync();
         Task<IEnumerable<BillingTransactionDto>> GetMyTransactionsAsync();
+        Task<IEnumerable<BillingTransactionDto>> GetAllTransactionsAsync();
         Task<string> GetTransactionStatusAsync(string referenceCode);
     }
 }

@@ -148,5 +148,33 @@ namespace EduOps.Application.Services
 
             return report.ToDto(media);
         }
+        public async Task<EduOps.Application.DTOs.PagedResult<ReportDto>> GetAllReportsAsync(Guid organizationId, int pageNumber = 1, int pageSize = 20)
+        {
+            var pagedData = await _unitOfWork.Repository<Report>().FindPagedAsync(
+                r => r.OrganizationId == organizationId,
+                pageNumber,
+                pageSize,
+                includeProperties: "Status,ReportDetail,Session,Session.Class,Teacher"
+            );
+
+            // Since ReportDto uses .ToDto(mediaList), and we are returning a paged result, 
+            // for performance we might skip media list or query it efficiently. 
+            // We will just pass an empty list for media in the summary list.
+            var dtos = pagedData.Items.Select(r => 
+            {
+                var dto = r.ToDto(new System.Collections.Generic.List<ReportMedia>());
+                // Optional: Map Session/Class/Teacher names if you added them to ReportDto, 
+                // but since ReportDto usually is bound, we just return it.
+                return dto;
+            }).ToList();
+
+            return new EduOps.Application.DTOs.PagedResult<ReportDto>
+            {
+                Items = dtos,
+                TotalCount = pagedData.TotalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+        }
     }
 }

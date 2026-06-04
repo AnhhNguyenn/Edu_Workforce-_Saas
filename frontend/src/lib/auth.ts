@@ -7,7 +7,7 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email", placeholder: "admin@eduops.vn" },
+        email: { label: "Email", type: "email", placeholder: "Nhập địa chỉ email..." },
         password: { label: "Password", type: "password" },
         accessToken: { label: "Token", type: "text" },
         userStr: { label: "User", type: "text" }
@@ -29,7 +29,7 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
 
         try {
-          const res = await fetch(`${ENV.API_URL}/auth/login`, {
+          const res = await fetch(`${ENV.INTERNAL_API_URL}/auth/login`, {
             method: 'POST',
             body: JSON.stringify(credentials),
             headers: { "Content-Type": "application/json" }
@@ -49,7 +49,7 @@ export const authOptions: NextAuthOptions = {
               id: data.user.id,
               name: data.user.fullName,
               email: data.user.email,
-              role: data.user.role,
+              role: data.user.roleCode, // <-- Backend trả về roleCode
               token: data.accessToken,
               orgId: data.user.organizationId
             } as any;
@@ -85,5 +85,6 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 ngày
   },
-  secret: process.env.NEXTAUTH_SECRET || "eduops-secret-key-2024",
+  debug: true,
+  secret: process.env.NEXTAUTH_SECRET as string,
 };

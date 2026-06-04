@@ -29,7 +29,7 @@ export function AuditLogTable({ logs, isLoading }: AuditLogTableProps) {
             <TableRow>
               <TableCell colSpan={5} className="text-center py-10 text-edu-muted">Chưa có nhật ký nào.</TableCell>
             </TableRow>
-          ) : logs.map((log, i) => (
+          ) : logs.map((log: any, i: number) => (
             <TableRow key={log.id || i}>
               <TableCell className="text-edu-muted text-xs whitespace-nowrap">
                 {format(new Date(log.createdAt), 'dd/MM/yyyy HH:mm:ss')}

@@ -35,7 +35,7 @@ export function StudentTable({ students, isLoading, onEdit, onDelete }: StudentT
             <TableRow>
               <TableCell colSpan={7} className="text-center py-10 text-edu-muted">Chưa có học viên nào.</TableCell>
             </TableRow>
-          ) : students.map((std, i) => (
+          ) : students.map((std: any, i: number) => (
             <TableRow key={i}>
               <TableCell className="font-medium text-edu-fg">{std.code}</TableCell>
               <TableCell>

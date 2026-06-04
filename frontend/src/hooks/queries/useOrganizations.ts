@@ -25,7 +25,7 @@ export const useOrganizations = () => {
   return useQuery({
     queryKey: ['organizations'],
     queryFn: async () => {
-      const response = await apiClient.get<OrganizationDto[]>('/organizations');
+      const response = await apiClient.get<PagedResult<OrganizationDto>>('/organizations');
       return response.data;
     }
   });
@@ -54,6 +54,17 @@ export const useCreateOrganization = () => {
       // Invalidate cache to trigger a re-fetch
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
     }
+  });
+};
+
+export const useOrganizationStats = (id?: string) => {
+  return useQuery({
+    queryKey: ['organizations', 'stats', id],
+    queryFn: async () => {
+      const response = await apiClient.get(`/organizations/${id}/stats`);
+      return response.data;
+    },
+    enabled: !!id
   });
 };
 

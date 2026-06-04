@@ -18,7 +18,7 @@ export function RoleCard({ role, onOpenPermissionModal, onEdit, onDelete }: Role
             <Key size={24} />
           </div>
           <div className="flex flex-col justify-center">
-            <Badge variant={role.isSystemRole ? 'default' : 'secondary'} className={role.isSystemRole ? "bg-[#7B1FA2]" : ""}>
+            <Badge variant={role.isSystemRole ? 'info' : 'muted'} className={role.isSystemRole ? "bg-[#7B1FA2] text-white" : ""}>
               {role.isSystemRole ? 'Hệ thống' : 'Tùy chỉnh'}
             </Badge>
           </div>

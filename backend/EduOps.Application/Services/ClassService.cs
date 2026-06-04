@@ -80,6 +80,34 @@ namespace EduOps.Application.Services
             return classEntity.ToDetailResponseDto();
         }
 
+        public async Task<List<EduOps.Application.DTOs.Academic.Students.Responses.StudentListResponseDto>> GetClassStudentsAsync(Guid classId, Guid organizationId)
+        {
+            var enrollmentRepo = _unitOfWork.Repository<ClassEnrollment>();
+            
+            // Get active enrollments for this class
+            var enrollments = await enrollmentRepo.FindAsync(
+                e => e.ClassId == classId && e.OrganizationId == organizationId && e.Status != null && e.Status.Code == "ENROLLED"
+            );
+
+            var studentIds = enrollments.Select(e => e.StudentId).ToList();
+            if (!studentIds.Any()) return new List<EduOps.Application.DTOs.Academic.Students.Responses.StudentListResponseDto>();
+
+            var studentRepo = _unitOfWork.Repository<Student>();
+            var students = await studentRepo.FindAsync(
+                s => studentIds.Contains(s.Id),
+                includeProperties: "Status"
+            );
+
+            // Manual mapping because ToListResponseDto is typically in StudentMapping extension
+            return students.Select(s => new EduOps.Application.DTOs.Academic.Students.Responses.StudentListResponseDto
+            {
+                Id = s.Id,
+                StudentCode = s.StudentCode,
+                FullName = s.FullName,
+                StatusCode = s.Status != null ? s.Status.Code : ""
+            }).ToList();
+        }
+
         public async Task<ClassDetailResponseDto> CreateAsync(Guid organizationId, CreateClassRequestDto request)
         {
             var schoolRepo = _unitOfWork.Repository<School>();
