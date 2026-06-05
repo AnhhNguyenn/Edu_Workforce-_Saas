@@ -11,6 +11,8 @@ import { Select } from "@/components/ui/select";
 import { getAvatarInitials } from "@/lib/utils";
 import { useUsers, useDeleteUser, useLockUser, useUnlockUser, useCreateUser, useUpdateUser, UserDto } from "@/hooks/queries/useUsers";
 import { useOrganizations } from "@/hooks/queries/useOrganizations";
+import { DatePicker } from "@/components/ui/date-picker";
+import { toast } from "react-hot-toast";
 
 export default function AdminsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -19,7 +21,10 @@ export default function AdminsPage() {
   const [isLockOpen, setIsLockOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
   const [lockType, setLockType] = useState('permanent'); // 'permanent' or 'date'
-  const [lockDate, setLockDate] = useState('');
+  const [lockDate, setLockDate] = useState<Date | null>(null);
+  
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [roleFilter, setRoleFilter] = useState(''); // Empty means all roles (Super Admin and Center Admin)
   
   // Create & Edit form state
   const [formData, setFormData] = useState({ fullName: '', email: '', password: '', roleCode: 'SUPER_ADMIN', phone: '', organizationId: '' });
@@ -37,7 +42,7 @@ export default function AdminsPage() {
   }, [searchTerm]);
 
   const { data: orgs } = useOrganizations();
-  const { data: admins, isLoading, isError, error } = useUsers('SUPER_ADMIN', debouncedSearch);
+  const { data: admins, isLoading, isError, error } = useUsers(roleFilter || 'SUPER_ADMIN,CENTER_ADMIN', debouncedSearch);
   
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
@@ -50,6 +55,10 @@ export default function AdminsPage() {
       onSuccess: () => {
         setIsCreateOpen(false);
         setFormData({ fullName: '', email: '', password: '', roleCode: 'SUPER_ADMIN', phone: '', organizationId: '' });
+        toast.success("Tạo tài khoản thành công!");
+      },
+      onError: (err: any) => {
+        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi tạo tài khoản.");
       }
     });
   };
@@ -78,22 +87,35 @@ export default function AdminsPage() {
   const handleDelete = () => {
     if (selectedUser) {
       deleteMutation.mutate(selectedUser.id, {
-        onSuccess: () => setIsDeleteOpen(false)
+        onSuccess: () => {
+          setIsDeleteOpen(false);
+          toast.success("Đã xóa tài khoản.");
+        }
       });
     }
   };
 
   const handleLock = () => {
     if (selectedUser) {
-      const lockEndAt = lockType === 'date' && lockDate ? new Date(lockDate).toISOString() : null;
+      const lockEndAt = lockType === 'date' && lockDate ? lockDate.toISOString() : null;
       lockMutation.mutate({ id: selectedUser.id, lockEndAt }, {
-        onSuccess: () => setIsLockOpen(false)
+        onSuccess: () => {
+          setIsLockOpen(false);
+          toast.success("Đã khóa tài khoản thành công!");
+        }
       });
     }
   };
 
   const handleUnlock = (id: string) => {
-    unlockMutation.mutate(id);
+    unlockMutation.mutate(id, {
+      onSuccess: () => {
+        toast.success("Đã mở khóa tài khoản thành công!");
+      },
+      onError: () => {
+        toast.error("Có lỗi xảy ra khi mở khóa tài khoản.");
+      }
+    });
   };
 
   return (
@@ -119,15 +141,23 @@ export default function AdminsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={16} />
               <Input 
-                placeholder="Tìm tên, email..." 
-                className="pl-9 h-9 text-sm" 
+                placeholder="Tìm tên, email, sđt..." 
+                className="pl-9 h-10 text-sm" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant="secondary" size="icon" className="h-9 w-9">
-              <Filter size={16} />
-            </Button>
+            <div className="w-[180px]">
+              <Select 
+                options={[
+                  { value: '', label: 'Tất cả Vai trò' },
+                  { value: 'SUPER_ADMIN', label: 'Super Admin' },
+                  { value: 'CENTER_ADMIN', label: 'Center Admin' }
+                ]}
+                value={roleFilter}
+                onChange={setRoleFilter}
+              />
+            </div>
           </div>
         </div>
         
@@ -142,7 +172,7 @@ export default function AdminsPage() {
            </div>
         ) : (
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-gray-50/50">
               <TableRow>
                 <TableHead>Tài khoản</TableHead>
                 <TableHead>Vai trò</TableHead>
@@ -153,7 +183,11 @@ export default function AdminsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {admins?.items?.map((a) => (
+              {admins?.items?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-10 text-edu-muted">Không tìm thấy tài khoản nào.</TableCell>
+                </TableRow>
+              ) : admins?.items?.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -172,14 +206,14 @@ export default function AdminsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-edu-fgSecondary">{a.organizationName || 'Tất cả'}</TableCell>
-                  <TableCell className="text-edu-muted">{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : 'Chưa đăng nhập'}</TableCell>
+                  <TableCell className="text-edu-muted">{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString('vi-VN') : 'Chưa đăng nhập'}</TableCell>
                   <TableCell>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 items-start">
                       <Badge variant={a.status === 'ACTIVE' ? 'success' : 'danger'}>
                         {a.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
                       </Badge>
                       {a.status === 'SUSPENDED' && a.lockEndAt && new Date(a.lockEndAt).getFullYear() < 9999 && (
-                        <span className="text-[10px] text-edu-danger">Đến {new Date(a.lockEndAt).toLocaleDateString()}</span>
+                        <span className="text-[10px] text-edu-danger">Đến {new Date(a.lockEndAt).toLocaleDateString('vi-VN')}</span>
                       )}
                     </div>
                   </TableCell>
@@ -386,8 +420,13 @@ export default function AdminsPage() {
             </div>
           </div>
           {lockType === 'date' && (
-            <div className="mt-2">
-              <Input type="datetime-local" value={lockDate} onChange={(e) => setLockDate(e.target.value)} />
+            <div className="mt-2 relative">
+              <DatePicker 
+                selected={lockDate} 
+                onChange={(date) => setLockDate(date)} 
+                showTimeSelect={false}
+                placeholderText="Chọn ngày kết thúc khóa..."
+              />
             </div>
           )}
         </div>

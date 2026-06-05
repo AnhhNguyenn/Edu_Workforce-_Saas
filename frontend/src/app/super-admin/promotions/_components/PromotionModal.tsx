@@ -6,6 +6,7 @@ import { X, Loader2 } from 'lucide-react';
 import { Portal } from '@/components/ui/portal';
 import { PromotionDto, useCreatePromotion, useUpdatePromotion } from '@/hooks/queries/useSubscriptions';
 import { toast } from 'react-hot-toast';
+import { DatePicker } from '@/components/ui/date-picker';
 
 interface PromotionModalProps {
   promo?: PromotionDto | null;
@@ -87,14 +88,10 @@ export function PromotionModal({ promo, onClose }: PromotionModalProps) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Loại khuyến mãi <span className="text-red-500">*</span></label>
-                <Select 
-                  value={formData.type} 
-                  onChange={(val) => setFormData(prev => ({ ...prev, type: val as any }))}
-                  options={[
-                    { value: 'PROMO_CODE', label: 'Nhập mã Code' },
-                    { value: 'AUTO_DISCOUNT', label: 'Giảm trực tiếp (Auto)' }
-                  ]}
-                />
+                <select name="type" value={formData.type} onChange={handleChange} className="w-full h-10 px-3 border border-gray-200 rounded-md bg-white text-sm">
+                  <option value="PROMO_CODE">Nhập mã Code</option>
+                  <option value="AUTO_DISCOUNT">Giảm trực tiếp (Auto)</option>
+                </select>
               </div>
               
               <div className="space-y-2">
@@ -109,13 +106,20 @@ export function PromotionModal({ promo, onClose }: PromotionModalProps) {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-2 flex flex-col justify-end">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Từ ngày <span className="text-red-500">*</span></label>
-                <Input name="startDate" type="date" value={formData.startDate} onChange={handleChange} required />
+                <DatePicker 
+                  selected={formData.startDate ? new Date(formData.startDate) : null}
+                  onChange={(date) => setFormData(prev => ({...prev, startDate: date ? date.toISOString().split('T')[0] : ''}))}
+                />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 flex flex-col justify-end">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Đến ngày <span className="text-red-500">*</span></label>
-                <Input name="endDate" type="date" value={formData.endDate} onChange={handleChange} required />
+                <DatePicker 
+                  selected={formData.endDate ? new Date(formData.endDate) : null}
+                  onChange={(date) => setFormData(prev => ({...prev, endDate: date ? date.toISOString().split('T')[0] : ''}))}
+                  minDate={formData.startDate ? new Date(formData.startDate) : undefined}
+                />
               </div>
             </div>
 
