@@ -51,6 +51,14 @@ namespace EduOps.Api.Controllers
             return NoContent();
         }
 
+        [HttpPut("{id}/subscription")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> UpdateSubscription(Guid id, [FromBody] UpdateOrganizationSubscriptionRequestDto request)
+        {
+            await _orgService.UpdateSubscriptionAsync(id, request);
+            return NoContent();
+        }
+
         [HttpPost("{id}/suspend")]
         [Authorize(Roles = "SUPER_ADMIN")]
         public async Task<IActionResult> Suspend(Guid id)

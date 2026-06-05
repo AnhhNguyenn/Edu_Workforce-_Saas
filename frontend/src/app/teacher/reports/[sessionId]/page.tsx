@@ -4,13 +4,15 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
-import { useSubmitTeacherReport, useSubmitAssistantReport, useSessionReport } from '@/hooks/queries/useReports';
+import { useSubmitTeacherReport, useSubmitAssistantReport, useSessionReport, useUploadReportMedia } from '@/hooks/queries/useReports';
 import { useProfile } from '@/hooks/queries/useProfile';
-import { ChevronLeft, Loader2, Save, Star } from 'lucide-react';
+import { ChevronLeft, Loader2, Save, Star, ImagePlus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select } from '@/components/ui/select';
 
-export default function ReportSubmitPage() {
-  const params = useParams();
+export default function SubmitReportPage({ params }: { params: { sessionId: string } }) {
   const router = useRouter();
   const sessionId = params.sessionId as string;
 
@@ -21,6 +23,7 @@ export default function ReportSubmitPage() {
 
   const teacherMutation = useSubmitTeacherReport(sessionId);
   const assistantMutation = useSubmitAssistantReport(sessionId);
+  const uploadMediaMutation = useUploadReportMedia();
 
   const isTeacher = profile?.role === 'TEACHER';
 
@@ -37,6 +40,15 @@ export default function ReportSubmitPage() {
   const [ratingForTeacher, setRatingForTeacher] = useState(5);
   const [feedbackForTeacher, setFeedbackForTeacher] = useState('');
 
+  // Media
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+
+  const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setMediaFile(e.target.files[0]);
+    }
+  };
+
   const handleSubmit = () => {
     if (isTeacher) {
       teacherMutation.mutate({
@@ -47,7 +59,14 @@ export default function ReportSubmitPage() {
         ratingForAssistant,
         feedbackForAssistant
       }, {
-        onSuccess: () => {
+        onSuccess: async (data) => {
+          if (mediaFile && data?.id) {
+            try {
+              await uploadMediaMutation.mutateAsync({ reportId: data.id, file: mediaFile });
+            } catch (err) {
+              toast.error("Lỗi upload hình ảnh báo cáo");
+            }
+          }
           toast.success("Đã nộp báo cáo thành công!");
           router.back();
         },
@@ -59,7 +78,14 @@ export default function ReportSubmitPage() {
         ratingForTeacher,
         feedbackForTeacher
       }, {
-        onSuccess: () => {
+        onSuccess: async (data) => {
+          if (mediaFile && data?.id) {
+            try {
+              await uploadMediaMutation.mutateAsync({ reportId: data.id, file: mediaFile });
+            } catch (err) {
+              toast.error("Lỗi upload hình ảnh báo cáo");
+            }
+          }
           toast.success("Đã nộp báo cáo thành công!");
           router.back();
         },
@@ -86,7 +112,7 @@ export default function ReportSubmitPage() {
     );
   }
 
-  const isPending = teacherMutation.isPending || assistantMutation.isPending;
+  const isPending = teacherMutation.isPending || assistantMutation.isPending || uploadMediaMutation.isPending;
 
   return (
     <div className="space-y-4 pb-20 -mt-2">
@@ -105,23 +131,27 @@ export default function ReportSubmitPage() {
           <>
             <div>
               <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Nội dung bài giảng</label>
-              <input value={lessonTaught} onChange={e => setLessonTaught(e.target.value)} className="w-full border border-edu-border rounded-lg p-2 text-sm" placeholder="VD: Unit 5 Lesson 1..." />
+              <Input value={lessonTaught} onChange={e => setLessonTaught(e.target.value)} placeholder="VD: Unit 5 Lesson 1..." />
             </div>
             <div>
               <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Tiến độ</label>
-              <select value={progress} onChange={e => setProgress(e.target.value)} className="w-full border border-edu-border rounded-lg p-2 text-sm bg-white">
-                <option>Đúng tiến độ</option>
-                <option>Chậm tiến độ</option>
-                <option>Vượt tiến độ</option>
-              </select>
+              <Select 
+                value={progress} 
+                onChange={val => setProgress(val)} 
+                options={[
+                  { value: 'Đúng tiến độ', label: 'Đúng tiến độ' },
+                  { value: 'Chậm tiến độ', label: 'Chậm tiến độ' },
+                  { value: 'Vượt tiến độ', label: 'Vượt tiến độ' }
+                ]}
+              />
             </div>
             <div>
               <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Nhận xét lớp học</label>
-              <textarea value={teacherComment} onChange={e => setTeacherComment(e.target.value)} className="w-full border border-edu-border rounded-lg p-2 text-sm" rows={3} placeholder="Đánh giá chung về lớp..." />
+              <Textarea value={teacherComment} onChange={e => setTeacherComment(e.target.value)} rows={3} placeholder="Đánh giá chung về lớp..." />
             </div>
             <div>
               <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Học sinh đặc biệt</label>
-              <input value={specialStudents} onChange={e => setSpecialStudents(e.target.value)} className="w-full border border-edu-border rounded-lg p-2 text-sm" placeholder="Nhắc nhở học sinh cụ thể..." />
+              <Input value={specialStudents} onChange={e => setSpecialStudents(e.target.value)} placeholder="Nhắc nhở học sinh cụ thể..." />
             </div>
             
             <hr className="my-2 border-edu-border" />
@@ -129,18 +159,18 @@ export default function ReportSubmitPage() {
             
             <div>
               <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Chấm điểm trợ giảng (1-5)</label>
-              <input type="number" min="1" max="5" value={ratingForAssistant} onChange={e => setRatingForAssistant(Number(e.target.value))} className="w-full border border-edu-border rounded-lg p-2 text-sm" />
+              <Input type="number" min={1} max={5} value={ratingForAssistant} onChange={e => setRatingForAssistant(Number(e.target.value))} />
             </div>
             <div>
               <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Góp ý cho trợ giảng</label>
-              <input value={feedbackForAssistant} onChange={e => setFeedbackForAssistant(e.target.value)} className="w-full border border-edu-border rounded-lg p-2 text-sm" placeholder="Phản hồi..." />
+              <Input value={feedbackForAssistant} onChange={e => setFeedbackForAssistant(e.target.value)} placeholder="Phản hồi..." />
             </div>
           </>
         ) : (
           <>
             <div>
               <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Ghi chú của Trợ giảng</label>
-              <textarea value={assistantNote} onChange={e => setAssistantNote(e.target.value)} className="w-full border border-edu-border rounded-lg p-2 text-sm" rows={3} placeholder="Tình hình lớp, học sinh..." />
+              <Textarea value={assistantNote} onChange={e => setAssistantNote(e.target.value)} rows={3} placeholder="Tình hình lớp, học sinh..." />
             </div>
 
             <hr className="my-2 border-edu-border" />
@@ -148,14 +178,27 @@ export default function ReportSubmitPage() {
             
             <div>
               <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Chấm điểm giáo viên (1-5)</label>
-              <input type="number" min="1" max="5" value={ratingForTeacher} onChange={e => setRatingForTeacher(Number(e.target.value))} className="w-full border border-edu-border rounded-lg p-2 text-sm" />
+              <Input type="number" min={1} max={5} value={ratingForTeacher} onChange={e => setRatingForTeacher(Number(e.target.value))} />
             </div>
             <div>
               <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Góp ý cho giáo viên</label>
-              <input value={feedbackForTeacher} onChange={e => setFeedbackForTeacher(e.target.value)} className="w-full border border-edu-border rounded-lg p-2 text-sm" placeholder="Phản hồi..." />
+              <Input value={feedbackForTeacher} onChange={e => setFeedbackForTeacher(e.target.value)} placeholder="Phản hồi..." />
             </div>
           </>
         )}
+
+        <hr className="my-2 border-edu-border" />
+        <h4 className="font-bold text-sm text-edu-fg">Hình ảnh đính kèm (Tùy chọn)</h4>
+        
+        <div>
+          <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-edu-border border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+              <ImagePlus className="w-6 h-6 text-edu-muted mb-2" />
+              <p className="text-xs text-edu-muted font-semibold">{mediaFile ? mediaFile.name : 'Tải lên hình ảnh lớp học'}</p>
+            </div>
+            <input type="file" className="hidden" accept="image/*" onChange={handleMediaChange} />
+          </label>
+        </div>
       </div>
 
       <div className="fixed bottom-[80px] left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent pointer-events-none">

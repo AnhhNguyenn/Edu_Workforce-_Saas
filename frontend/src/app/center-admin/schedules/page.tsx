@@ -1,12 +1,47 @@
 'use client';
 
-import { useSessions } from "@/hooks/queries/useSessions";
+import { useSessions, useCreateSession } from "@/hooks/queries/useSessions";
+import { useClasses } from "@/hooks/queries/useClasses";
+import { useUsers } from "@/hooks/queries/useUsers";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { useState } from "react";
+import { toast } from "react-hot-toast";
+import { Plus } from "lucide-react";
 
 export default function SchedulesPage() {
   const { data: sessions, isLoading } = useSessions();
+  const { data: classes } = useClasses();
+  const { data: teachers } = useUsers('TEACHER');
+  const createSession = useCreateSession();
+  
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newSession, setNewSession] = useState({ classId: '', teacherId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: '' });
+
   const today = new Date().toISOString().split('T')[0];
   const todaySessions = sessions?.items?.filter(s => s.sessionDate.startsWith(today)) || [];
+
+  const handleCreate = async () => {
+    if (!newSession.classId || !newSession.teacherId || !newSession.sessionDate || !newSession.startTime || !newSession.endTime) {
+      toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+    try {
+      await createSession.mutateAsync({
+        ...newSession,
+        startTime: newSession.startTime.length === 5 ? newSession.startTime + ':00' : newSession.startTime,
+        endTime: newSession.endTime.length === 5 ? newSession.endTime + ':00' : newSession.endTime,
+      });
+      toast.success('Đã thêm buổi học mới');
+      setIsCreateOpen(false);
+      setNewSession({ classId: '', teacherId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: '' });
+    } catch (e) {
+      toast.error('Lỗi khi thêm buổi học');
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-7">
@@ -15,6 +50,10 @@ export default function SchedulesPage() {
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Lịch giảng dạy</h2>
           <p className="text-edu-muted text-sm">Theo dõi lịch dạy thực tế của giáo viên trong ngày</p>
         </div>
+        <Button className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white" onClick={() => setIsCreateOpen(true)}>
+          <Plus size={18} />
+          Xếp lịch học
+        </Button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden p-6">
@@ -27,11 +66,11 @@ export default function SchedulesPage() {
             Không có ca học nào được xếp lịch trong hôm nay.
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {todaySessions.map((s, i) => (
-              <div key={s.id} className="flex gap-4 p-4 border border-edu-border rounded-xl hover:border-[#4CAF50] transition-colors relative">
+              <div key={s.id} className="flex gap-4 p-4 border border-edu-border rounded-xl bg-white hover:shadow-lg hover:-translate-y-1 hover:border-[#4CAF50]/50 transition-all duration-300 relative group overflow-hidden">
                  {s.statusCode === 'ONGOING' && (
-                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#4CAF50] rounded-l-xl"></div>
+                   <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-[#4CAF50] to-[#81C784] rounded-l-xl shadow-[0_0_8px_rgba(76,175,80,0.5)]"></div>
                  )}
                  <div className="w-20 text-center border-r border-dashed border-edu-border pr-4 flex flex-col justify-center">
                    <div className="text-lg font-bold text-edu-fg">{s.startTime.substring(0, 5)}</div>
@@ -53,6 +92,89 @@ export default function SchedulesPage() {
           </div>
         )}
       </div>
+
+      <Modal 
+        isOpen={isCreateOpen} 
+        onClose={() => setIsCreateOpen(false)} 
+        title="Xếp lịch buổi học"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Hủy</Button>
+            <Button 
+              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" 
+              onClick={handleCreate}
+              disabled={createSession.isPending}
+            >
+              {createSession.isPending ? 'Đang lưu...' : 'Lưu lịch học'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Chọn lớp <span className="text-red-500">*</span></label>
+              <Select 
+                options={classes?.items?.map((c: any) => ({ value: c.id, label: c.name })) || []}
+                placeholder="Chọn lớp học..."
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
+                value={newSession.classId}
+                onChange={(val) => setNewSession({...newSession, classId: val})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Giáo viên <span className="text-red-500">*</span></label>
+              <Select 
+                options={teachers?.items?.map((t: any) => ({ value: t.id, label: t.fullName })) || []}
+                placeholder="Chọn giáo viên..."
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
+                value={newSession.teacherId}
+                onChange={(val) => setNewSession({...newSession, teacherId: val})}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Ngày học <span className="text-red-500">*</span></label>
+              <Input 
+                type="date"
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                value={newSession.sessionDate}
+                onChange={(e) => setNewSession({...newSession, sessionDate: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Chủ đề bài học (tùy chọn)</label>
+              <Input 
+                placeholder="VD: Bài 1: Ngữ pháp"
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                value={newSession.lessonTitle}
+                onChange={(e) => setNewSession({...newSession, lessonTitle: e.target.value})}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Giờ bắt đầu</label>
+              <Input 
+                type="time"
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                value={newSession.startTime}
+                onChange={(e) => setNewSession({...newSession, startTime: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Giờ kết thúc</label>
+              <Input 
+                type="time"
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                value={newSession.endTime}
+                onChange={(e) => setNewSession({...newSession, endTime: e.target.value})}
+              />
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

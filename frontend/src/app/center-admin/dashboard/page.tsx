@@ -27,7 +27,7 @@ export default function CenterAdminDashboard() {
       </div>
 
       {/* STATS GRID */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-7">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
         <StatCard icon={<Users size={20} />} label="Giáo viên trực thuộc" value={teachers?.totalCount || 0} type="accent" />
         <StatCard icon={<Building2 size={20} />} label="Lớp đang mở" value={classes?.totalCount || 0} type="success" />
         <StatCard icon={<Calendar size={20} />} label="Ca học hôm nay" value={todaySessions.length} type="warn" />
@@ -40,8 +40,9 @@ export default function CenterAdminDashboard() {
         </div>
         
         {todaySessions.length > 0 ? (
-          <Table>
-            <TableHeader>
+          <div className="overflow-x-auto w-full">
+            <Table className="w-full whitespace-nowrap">
+              <TableHeader>
               <TableRow>
                 <TableHead>Mã Lớp</TableHead>
                 <TableHead>Chủ đề</TableHead>
@@ -51,7 +52,7 @@ export default function CenterAdminDashboard() {
             </TableHeader>
             <TableBody>
               {todaySessions.map(s => (
-                <TableRow key={s.id}>
+                <TableRow key={s.id} className="hover:bg-slate-50/50 transition-colors">
                   <TableCell className="font-semibold">{s.classId.substring(0, 8)}...</TableCell>
                   <TableCell>{s.lessonTitle || 'Chưa cập nhật'}</TableCell>
                   <TableCell>{s.startTime.substring(0, 5)} - {s.endTime.substring(0, 5)}</TableCell>
@@ -64,6 +65,7 @@ export default function CenterAdminDashboard() {
               ))}
             </TableBody>
           </Table>
+          </div>
         ) : (
           <div className="text-sm text-edu-muted text-center py-10 border border-dashed border-edu-border rounded-xl bg-gray-50/50">
             Không có ca học nào được xếp lịch trong hôm nay.

@@ -14,6 +14,9 @@ namespace EduOps.Application.Mappings
                 Id = student.Id,
                 FullName = student.FullName,
                 StudentCode = student.StudentCode,
+                DateOfBirth = student.StudentDetail?.BirthDate,
+                PhoneNumber = student.StudentDetail?.ParentPhone ?? string.Empty,
+                Email = student.StudentDetail?.ParentEmail ?? string.Empty,
                 StatusId = student.StatusId,
                 StatusCode = student.Status?.Code ?? string.Empty
             };

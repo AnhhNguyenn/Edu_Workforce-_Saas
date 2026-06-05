@@ -5,6 +5,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useSystemSettings, useUpdateSystemSetting } from "@/hooks/queries/useSystemSettings";
 import { Button } from "@/components/ui/button";
+import { toast } from "react-hot-toast";
 
 export default function SettingsPage() {
   const { data: settings, isLoading } = useSystemSettings();
@@ -32,7 +33,7 @@ export default function SettingsPage() {
         await updateMutation.mutateAsync({ key, value: form[key] });
       }
     }
-    alert('Đã lưu cấu hình thành công!');
+    toast.success('Đã lưu cấu hình thành công!');
   };
 
   if (isLoading) {

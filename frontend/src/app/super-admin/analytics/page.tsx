@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSystemErrorRates } from "@/hooks/queries/useAnalytics";
 
 export default function AnalyticsPage() {
-  const { data: errors, isLoading } = useSystemErrorRates();
+  const [days, setDays] = useState<number>(7);
+  const { data: errors, isLoading } = useSystemErrorRates(days);
 
   return (
     <div className="max-w-7xl mx-auto space-y-7">
@@ -15,8 +17,8 @@ export default function AnalyticsPage() {
           <p className="text-edu-muted text-sm">Phân tích chuyên sâu về tương tác người dùng và lỗi hệ thống</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary">7 ngày qua</Button>
-          <Button variant="secondary">30 ngày qua</Button>
+          <Button variant={days === 7 ? "primary" : "secondary"} onClick={() => setDays(7)}>7 ngày qua</Button>
+          <Button variant={days === 30 ? "primary" : "secondary"} onClick={() => setDays(30)}>30 ngày qua</Button>
         </div>
       </div>
 

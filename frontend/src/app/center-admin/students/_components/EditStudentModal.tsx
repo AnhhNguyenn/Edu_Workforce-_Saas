@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUpdateStudent, useStudent } from '@/hooks/queries/useStudents';
+import { toast } from 'react-hot-toast';
 
 interface EditStudentModalProps {
   studentId: string;
@@ -42,9 +43,10 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
         birthDate: formData.birthDate || null
       };
       await updateMutation.mutateAsync({ id: studentId, data: payload });
+      toast.success('Cập nhật học viên thành công!');
       onClose();
     } catch (err) {
-      alert('Đã xảy ra lỗi khi cập nhật học viên.');
+      toast.error('Đã xảy ra lỗi khi cập nhật học viên.');
       console.error(err);
     }
   };
@@ -62,8 +64,8 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
               <label className="text-sm font-semibold text-edu-fgSecondary">Mã học viên</label>
               <Input disabled value={studentDetail.studentCode} className="bg-gray-100" />
             </div>
@@ -87,8 +89,8 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
 
           <div className="border-t border-edu-border pt-4 mt-4">
             <h3 className="font-semibold text-edu-fg mb-4">Thông tin Phụ huynh</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-edu-fgSecondary">Họ tên Phụ huynh</label>
                 <Input 
                   value={formData.parentName} 

@@ -21,6 +21,12 @@ export interface CreateOrganizationDto {
   maxUsers?: number;
 }
 
+export interface UpdateOrgSubscriptionDto {
+  planId: string | null;
+  subscriptionStatus: string;
+  subscriptionEnd: string | null;
+}
+
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;
@@ -28,11 +34,13 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export const useOrganizations = () => {
+export const useOrganizations = (searchKeyword?: string, pageNumber: number = 1, pageSize: number = 20) => {
   return useQuery({
-    queryKey: ['organizations'],
+    queryKey: ['organizations', searchKeyword, pageNumber, pageSize],
     queryFn: async () => {
-      const response = await apiClient.get<PagedResult<OrganizationDto>>('/organizations');
+      const response = await apiClient.get<PagedResult<OrganizationDto>>('/organizations', {
+        params: { searchKeyword: searchKeyword || undefined, pageNumber, pageSize }
+      });
       return response.data;
     }
   });
@@ -58,7 +66,33 @@ export const useCreateOrganization = () => {
       return response.data;
     },
     onSuccess: () => {
-      // Invalidate cache to trigger a re-fetch
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+    }
+  });
+};
+
+export const useUpdateOrganization = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await apiClient.put<OrganizationDto>(`/organizations/${id}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+    }
+  });
+};
+
+export const useUpdateOrgSubscription = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: UpdateOrgSubscriptionDto }) => {
+      await apiClient.put(`/organizations/${id}/subscription`, data);
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
     }
   });
@@ -72,6 +106,19 @@ export const useOrganizationStats = (id?: string) => {
       return response.data;
     },
     enabled: !!id
+  });
+};
+
+export const useDeleteOrganization = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/organizations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+    }
   });
 };
 

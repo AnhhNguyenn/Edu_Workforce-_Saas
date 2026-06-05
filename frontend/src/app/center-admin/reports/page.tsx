@@ -7,15 +7,36 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useReports } from "@/hooks/queries/useReports";
+import { useState, useMemo } from "react";
 
 export default function ReportsPage() {
   const { data: reports, isLoading } = useReports();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const filteredReports = useMemo(() => {
+    if (!reports?.items) return [];
+    let items = reports.items;
+    
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      items = items.filter(r => 
+        r.sessionId.toLowerCase().includes(lowerSearch)
+      );
+    }
+    
+    if (statusFilter !== 'all') {
+      items = items.filter(r => r.status === statusFilter);
+    }
+    
+    return items;
+  }, [reports, searchTerm, statusFilter]);
 
   const handleExport = () => {
     const headers = ['Mã Session', 'Sĩ số hiện diện', 'Số vắng', 'Trạng thái', 'Ngày nộp'];
     const csvContent = [
       headers.join(','),
-      ...(reports?.items || []).map(r => `${r.sessionId},${r.attendanceCount},${r.absentCount},${r.status},${r.submittedAt || ''}`)
+      ...(filteredReports || []).map(r => `${r.sessionId},${r.attendanceCount},${r.absentCount},${r.status},${r.submittedAt || ''}`)
     ].join('\n');
     
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -41,13 +62,18 @@ export default function ReportsPage() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
-        <div className="p-5 flex justify-between items-center border-b border-edu-border gap-4 bg-gray-50/50">
-          <div className="flex flex-1 max-w-lg gap-2">
+        <div className="p-5 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-edu-border gap-4 bg-gray-50/50">
+          <div className="flex flex-col sm:flex-row flex-1 w-full max-w-lg gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={16} />
-              <Input placeholder="Tìm tên giáo viên, lớp học..." className="pl-9 h-9 text-sm focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" />
+              <Input 
+                placeholder="Tìm mã buổi học..." 
+                className="pl-9 h-9 text-sm focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <div className="w-40">
+            <div className="w-full sm:w-40 flex gap-2">
               <Select 
                 options={[
                   { value: 'all', label: 'Tất cả trạng thái' },
@@ -56,16 +82,22 @@ export default function ReportsPage() {
                 ]}
                 placeholder="Trạng thái"
                 className="h-9 focus:border-[#4CAF50] focus:ring-[#4CAF50]/30 w-full"
+                value={statusFilter}
+                onChange={setStatusFilter}
               />
+              <Button variant="secondary" size="icon" className="h-9 w-9 shrink-0 sm:hidden">
+                <Filter size={16} />
+              </Button>
             </div>
-            <Button variant="secondary" size="icon" className="h-9 w-9 shrink-0">
+            <Button variant="secondary" size="icon" className="h-9 w-9 shrink-0 hidden sm:flex">
               <Filter size={16} />
             </Button>
           </div>
         </div>
         
-        <Table>
-          <TableHeader>
+        <div className="overflow-x-auto w-full">
+          <Table className="w-full whitespace-nowrap">
+            <TableHeader>
             <TableRow>
               <TableHead>Mã Buổi Học</TableHead>
               <TableHead>Sĩ số hiện diện</TableHead>
@@ -76,8 +108,8 @@ export default function ReportsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {reports?.items?.map(r => (
-              <TableRow key={r.sessionId}>
+            {filteredReports.map(r => (
+              <TableRow key={r.sessionId} className="hover:bg-slate-50/50 transition-colors">
                 <TableCell className="font-medium text-edu-fg">{r.sessionId.substring(0, 8)}...</TableCell>
                 <TableCell>{r.attendanceCount}</TableCell>
                 <TableCell>{r.absentCount}</TableCell>
@@ -99,15 +131,16 @@ export default function ReportsPage() {
                 </TableCell>
               </TableRow>
             )}
-            {!isLoading && (!reports?.items || reports.items.length === 0) && (
+            {!isLoading && filteredReports.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-edu-muted">
-                  Chưa có báo cáo điểm danh nào.
+                  Không tìm thấy báo cáo phù hợp.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
     </div>
   );

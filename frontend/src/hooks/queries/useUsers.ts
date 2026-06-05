@@ -11,6 +11,7 @@ export interface UserDto {
   organizationId?: string;
   organizationName?: string;
   role?: string;
+  phone?: string;
   lastLoginAt?: string;
   lockEndAt?: string;
 }
@@ -22,12 +23,17 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export const useUsers = (roleFilter?: string) => {
+export const useUsers = (roleFilter?: string, searchKeyword?: string, pageNumber: number = 1, pageSize: number = 20) => {
   return useQuery({
-    queryKey: ['users', roleFilter],
+    queryKey: ['users', roleFilter, searchKeyword, pageNumber, pageSize],
     queryFn: async () => {
       const response = await apiClient.get<PagedResult<UserDto>>('/users', {
-        params: { role: roleFilter }
+        params: { 
+          filterRoleCode: roleFilter,
+          searchKeyword: searchKeyword || undefined,
+          pageNumber,
+          pageSize
+        }
       });
       return response.data;
     }
@@ -76,6 +82,19 @@ export const useUnlockUser = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       await apiClient.post(`/users/${id}/unlock`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    }
+  });
+};
+
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: any }) => {
+      const response = await apiClient.put(`/users/${id}`, data);
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });

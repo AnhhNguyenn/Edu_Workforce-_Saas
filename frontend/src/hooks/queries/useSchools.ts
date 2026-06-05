@@ -4,10 +4,10 @@ import apiClient from '@/lib/api-client';
 export interface SchoolDto {
   id: string;
   name: string;
-  address: string;
-  gpsRadius: number;
+  address?: string;
   latitude?: number;
   longitude?: number;
+  gpsRadius?: number;
 }
 
 export interface PagedResult<T> {
@@ -17,31 +17,21 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export const useSchools = (pageNumber = 1, pageSize = 20) => {
+export const useSchools = () => {
   return useQuery({
-    queryKey: ['schools', pageNumber, pageSize],
+    queryKey: ['schools'],
     queryFn: async () => {
-      const response = await apiClient.get<PagedResult<SchoolDto>>('/schools', {
-        params: { pageNumber, pageSize }
-      });
+      const response = await apiClient.get<PagedResult<SchoolDto>>('/schools');
       return response.data;
     }
   });
 };
 
-export interface CreateSchoolDto {
-  name: string;
-  address?: string;
-  latitude?: number;
-  longitude?: number;
-  attendanceRadius?: number;
-}
-
 export const useCreateSchool = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: CreateSchoolDto) => {
-      const response = await apiClient.post<SchoolDto>('/schools', data);
+    mutationFn: async (data: any) => {
+      const response = await apiClient.post('/schools', data);
       return response.data;
     },
     onSuccess: () => {

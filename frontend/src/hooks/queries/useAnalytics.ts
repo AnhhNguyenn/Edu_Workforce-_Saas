@@ -23,11 +23,11 @@ export const useSystemCharts = () => {
   });
 };
 
-export const useSystemErrorRates = () => {
+export const useSystemErrorRates = (days: number = 30) => {
   return useQuery({
-    queryKey: ['system-error-rates'],
+    queryKey: ['system-error-rates', days],
     queryFn: async () => {
-      const response = await apiClient.get<any>('/analytics/error-rates');
+      const response = await apiClient.get<any>('/analytics/error-rates', { params: { days } });
       return response.data;
     },
     staleTime: 5 * 60 * 1000

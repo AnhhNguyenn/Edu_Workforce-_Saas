@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 
 export interface SessionListResponseDto {
@@ -31,6 +31,32 @@ export const useSessions = (date?: string) => {
       // If not supported by DTO, we fetch all and filter in frontend, or backend will handle it.
       const response = await apiClient.get<PagedResult<SessionListResponseDto>>('/sessions');
       return response.data;
+    }
+  });
+};
+
+export const useCreateSession = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { classId: string; teacherId: string; lessonTitle: string; sessionDate: string; startTime: string; endTime: string; }) => {
+      const response = await apiClient.post('/sessions', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    }
+  });
+};
+
+export const useSubmitAttendance = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ sessionId, data }: { sessionId: string; data: any }) => {
+      const response = await apiClient.post(`/attendances/sessions/${sessionId}/students`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
     }
   });
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,24 +9,38 @@ import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { getAvatarInitials } from "@/lib/utils";
-import { useUsers, useDeleteUser, useLockUser, useUnlockUser, useCreateUser, UserDto } from "@/hooks/queries/useUsers";
+import { useUsers, useDeleteUser, useLockUser, useUnlockUser, useCreateUser, useUpdateUser, UserDto } from "@/hooks/queries/useUsers";
 import { useOrganizations } from "@/hooks/queries/useOrganizations";
 
 export default function AdminsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isLockOpen, setIsLockOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
   const [lockType, setLockType] = useState('permanent'); // 'permanent' or 'date'
   const [lockDate, setLockDate] = useState('');
   
-  // Create form state
-  const [formData, setFormData] = useState({ fullName: '', email: '', password: '', role: 'SUPER_ADMIN', phone: '', organizationId: '' });
+  // Create & Edit form state
+  const [formData, setFormData] = useState({ fullName: '', email: '', password: '', roleCode: 'SUPER_ADMIN', phone: '', organizationId: '' });
+  const [editFormData, setEditFormData] = useState({ fullName: '', roleCode: 'SUPER_ADMIN', phone: '', organizationId: '' });
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Simple debounce for search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   const { data: orgs } = useOrganizations();
-  const { data: admins, isLoading, isError, error } = useUsers('SUPER_ADMIN'); // Assuming backend expects SUPER_ADMIN or we just fetch all for now, wait backend doesn't filter exactly yet.
+  const { data: admins, isLoading, isError, error } = useUsers('SUPER_ADMIN', debouncedSearch);
   
   const createMutation = useCreateUser();
+  const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
   const lockMutation = useLockUser();
   const unlockMutation = useUnlockUser();
@@ -35,9 +49,30 @@ export default function AdminsPage() {
     createMutation.mutate(formData, {
       onSuccess: () => {
         setIsCreateOpen(false);
-        setFormData({ fullName: '', email: '', password: '', role: 'SUPER_ADMIN', phone: '', organizationId: '' });
+        setFormData({ fullName: '', email: '', password: '', roleCode: 'SUPER_ADMIN', phone: '', organizationId: '' });
       }
     });
+  };
+
+  const handleEdit = () => {
+    if (selectedUser) {
+      updateMutation.mutate({ id: selectedUser.id, data: editFormData }, {
+        onSuccess: () => {
+          setIsEditOpen(false);
+        }
+      });
+    }
+  };
+
+  const openEditModal = (user: UserDto) => {
+    setSelectedUser(user);
+    setEditFormData({
+      fullName: user.fullName || '',
+      roleCode: user.roleCode || user.role || 'SUPER_ADMIN',
+      phone: user.phone || '', // Using phone from UserDto now
+      organizationId: user.organizationId || ''
+    });
+    setIsEditOpen(true);
   };
 
   const handleDelete = () => {
@@ -83,7 +118,12 @@ export default function AdminsPage() {
           <div className="flex flex-1 max-w-md gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={16} />
-              <Input placeholder="Tìm tên, email..." className="pl-9 h-9 text-sm" />
+              <Input 
+                placeholder="Tìm tên, email..." 
+                className="pl-9 h-9 text-sm" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
             <Button variant="secondary" size="icon" className="h-9 w-9">
               <Filter size={16} />
@@ -127,8 +167,8 @@ export default function AdminsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={a.role === 'SUPER_ADMIN' ? 'warn' : 'info'}>
-                      {a.role}
+                    <Badge variant={a.roleCode === 'SUPER_ADMIN' ? 'warn' : 'info'}>
+                      {a.roleCode || a.role}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-edu-fgSecondary">{a.organizationName || 'Tất cả'}</TableCell>
@@ -145,7 +185,7 @@ export default function AdminsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1.5">
-                      <Button variant="secondary" size="sm">Sửa</Button>
+                      <Button variant="secondary" size="sm" onClick={() => openEditModal(a)}>Sửa</Button>
                       {a.status === 'ACTIVE' ? (
                         <Button variant="danger" size="sm" onClick={() => { setSelectedUser(a); setIsLockOpen(true); }}>
                           Khóa
@@ -203,8 +243,8 @@ export default function AdminsPage() {
                   { value: 'SUPER_ADMIN', label: 'Super Admin' },
                   { value: 'CENTER_ADMIN', label: 'Center Admin' }
                 ]}
-                value={formData.role}
-                onChange={v => setFormData({...formData, role: v})}
+                value={formData.roleCode}
+                onChange={v => setFormData({...formData, roleCode: v})}
                 placeholder="Chọn vai trò..."
               />
             </div>
@@ -212,13 +252,69 @@ export default function AdminsPage() {
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Số điện thoại</label>
               <Input placeholder="09xxxx" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
             </div>
-            {formData.role === 'CENTER_ADMIN' && (
+            {formData.roleCode === 'CENTER_ADMIN' && (
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Trực thuộc Trung tâm</label>
                 <Select 
                   options={orgs?.items?.map((o: any) => ({ value: o.id, label: o.name })) || []}
                   value={formData.organizationId}
                   onChange={v => setFormData({...formData, organizationId: v})}
+                  placeholder="Chọn trung tâm..."
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      <Modal 
+        isOpen={isEditOpen} 
+        onClose={() => setIsEditOpen(false)} 
+        title="Sửa thông tin quản trị viên"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setIsEditOpen(false)}>Hủy</Button>
+            <Button onClick={handleEdit} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Họ tên</label>
+              <Input placeholder="Nhập tên admin..." value={editFormData.fullName} onChange={e => setEditFormData({...editFormData, fullName: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Email (Không thể sửa)</label>
+              <Input type="email" disabled value={selectedUser?.email || ''} className="bg-gray-100" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Vai trò</label>
+              <Select 
+                options={[
+                  { value: 'SUPER_ADMIN', label: 'Super Admin' },
+                  { value: 'CENTER_ADMIN', label: 'Center Admin' }
+                ]}
+                value={editFormData.roleCode}
+                onChange={v => setEditFormData({...editFormData, roleCode: v})}
+                placeholder="Chọn vai trò..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Số điện thoại</label>
+              <Input placeholder="09xxxx" value={editFormData.phone} onChange={e => setEditFormData({...editFormData, phone: e.target.value})} />
+            </div>
+            {editFormData.roleCode === 'CENTER_ADMIN' && (
+              <div className="col-span-2">
+                <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Trực thuộc Trung tâm</label>
+                <Select 
+                  options={orgs?.items?.map((o: any) => ({ value: o.id, label: o.name })) || []}
+                  value={editFormData.organizationId}
+                  onChange={v => setEditFormData({...editFormData, organizationId: v})}
                   placeholder="Chọn trung tâm..."
                 />
               </div>
@@ -262,15 +358,32 @@ export default function AdminsPage() {
           <p className="text-edu-fgSecondary text-sm mb-4">
             Khóa tài khoản <strong>{selectedUser?.fullName}</strong>. Người này sẽ bị đăng xuất và không thể đăng nhập lại.
           </p>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-edu-fg">
-              <input type="radio" name="lockType" checked={lockType === 'permanent'} onChange={() => setLockType('permanent')} />
-              Khóa vĩnh viễn
-            </label>
-            <label className="flex items-center gap-2 text-sm text-edu-fg">
-              <input type="radio" name="lockType" checked={lockType === 'date'} onChange={() => setLockType('date')} />
-              Khóa có thời hạn (đến ngày)
-            </label>
+          <div className="grid grid-cols-2 gap-3 mb-2">
+            <div 
+              onClick={() => setLockType('permanent')} 
+              className={`cursor-pointer rounded-xl border p-4 transition-all ${lockType === 'permanent' ? 'border-edu-accent bg-edu-accentLight/20 shadow-sm' : 'border-edu-border hover:border-gray-300'}`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-sm text-edu-fg">Khóa vĩnh viễn</span>
+                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${lockType === 'permanent' ? 'border-edu-accent' : 'border-gray-300'}`}>
+                  {lockType === 'permanent' && <div className="w-2 h-2 rounded-full bg-edu-accent" />}
+                </div>
+              </div>
+              <p className="text-xs text-edu-muted">Vô hiệu hóa hoàn toàn tài khoản này.</p>
+            </div>
+            
+            <div 
+              onClick={() => setLockType('date')} 
+              className={`cursor-pointer rounded-xl border p-4 transition-all ${lockType === 'date' ? 'border-edu-accent bg-edu-accentLight/20 shadow-sm' : 'border-edu-border hover:border-gray-300'}`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-sm text-edu-fg">Khóa có thời hạn</span>
+                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${lockType === 'date' ? 'border-edu-accent' : 'border-gray-300'}`}>
+                  {lockType === 'date' && <div className="w-2 h-2 rounded-full bg-edu-accent" />}
+                </div>
+              </div>
+              <p className="text-xs text-edu-muted">Chỉ khóa đến ngày chỉ định.</p>
+            </div>
           </div>
           {lockType === 'date' && (
             <div className="mt-2">

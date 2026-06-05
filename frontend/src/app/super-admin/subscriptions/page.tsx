@@ -9,6 +9,7 @@ import { PlanModal } from './_components/PlanModal';
 import { toast } from 'react-hot-toast';
 import { TransactionTable } from './_components/TransactionTable';
 import { Badge } from '@/components/ui/badge';
+import { useMemo, useEffect } from 'react';
 
 export default function SubscriptionsPage() {
   const { data: transactions = [], isLoading: loadingTx } = useAllTransactions();
@@ -17,6 +18,24 @@ export default function SubscriptionsPage() {
 
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanDto | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  const filteredTransactions = useMemo(() => {
+    if (!debouncedSearch) return transactions;
+    return transactions.filter((tx: any) => 
+      tx.referenceCode?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      tx.organizationName?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      tx.planName?.toLowerCase().includes(debouncedSearch.toLowerCase())
+    );
+  }, [transactions, debouncedSearch]);
 
   const handleEdit = (plan: SubscriptionPlanDto) => {
     setSelectedPlan(plan);
@@ -89,7 +108,12 @@ export default function SubscriptionsPage() {
         <div className="flex gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={16} />
-            <Input placeholder="Tìm mã hóa đơn, mã trung tâm..." className="pl-9 h-9 text-sm w-64" />
+            <Input 
+              placeholder="Tìm mã hóa đơn, mã trung tâm..." 
+              className="pl-9 h-9 text-sm w-64" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
           <Button variant="outline" size="icon" className="h-9 w-9 bg-white">
             <Filter size={16} className="text-edu-muted" />
@@ -97,7 +121,7 @@ export default function SubscriptionsPage() {
         </div>
       </div>
 
-      <TransactionTable transactions={transactions} isLoading={loadingTx} />
+      <TransactionTable transactions={filteredTransactions} isLoading={loadingTx} />
     </div>
   );
 }

@@ -3,11 +3,17 @@
 import { CheckCircle2, Clock, HelpCircle, MapPin, Download } from "lucide-react";
 import { useSessions } from "@/hooks/queries/useSessions";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { AttendanceModal } from "./_components/AttendanceModal";
 
 export default function AttendancePage() {
   const { data: sessions, isLoading } = useSessions();
   const today = new Date().toISOString().split('T')[0];
   const todaySessions = sessions?.items?.filter(s => s.sessionDate.startsWith(today)) || [];
+
+  const [selectedSession, setSelectedSession] = useState<any>(null);
 
   return (
     <div className="max-w-7xl mx-auto space-y-7">
@@ -16,7 +22,7 @@ export default function AttendancePage() {
         <p className="text-edu-muted text-sm">Giám sát điểm danh real-time hôm nay</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
         <StatCard icon={<CheckCircle2 size={20} />} label="Ca học hôm nay" value={todaySessions.length.toString()} type="success" />
         <StatCard icon={<Clock size={20} />} label="Đã hoàn thành" value={todaySessions.filter(s => s.statusCode === 'COMPLETED').length.toString()} type="accent" />
         <StatCard icon={<HelpCircle size={20} />} label="Chưa bắt đầu" value={todaySessions.filter(s => s.statusCode === 'SCHEDULED').length.toString()} type="warn" />
@@ -26,49 +32,62 @@ export default function AttendancePage() {
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
         <div className="p-5 flex justify-between items-center border-b border-edu-border">
           <h3 className="font-semibold text-edu-fg">Chi tiết điểm danh giảng dạy</h3>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-edu-border text-edu-fg rounded-lg text-sm font-semibold hover:border-edu-accent hover:text-edu-accent transition-colors">
+          <Button variant="outline" className="flex items-center gap-2 text-edu-fg font-semibold hover:border-edu-accent hover:text-edu-accent transition-colors">
             <Download size={16} />
             Export Excel
-          </button>
+          </Button>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto w-full">
           {isLoading ? (
             <div className="text-center py-10 text-edu-muted">Đang tải dữ liệu điểm danh...</div>
           ) : todaySessions.length === 0 ? (
             <div className="text-center py-10 text-edu-muted">Không có ca học nào trong hôm nay.</div>
           ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-edu-bg">
-                  <th className="py-3 px-5 text-[0.75rem] font-semibold uppercase tracking-wider text-edu-muted border-b border-edu-border">Mã Lớp</th>
-                  <th className="py-3 px-5 text-[0.75rem] font-semibold uppercase tracking-wider text-edu-muted border-b border-edu-border">Chủ đề</th>
-                  <th className="py-3 px-5 text-[0.75rem] font-semibold uppercase tracking-wider text-edu-muted border-b border-edu-border">Giờ học</th>
-                  <th className="py-3 px-5 text-[0.75rem] font-semibold uppercase tracking-wider text-edu-muted border-b border-edu-border">Check-in</th>
-                  <th className="py-3 px-5 text-[0.75rem] font-semibold uppercase tracking-wider text-edu-muted border-b border-edu-border">Check-out</th>
-                  <th className="py-3 px-5 text-[0.75rem] font-semibold uppercase tracking-wider text-edu-muted border-b border-edu-border">Trạng thái ca học</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="w-full whitespace-nowrap">
+              <TableHeader>
+                <TableRow className="bg-edu-bg">
+                  <TableHead className="uppercase tracking-wider">Mã Lớp</TableHead>
+                  <TableHead className="uppercase tracking-wider">Chủ đề</TableHead>
+                  <TableHead className="uppercase tracking-wider">Giờ học</TableHead>
+                  <TableHead className="uppercase tracking-wider">Check-in / Check-out</TableHead>
+                  <TableHead className="uppercase tracking-wider">Trạng thái ca học</TableHead>
+                  <TableHead className="uppercase tracking-wider">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {todaySessions.map((s) => (
-                  <tr key={s.id} className="hover:bg-edu-accentLighter transition-colors">
-                    <td className="py-3.5 px-5 border-b border-edu-border font-semibold text-edu-fg whitespace-nowrap">{s.classId.substring(0, 8)}...</td>
-                    <td className="py-3.5 px-5 border-b border-edu-border text-sm">{s.lessonTitle || '---'}</td>
-                    <td className="py-3.5 px-5 border-b border-edu-border text-sm font-bold text-edu-accent">{s.startTime.substring(0, 5)} - {s.endTime.substring(0, 5)}</td>
-                    <td className="py-3.5 px-5 border-b border-edu-border text-sm text-edu-muted">Đang cập nhật</td>
-                    <td className="py-3.5 px-5 border-b border-edu-border text-sm text-edu-muted">Đang cập nhật</td>
-                    <td className="py-3.5 px-5 border-b border-edu-border">
+                  <TableRow key={s.id} className="hover:bg-slate-50/50 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-all duration-300">
+                    <TableCell className="font-semibold text-edu-fg">{s.classId.substring(0, 8)}...</TableCell>
+                    <TableCell>{s.lessonTitle || '---'}</TableCell>
+                    <TableCell className="font-bold text-edu-accent">{s.startTime.substring(0, 5)} - {s.endTime.substring(0, 5)}</TableCell>
+                    <TableCell className="text-edu-muted">Chưa ghi nhận</TableCell>
+                    <TableCell>
                       <Badge variant={s.statusCode === 'COMPLETED' ? 'success' : s.statusCode === 'ONGOING' ? 'info' : 'muted'}>
                         {s.statusCode === 'COMPLETED' ? 'Đã xong' : s.statusCode === 'ONGOING' ? 'Đang diễn ra' : 'Sắp tới'}
                       </Badge>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell>
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        className="bg-[#E8F5E9] text-[#2E7D32] border-transparent hover:bg-[#C8E6C9] font-medium transition-colors"
+                        onClick={() => setSelectedSession(s)}
+                      >
+                        Điểm danh
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </div>
       </div>
+
+      {selectedSession && (
+        <AttendanceModal session={selectedSession} onClose={() => setSelectedSession(null)} />
+      )}
     </div>
   );
 }

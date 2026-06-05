@@ -6,6 +6,7 @@ import { useStudents, useExportStudents, useImportStudents, useDeleteStudent } f
 import { useDebounce } from '@/hooks/useDebounce';
 import { StudentTable } from './_components/StudentTable';
 import { StudentToolbar } from './_components/StudentToolbar';
+import { toast } from 'react-hot-toast';
 
 // Áp dụng Lazy Load cho Modal
 const CreateStudentModal = dynamic(() => import('./_components/CreateStudentModal'), { 
@@ -40,17 +41,18 @@ export default function StudentsPage() {
       link.setAttribute('download', 'students.xlsx');
       document.body.appendChild(link);
       link.click();
+      toast.success('Xuất file thành công!');
     } catch (err) {
-      alert('Lỗi xuất file');
+      toast.error('Lỗi xuất file');
     }
   };
 
   const handleImport = async (file: File) => {
     try {
       await importMutation.mutateAsync(file);
-      alert('Nhập file thành công!');
+      toast.success('Nhập file thành công!');
     } catch (err) {
-      alert('Lỗi nhập file. Vui lòng kiểm tra định dạng .xlsx');
+      toast.error('Lỗi nhập file. Vui lòng kiểm tra định dạng .xlsx');
     }
   };
 

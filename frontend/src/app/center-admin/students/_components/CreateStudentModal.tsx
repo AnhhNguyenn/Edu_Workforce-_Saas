@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCreateStudent } from '@/hooks/queries/useStudents';
+import { toast } from 'react-hot-toast';
 
 interface CreateStudentModalProps {
   onClose: () => void;
@@ -28,9 +29,10 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
         birthDate: formData.birthDate || null
       };
       await createMutation.mutateAsync(payload);
+      toast.success('Thêm học viên thành công!');
       onClose();
     } catch (err) {
-      alert('Đã xảy ra lỗi khi tạo mới học viên.');
+      toast.error('Đã xảy ra lỗi khi tạo mới học viên.');
       console.error(err);
     }
   };
@@ -46,8 +48,8 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
               <label className="text-sm font-semibold text-edu-fgSecondary">Mã học viên <span className="text-red-500">*</span></label>
               <Input 
                 required 
@@ -56,7 +58,7 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
                 placeholder="VD: HV001" 
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-semibold text-edu-fgSecondary">Họ và tên <span className="text-red-500">*</span></label>
               <Input 
                 required 
@@ -65,7 +67,7 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
                 placeholder="Nguyễn Văn A" 
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-semibold text-edu-fgSecondary">Ngày sinh</label>
               <Input 
                 type="date" 
@@ -77,8 +79,8 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
 
           <div className="border-t border-edu-border pt-4 mt-4">
             <h3 className="font-semibold text-edu-fg mb-4">Thông tin Phụ huynh</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-edu-fgSecondary">Họ tên Phụ huynh</label>
                 <Input 
                   value={formData.parentName} 

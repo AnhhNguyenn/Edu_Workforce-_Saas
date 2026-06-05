@@ -11,9 +11,9 @@ export function useSignalR() {
   const addNotification = useAppStore(state => state.addNotification);
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
 
+  const token = (session as any)?.accessToken;
+
   useEffect(() => {
-    // Chỉ kết nối khi đã có session và token
-    const token = (session as any)?.accessToken;
     if (!token) return;
 
     const newConnection = new signalR.HubConnectionBuilder()
@@ -23,31 +23,27 @@ export function useSignalR() {
       .withAutomaticReconnect()
       .build();
 
+    newConnection.start()
+      .then(() => {
+        console.log('Connected to SignalR Hub!');
+        newConnection.on('ReceiveNotification', (title: string, message: string, type: 'info' | 'success' | 'warn' | 'danger') => {
+          addNotification({ title, message, type });
+        });
+      })
+      .catch(e => {
+        // Bỏ qua lỗi do React 18 Strict Mode tự động unmount component khi đang connect
+        if (e.message && e.message.includes('stopped during negotiation')) {
+          return;
+        }
+        console.error('SignalR Connection Error: ', e);
+      });
+
     setConnection(newConnection);
-  }, [session]);
 
-  useEffect(() => {
-    if (connection) {
-      connection.start()
-        .then(() => {
-          console.log('Connected to SignalR Hub!');
-
-          // Lắng nghe các event từ Backend
-          connection.on('ReceiveNotification', (title: string, message: string, type: 'info' | 'success' | 'warn' | 'danger') => {
-            addNotification({
-              title,
-              message,
-              type,
-            });
-          });
-        })
-        .catch(e => console.error('SignalR Connection Error: ', e));
-
-      return () => {
-        connection.stop();
-      };
-    }
-  }, [connection, addNotification]);
+    return () => {
+      newConnection.stop();
+    };
+  }, [token, addNotification]);
 
   return connection;
 }

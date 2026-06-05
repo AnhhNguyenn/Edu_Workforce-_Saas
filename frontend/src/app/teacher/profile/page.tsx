@@ -1,11 +1,36 @@
 'use client';
 
-import { Mail, Phone, BarChart2, Star, Edit, Lock, LogOut, Loader2 } from "lucide-react";
-import { useProfile } from "@/hooks/queries/useProfile";
+import { Mail, Phone, BarChart2, Star, Edit, Lock, LogOut, Loader2, X } from "lucide-react";
+import { useProfile, useUpdateProfile } from "@/hooks/queries/useProfile";
 import { signOut } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
+import { Modal } from "@/components/ui/modal";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export default function ProfilePage() {
   const { data: profile, isLoading } = useProfile();
+  const updateProfile = useUpdateProfile();
+  
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ phone: '' });
+
+  useEffect(() => {
+    if (profile) {
+      setEditForm({ phone: profile.phone || '' });
+    }
+  }, [profile]);
+
+  const handleUpdate = async () => {
+    try {
+      await updateProfile.mutateAsync(editForm);
+      toast.success('Cập nhật thông tin thành công!');
+      setIsEditOpen(false);
+    } catch (e) {
+      toast.error('Lỗi khi cập nhật thông tin');
+    }
+  };
 
   if (isLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-edu-accent" size={32} /></div>;
@@ -60,7 +85,10 @@ export default function ProfilePage() {
 
       {/* Actions */}
       <div className="flex flex-col gap-3">
-        <button className="flex items-center justify-center gap-2 w-full py-3.5 bg-white border border-edu-border text-edu-fg rounded-xl text-sm font-bold hover:bg-edu-accentLighter transition-colors">
+        <button 
+          onClick={() => setIsEditOpen(true)}
+          className="flex items-center justify-center gap-2 w-full py-3.5 bg-white border border-edu-border text-edu-fg rounded-xl text-sm font-bold hover:bg-edu-accentLighter transition-colors"
+        >
           <Edit size={16} className="text-edu-muted" />
           Chỉnh sửa thông tin
         </button>
@@ -76,6 +104,36 @@ export default function ProfilePage() {
           Đăng xuất
         </button>
       </div>
+
+      <Modal 
+        isOpen={isEditOpen} 
+        onClose={() => setIsEditOpen(false)} 
+        title="Chỉnh sửa thông tin"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setIsEditOpen(false)}>Hủy</Button>
+            <Button 
+              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" 
+              onClick={handleUpdate}
+              disabled={updateProfile.isPending}
+            >
+              {updateProfile.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Số điện thoại</label>
+            <Input 
+              placeholder="Nhập số điện thoại..." 
+              className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+              value={editForm.phone}
+              onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

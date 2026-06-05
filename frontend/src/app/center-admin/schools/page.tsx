@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Plus, School as SchoolIcon, MapPin, Users, Target, X, Loader2 } from "lucide-react";
 import { useSchools, useCreateSchool } from "@/hooks/queries/useSchools";
 import LocationPicker from '@/components/ui/LocationPicker';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
 
 const COLORS = [
@@ -47,13 +49,13 @@ export default function SchoolsPage() {
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Cơ sở / Trường học</h2>
           <p className="text-edu-muted text-sm">Quản lý điểm dạy và tọa độ GPS Check-in</p>
         </div>
-        <button 
+        <Button 
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-edu-accent text-white rounded-lg font-medium hover:bg-edu-accentHover transition-colors shadow-sm"
         >
           <Plus size={18} />
           Thêm cơ sở
-        </button>
+        </Button>
       </div>
 
       {isLoading ? (
@@ -100,22 +102,22 @@ export default function SchoolsPage() {
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
             <div className="flex justify-between items-center p-5 border-b border-edu-border">
               <h3 className="text-xl font-bold text-edu-fg">Thêm Cơ Sở Mới</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-edu-muted hover:bg-gray-100 p-1 rounded-full"><X size={20} /></button>
+              <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(false)} className="text-edu-muted hover:bg-gray-100 rounded-full h-8 w-8"><X size={20} /></Button>
             </div>
             
             <form onSubmit={handleSubmit} className="p-5 space-y-4 flex-1">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-sm font-semibold text-edu-fg mb-1">Tên cơ sở *</label>
-                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border border-edu-border rounded-lg p-2.5 text-sm" placeholder="VD: Cơ sở Cầu Giấy..." />
+                  <Input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="VD: Cơ sở Cầu Giấy..." />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-semibold text-edu-fg mb-1">Địa chỉ</label>
-                  <input value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full border border-edu-border rounded-lg p-2.5 text-sm" placeholder="Số nhà, đường..." />
+                  <Input value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Số nhà, đường..." />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-edu-fg mb-1">Bán kính điểm danh (m)</label>
-                  <input type="number" value={formData.attendanceRadius} onChange={e => setFormData({...formData, attendanceRadius: Number(e.target.value)})} className="w-full border border-edu-border rounded-lg p-2.5 text-sm" />
+                  <Input type="number" value={formData.attendanceRadius} onChange={e => setFormData({...formData, attendanceRadius: Number(e.target.value)})} />
                 </div>
               </div>
 
@@ -132,11 +134,11 @@ export default function SchoolsPage() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-edu-muted hover:bg-gray-100 rounded-lg font-medium">Hủy</button>
-                <button disabled={createMutation.isPending} type="submit" className="px-5 py-2.5 bg-edu-accent text-white rounded-lg font-medium flex items-center gap-2 disabled:opacity-50">
+                <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+                <Button disabled={createMutation.isPending} type="submit" className="bg-edu-accent text-white gap-2">
                   {createMutation.isPending && <Loader2 size={16} className="animate-spin" />}
                   Lưu cơ sở
-                </button>
+                </Button>
               </div>
             </form>
           </div>

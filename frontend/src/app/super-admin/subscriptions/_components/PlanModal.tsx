@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { X, Save, Loader2 } from 'lucide-react';
+import { Portal } from '@/components/ui/portal';
 import { SubscriptionPlanDto, useCreatePlan, useUpdatePlan } from '@/hooks/queries/useSubscriptions';
 import { toast } from 'react-hot-toast';
 
@@ -63,52 +64,54 @@ export function PlanModal({ plan, onClose }: PlanModalProps) {
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
-          <h2 className="text-xl font-bold text-gray-800">
-            {isEditing ? 'Sửa gói cước' : 'Tạo gói cước mới'}
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
-            <X size={20} />
-          </button>
+    <Portal>
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
+            <h2 className="text-xl font-bold text-gray-800">
+              {isEditing ? 'Sửa gói cước' : 'Tạo gói cước mới'}
+            </h2>
+            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
+              <X size={20} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tên gói cước <span className="text-red-500">*</span></label>
+              <Input name="name" value={formData.name} onChange={handleChange} required placeholder="Ví dụ: Gói Cơ Bản" />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả ngắn gọn</label>
+              <Input name="description" value={formData.description} onChange={handleChange} placeholder="Phù hợp cho trung tâm nhỏ..." />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Giới hạn số lượng tài khoản (Users) <span className="text-red-500">*</span></label>
+              <Input name="maxUsers" type="number" min="1" value={formData.maxUsers} onChange={handleChange} required />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Giá 1 Tháng (VNĐ) <span className="text-red-500">*</span></label>
+                <Input name="pricePerMonth" type="number" min="0" value={formData.pricePerMonth} onChange={handleChange} required />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Giá 1 Năm (VNĐ) <span className="text-red-500">*</span></label>
+                <Input name="pricePerYear" type="number" min="0" value={formData.pricePerYear} onChange={handleChange} required />
+              </div>
+            </div>
+
+            <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-6">
+              <Button type="button" variant="outline" onClick={onClose}>Hủy bỏ</Button>
+              <Button type="submit" className="bg-edu-accent hover:bg-blue-600 min-w-32" disabled={isPending}>
+                {isPending ? <Loader2 size={18} className="animate-spin" /> : (isEditing ? 'Lưu thay đổi' : 'Tạo gói')}
+              </Button>
+            </div>
+          </form>
         </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tên gói cước <span className="text-red-500">*</span></label>
-            <Input name="name" value={formData.name} onChange={handleChange} required placeholder="Ví dụ: Gói Cơ Bản" />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả ngắn gọn</label>
-            <Input name="description" value={formData.description} onChange={handleChange} placeholder="Phù hợp cho trung tâm nhỏ..." />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Giới hạn số lượng tài khoản (Users) <span className="text-red-500">*</span></label>
-            <Input name="maxUsers" type="number" min="1" value={formData.maxUsers} onChange={handleChange} required />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Giá 1 Tháng (VNĐ) <span className="text-red-500">*</span></label>
-              <Input name="pricePerMonth" type="number" min="0" value={formData.pricePerMonth} onChange={handleChange} required />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Giá 1 Năm (VNĐ) <span className="text-red-500">*</span></label>
-              <Input name="pricePerYear" type="number" min="0" value={formData.pricePerYear} onChange={handleChange} required />
-            </div>
-          </div>
-
-          <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-6">
-            <Button type="button" variant="outline" onClick={onClose}>Hủy bỏ</Button>
-            <Button type="submit" className="bg-edu-accent hover:bg-blue-600 min-w-32" disabled={isPending}>
-              {isPending ? <Loader2 size={18} className="animate-spin" /> : (isEditing ? 'Lưu thay đổi' : 'Tạo gói')}
-            </Button>
-          </div>
-        </form>
       </div>
-    </div>
+    </Portal>
   );
 }

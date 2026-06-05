@@ -68,6 +68,7 @@ function LoginContent() {
       // Save token to NextAuth
       const signInRes = await signIn('credentials', {
         accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
         userStr: JSON.stringify(data.user),
         redirect: false
       });

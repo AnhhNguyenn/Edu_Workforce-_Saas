@@ -59,6 +59,19 @@ export const useSubmitAssistantReport = (sessionId: string) => {
   });
 };
 
+export const useUploadReportMedia = () => {
+  return useMutation({
+    mutationFn: async ({ reportId, file }: { reportId: string; file: File }) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await apiClient.post(`/reports/${reportId}/media`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response.data;
+    }
+  });
+};
+
 export interface ReportDto {
   id: string;
   sessionId: string;

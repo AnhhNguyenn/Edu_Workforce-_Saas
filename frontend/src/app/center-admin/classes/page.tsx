@@ -8,29 +8,84 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import { useClasses, useCreateClass } from "@/hooks/queries/useClasses";
-import { useUsers } from "@/hooks/queries/useUsers";
+import { useClasses, useCreateClass, useUpdateClass } from "@/hooks/queries/useClasses";
+import { useSchools } from "@/hooks/queries/useSchools";
+import { useEffect } from "react";
+import { toast } from "react-hot-toast";
 
 export default function ClassesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [newClass, setNewClass] = useState({ name: '', teacherId: '', maxStudents: 20 });
-  const { data: classes, isLoading, isError } = useClasses();
-  const { data: teachers } = useUsers('TEACHER');
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<any>(null);
+
+  const [newClass, setNewClass] = useState({ name: '', schoolId: '', description: '' });
+  const [editClass, setEditClass] = useState({ name: '', schoolId: '', description: '' });
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  const { data: classes, isLoading, isError } = useClasses(debouncedSearch);
+  const { data: schools } = useSchools();
   const createClass = useCreateClass();
+  const updateClass = useUpdateClass();
 
   const handleCreate = async () => {
-    if (!newClass.name) return;
+    if (!newClass.name || !newClass.schoolId) {
+      toast.error('Vui lòng nhập tên lớp và chọn cơ sở');
+      return;
+    }
     try {
       await createClass.mutateAsync({
         name: newClass.name,
-        teacherId: newClass.teacherId || undefined,
-        maxStudents: Number(newClass.maxStudents)
+        schoolId: newClass.schoolId,
+        description: newClass.description || undefined
       });
+      toast.success('Mở lớp thành công!');
       setIsCreateOpen(false);
-      setNewClass({ name: '', teacherId: '', maxStudents: 20 });
-    } catch (error) {
+      setNewClass({ name: '', schoolId: '', description: '' });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi khi mở lớp');
       console.error("Failed to create class", error);
     }
+  };
+
+  const handleEdit = async () => {
+    if (!selectedClass || !editClass.name || !editClass.schoolId) {
+      toast.error('Vui lòng nhập tên lớp và chọn cơ sở');
+      return;
+    }
+    try {
+      await updateClass.mutateAsync({
+        id: selectedClass.id,
+        data: {
+          name: editClass.name,
+          schoolId: editClass.schoolId,
+          description: editClass.description || undefined
+        }
+      });
+      toast.success('Sửa thông tin lớp thành công!');
+      setIsEditOpen(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi khi sửa lớp');
+      console.error("Failed to update class", error);
+    }
+  };
+
+  const openEditModal = (cls: any) => {
+    setSelectedClass(cls);
+    setEditClass({
+      name: cls.name || '',
+      schoolId: cls.schoolId || '',
+      description: cls.classDetail?.description || ''
+    });
+    setIsEditOpen(true);
   };
 
   return (
@@ -55,7 +110,12 @@ export default function ClassesPage() {
           <div className="flex flex-1 max-w-md gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={16} />
-              <Input placeholder="Tìm mã lớp, tên lớp..." className="pl-9 h-9 text-sm focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" />
+              <Input 
+                placeholder="Tìm mã lớp, tên lớp..." 
+                className="pl-9 h-9 text-sm focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
             <Button variant="secondary" size="icon" className="h-9 w-9">
               <Filter size={16} />
@@ -70,8 +130,9 @@ export default function ClassesPage() {
         ) : !classes?.items || classes.items.length === 0 ? (
            <div className="p-10 text-center text-edu-muted">Chưa có lớp học nào.</div>
         ) : (
-          <Table>
-            <TableHeader>
+          <div className="overflow-x-auto w-full">
+            <Table className="w-full whitespace-nowrap">
+              <TableHeader>
               <TableRow>
                 <TableHead>Mã Lớp</TableHead>
                 <TableHead>Tên Lớp</TableHead>
@@ -84,7 +145,7 @@ export default function ClassesPage() {
             </TableHeader>
             <TableBody>
               {classes.items.map((c) => (
-                <TableRow key={c.id}>
+                <TableRow key={c.id} className="hover:bg-slate-50/50 transition-colors">
                   <TableCell className="font-semibold text-edu-fg">{c.id.substring(0, 8)}...</TableCell>
                   <TableCell className="font-semibold text-[#2E7D32]">{c.name}</TableCell>
                   <TableCell>{c.teacherName || 'Chưa phân công'}</TableCell>
@@ -96,12 +157,16 @@ export default function ClassesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button variant="secondary" size="sm" className="hover:border-[#4CAF50] hover:text-[#4CAF50]">Chi tiết</Button>
+                    <div className="flex gap-2">
+                      <Button variant="secondary" size="sm" className="hover:border-[#4CAF50] hover:text-[#4CAF50]">Chi tiết</Button>
+                      <Button variant="outline" size="sm" onClick={() => openEditModal(c)}>Sửa</Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+        </div>
         )}
       </div>
 
@@ -132,25 +197,76 @@ export default function ClassesPage() {
               onChange={(e) => setNewClass({...newClass, name: e.target.value})}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Giáo viên phụ trách</label>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Cơ sở trực thuộc</label>
               <Select 
-                options={teachers?.items?.map(t => ({ value: t.id, label: t.fullName })) || []}
-                placeholder="Chọn giáo viên..."
+                options={schools?.items?.map(s => ({ value: s.id, label: s.name })) || []}
+                placeholder="Chọn cơ sở..."
                 className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
-                value={newClass.teacherId}
-                onChange={(val) => setNewClass({...newClass, teacherId: val})}
+                value={newClass.schoolId}
+                onChange={(val) => setNewClass({...newClass, schoolId: val})}
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Sĩ số tối đa</label>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Mô tả thêm</label>
               <Input 
-                type="number" 
-                placeholder="20" 
+                placeholder="Lớp tiếng Anh..." 
                 className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
-                value={newClass.maxStudents}
-                onChange={(e) => setNewClass({...newClass, maxStudents: Number(e.target.value)})}
+                value={newClass.description}
+                onChange={(e) => setNewClass({...newClass, description: e.target.value})}
+              />
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* EDIT MODAL */}
+      <Modal 
+        isOpen={isEditOpen} 
+        onClose={() => setIsEditOpen(false)} 
+        title="Sửa thông tin lớp học"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setIsEditOpen(false)}>Hủy</Button>
+            <Button 
+              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" 
+              onClick={handleEdit}
+              disabled={updateClass.isPending}
+            >
+              {updateClass.isPending ? 'Đang lưu...' : 'Lưu lớp'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Tên lớp học</label>
+            <Input 
+              placeholder="Nhập tên lớp..." 
+              className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+              value={editClass.name}
+              onChange={(e) => setEditClass({...editClass, name: e.target.value})}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Cơ sở trực thuộc</label>
+              <Select 
+                options={schools?.items?.map(s => ({ value: s.id, label: s.name })) || []}
+                placeholder="Chọn cơ sở..."
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
+                value={editClass.schoolId}
+                onChange={(val) => setEditClass({...editClass, schoolId: val})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Mô tả thêm</label>
+              <Input 
+                placeholder="Lớp tiếng Anh..." 
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                value={editClass.description}
+                onChange={(e) => setEditClass({...editClass, description: e.target.value})}
               />
             </div>
           </div>

@@ -63,8 +63,8 @@ export function Topbar() {
   return (
     <>
       <header className={cn(
-        "h-16 bg-white/85 backdrop-blur-md border-b border-edu-border flex items-center px-8 fixed top-0 right-0 z-[40] transition-all duration-200",
-        sidebarOpen ? "left-[260px]" : "left-0"
+        "h-16 bg-white/85 backdrop-blur-md border-b border-edu-border flex items-center px-4 md:px-8 fixed top-0 right-0 z-[40] transition-all duration-300",
+        sidebarOpen ? "lg:left-[260px] left-0" : "left-0"
       )}>
         {/* Menu Toggle for mobile/tablet */}
         <button 
@@ -74,14 +74,21 @@ export function Topbar() {
           <Menu size={20} />
         </button>
 
-        <div className="flex-1 max-w-[400px] relative">
+        <div className="flex-1 max-w-[400px] relative hidden sm:block">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted">
             <Search size={16} />
           </div>
           <Input 
-            className="pl-9 bg-edu-bg border-transparent focus:bg-white" 
-            placeholder="Tìm kiếm trung tâm, giáo viên, lớp..."
+            className="pl-9 bg-edu-bg border-transparent focus:bg-white transition-colors duration-300 shadow-sm" 
+            placeholder="Tìm kiếm..."
           />
+        </div>
+
+        {/* Mobile Search Icon */}
+        <div className="flex-1 sm:hidden flex justify-end pr-2">
+          <button className="p-2 text-edu-muted hover:text-edu-accent transition-colors">
+            <Search size={20} />
+          </button>
         </div>
 
         <div className="ml-auto flex items-center gap-2 relative">
@@ -89,7 +96,7 @@ export function Topbar() {
           
           <div ref={menuRef} className="relative">
             <div 
-              className="w-9 h-9 rounded-lg bg-gradient-to-br from-edu-accent to-blue-400 flex items-center justify-center text-white font-bold text-xs cursor-pointer shadow-sm hover:shadow-md transition-all ml-1"
+              className="w-9 h-9 rounded-full bg-gradient-to-br from-edu-accent to-[#5AB8FF] flex items-center justify-center text-white font-bold text-xs cursor-pointer shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 ml-1 border-2 border-white"
               onClick={() => setMenuOpen(!menuOpen)}
             >
               {initials}
@@ -97,7 +104,7 @@ export function Topbar() {
             
             {/* Dropdown Menu */}
             {menuOpen && (
-              <div className="absolute top-12 right-0 w-60 bg-white border border-gray-100 rounded-xl shadow-lg py-2 animate-in fade-in slide-in-from-top-2 z-[60]">
+              <div className="absolute top-14 right-0 w-64 bg-white/95 backdrop-blur-md border border-gray-100/50 rounded-2xl shadow-xl py-2 animate-in fade-in slide-in-from-top-4 z-[60]">
                 <div className="px-4 py-2 border-b border-gray-50 mb-2">
                   <p className="font-semibold text-sm text-gray-800 truncate">{session?.user?.name || 'Người dùng'}</p>
                   <p className="text-xs text-gray-500 truncate">{session?.user?.email || 'Chưa đăng nhập'}</p>

@@ -14,7 +14,8 @@ interface StudentTableProps {
 export function StudentTable({ students, isLoading, onEdit, onDelete }: StudentTableProps) {
   return (
     <div className="bg-white rounded-2xl border border-edu-border overflow-hidden shadow-sm">
-      <Table>
+      <div className="overflow-x-auto w-full">
+        <Table className="w-full whitespace-nowrap">
         <TableHeader className="bg-gray-50/50">
           <TableRow>
             <TableHead className="w-[100px] font-semibold">Mã HV</TableHead>
@@ -36,23 +37,25 @@ export function StudentTable({ students, isLoading, onEdit, onDelete }: StudentT
               <TableCell colSpan={7} className="text-center py-10 text-edu-muted">Chưa có học viên nào.</TableCell>
             </TableRow>
           ) : students.map((std: any, i: number) => (
-            <TableRow key={i}>
-              <TableCell className="font-medium text-edu-fg">{std.code}</TableCell>
+            <TableRow key={std.id || i} className="hover:bg-slate-50/50 transition-colors">
+              <TableCell className="font-medium text-edu-fg">{std.studentCode}</TableCell>
               <TableCell>
                 <div className="font-semibold text-edu-fgSecondary">{std.fullName}</div>
-                <div className="text-xs text-edu-muted">{std.dateOfBirth}</div>
+                <div className="text-xs text-edu-muted">
+                  {std.dateOfBirth ? new Date(std.dateOfBirth).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
+                </div>
               </TableCell>
               <TableCell>
-                <div className="text-sm">{std.phoneNumber}</div>
-                <div className="text-xs text-edu-muted">{std.email}</div>
+                <div className="text-sm">{std.phoneNumber || 'Trống'}</div>
+                <div className="text-xs text-edu-muted">{std.email || 'Trống'}</div>
               </TableCell>
               <TableCell className="text-edu-fgSecondary font-medium">{std.currentClass || 'Chưa xếp lớp'}</TableCell>
               <TableCell>
                 <div className="font-semibold text-edu-accent">{std.feeStatus}</div>
               </TableCell>
               <TableCell>
-                <Badge variant={std.status === 'active' ? 'success' : 'warn'}>
-                  {std.status === 'active' ? 'Đang học' : 'Bảo lưu'}
+                <Badge variant={std.statusCode === 'ACTIVE' ? 'success' : 'warn'}>
+                  {std.statusCode === 'ACTIVE' ? 'Đang học' : 'Bảo lưu'}
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
@@ -71,6 +74,7 @@ export function StudentTable({ students, isLoading, onEdit, onDelete }: StudentT
           ))}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

@@ -249,6 +249,41 @@ namespace EduOps.Application.Services
             _logger.LogInformation($"Updated Organization: {org.Code}");
         }
 
+        public async Task UpdateSubscriptionAsync(Guid id, UpdateOrganizationSubscriptionRequestDto request)
+        {
+            if (_currentUserService.Role != "SUPER_ADMIN")
+            {
+                throw new UnauthorizedAccessException("Chỉ Super Admin mới có quyền đổi gói cước thủ công.");
+            }
+
+            var repo = _unitOfWork.Repository<Organization>();
+            var org = await repo.GetByIdAsync(id);
+
+            if (org == null) throw new NotFoundException("Organization", id);
+
+            if (request.PlanId.HasValue)
+            {
+                var plan = await _unitOfWork.Repository<SubscriptionPlan>().GetByIdAsync(request.PlanId.Value);
+                if (plan == null) throw new NotFoundException("SubscriptionPlan", request.PlanId.Value);
+            }
+
+            org.CurrentPlanId = request.PlanId;
+            org.SubscriptionStatus = request.SubscriptionStatus;
+            
+            if (request.SubscriptionStatus == "PAID" && !org.SubscriptionStart.HasValue)
+            {
+                org.SubscriptionStart = DateTime.UtcNow;
+            }
+
+            org.SubscriptionEnd = request.SubscriptionEnd;
+
+            repo.Update(org);
+            await _unitOfWork.CommitAsync();
+
+            _cache.Remove($"OrgSubscription_{id}");
+            _logger.LogInformation($"Updated Subscription for Organization: {org.Code}");
+        }
+
         public async Task SuspendAsync(Guid id)
         {
             var repo = _unitOfWork.Repository<Organization>();

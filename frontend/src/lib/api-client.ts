@@ -11,18 +11,31 @@ export const apiClient = axios.create({
   timeout: 10000,
 });
 
+// Biến lưu trữ token trên bộ nhớ để tránh gọi getSession() liên tục gây chậm Web
+let cachedToken: string | null = null;
+let sessionPromise: Promise<any> | null = null;
+
 // Interceptor: Gắn Token vào Header trước khi gửi request
 apiClient.interceptors.request.use(
   async (config) => {
     // Chỉ lấy session ở phía Client. Ở Server component cần truyền token vào thủ công hoặc cấu hình khác.
     if (typeof window !== 'undefined') {
-      const session = await getSession();
-      if (session?.user && (session as any).accessToken) {
-        const tokenStr = (session as any).accessToken;
-        console.log("=== API CLIENT SENDING TOKEN ===", tokenStr);
-        config.headers.Authorization = `Bearer ${tokenStr}`;
+      if (cachedToken) {
+        config.headers.Authorization = `Bearer ${cachedToken}`;
       } else {
-        console.log("=== API CLIENT: NO TOKEN FOUND IN SESSION ===");
+        if (!sessionPromise) {
+          sessionPromise = getSession();
+        }
+        const session = await sessionPromise;
+        sessionPromise = null;
+        if ((session as any)?.error === "RefreshAccessTokenError") {
+          window.location.href = '/login?error=SessionExpired';
+        } else if (session?.user && (session as any).accessToken) {
+          cachedToken = (session as any).accessToken;
+          config.headers.Authorization = `Bearer ${cachedToken}`;
+        } else {
+          console.log("=== API CLIENT: NO TOKEN FOUND IN SESSION ===");
+        }
       }
     }
     return config;
@@ -39,9 +52,26 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     if (error.response?.status === 401) {
-      // Logic xử lý khi token hết hạn (ví dụ: gọi refresh token hoặc redirect về login)
       if (typeof window !== 'undefined') {
-        window.location.href = '/login?error=SessionExpired';
+        // Xóa token cũ để ép lấy token mới
+        cachedToken = null;
+        // Cập nhật promise để các request khác (nếu đang chờ) cũng được hưởng xái
+        if (!sessionPromise) {
+          sessionPromise = getSession();
+        }
+        const session = await sessionPromise;
+        sessionPromise = null;
+        if ((session as any)?.error === "RefreshAccessTokenError") {
+          window.location.href = '/login?error=SessionExpired';
+        } else if (session && (session as any).accessToken) {
+          // Thử lại request với token mới
+          cachedToken = (session as any).accessToken;
+          const originalRequest = error.config;
+          originalRequest.headers.Authorization = `Bearer ${cachedToken}`;
+          return axios(originalRequest);
+        } else {
+          window.location.href = '/login?error=SessionExpired';
+        }
       }
     }
     return Promise.reject(error);

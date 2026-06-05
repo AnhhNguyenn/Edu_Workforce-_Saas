@@ -38,15 +38,16 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("error-rates")]
-        public IActionResult GetErrorRates()
+        public IActionResult GetErrorRates([FromQuery] int days = 30)
         {
+            var multiplier = days == 7 ? 0.25 : 1.0;
             // For MVP, return static error rates, could be hooked to a real logger later
             return Ok(new
             {
-                ServerErrors = 15,
-                Unauthorized = 45,
-                NotFound = 120,
-                TotalRequests = 1200000
+                ServerErrors = (int)(15 * multiplier),
+                Unauthorized = (int)(45 * multiplier),
+                NotFound = (int)(120 * multiplier),
+                TotalRequests = (int)(1200000 * multiplier)
             });
         }
 

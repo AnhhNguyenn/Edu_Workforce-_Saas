@@ -29,7 +29,7 @@ export default function RolesPage() {
 
   const openPermissionModal = async (role: any) => {
     setSelectedRole(role);
-    setRolePermissions(role.permissions || []);
+    setRolePermissions(role.permissions?.map((p: any) => p.id) || []);
     setShowModal(true);
   };
 

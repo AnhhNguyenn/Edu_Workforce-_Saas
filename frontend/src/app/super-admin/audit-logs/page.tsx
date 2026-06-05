@@ -6,9 +6,33 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useAuditLogs } from '@/hooks/queries/useAuditLogs';
 import { AuditLogTable } from './_components/AuditLogTable';
+import { useState, useMemo, useEffect } from 'react';
 
 export default function AuditLogsPage() {
   const { data: logs = [], isLoading } = useAuditLogs();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [actionFilter, setActionFilter] = useState('');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log: any) => {
+      const matchSearch = debouncedSearch === '' || 
+        log.userEmail?.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+        log.action?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        log.details?.toLowerCase().includes(debouncedSearch.toLowerCase());
+      
+      const matchAction = actionFilter === '' || log.module === actionFilter || log.action?.toLowerCase().includes(actionFilter.toLowerCase());
+      
+      return matchSearch && matchAction;
+    });
+  }, [logs, debouncedSearch, actionFilter]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-7">
@@ -26,10 +50,17 @@ export default function AuditLogsPage() {
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={18} />
-          <Input placeholder="Tìm kiếm theo người dùng, hành động..." className="pl-10 bg-white" />
+          <Input 
+            placeholder="Tìm kiếm theo người dùng, hành động..." 
+            className="pl-10 bg-white" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
         <div className="flex gap-2">
           <Select 
+            value={actionFilter}
+            onChange={(val) => setActionFilter(val)}
             options={[
               { value: "", label: "Tất cả loại hình" },
               { value: "security", label: "Bảo mật" },
@@ -43,7 +74,7 @@ export default function AuditLogsPage() {
         </div>
       </div>
 
-      <AuditLogTable logs={logs} isLoading={isLoading} />
+      <AuditLogTable logs={filteredLogs} isLoading={isLoading} />
     </div>
   );
 }
