@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, School as SchoolIcon, MapPin, Users, Target, X, Loader2 } from "lucide-react";
-import { useSchools, useCreateSchool } from "@/hooks/queries/useSchools";
+import { Plus, School as SchoolIcon, MapPin, Users, Target, X, Loader2, Edit, Trash2 } from "lucide-react";
+import { useSchools, useCreateSchool, useUpdateSchool, useDeleteSchool } from "@/hooks/queries/useSchools";
 import LocationPicker from '@/components/ui/LocationPicker';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,11 @@ const COLORS = [
 export default function SchoolsPage() {
   const { data: schools, isLoading } = useSchools();
   const createMutation = useCreateSchool();
+  const updateMutation = useUpdateSchool();
+  const deleteMutation = useDeleteSchool();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -26,20 +29,58 @@ export default function SchoolsPage() {
     longitude: 105.804817
   });
 
+  const openCreateModal = () => {
+    setEditingSchoolId(null);
+    setFormData({ name: '', address: '', attendanceRadius: 200, latitude: 21.028511, longitude: 105.804817 });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (school: any) => {
+    setEditingSchoolId(school.id);
+    setFormData({
+      name: school.name || '',
+      address: school.address || '',
+      attendanceRadius: school.gpsRadius || 200,
+      latitude: school.latitude || 21.028511,
+      longitude: school.longitude || 105.804817
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Bạn có chắc chắn muốn xóa cơ sở này?")) {
+      deleteMutation.mutate(id, {
+        onSuccess: () => toast.success("Đã xóa cơ sở!"),
+        onError: (err: any) => toast.error(err.response?.data?.message || "Lỗi xóa cơ sở")
+      });
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name) return toast.error("Vui lòng nhập tên cơ sở");
     
-    createMutation.mutate(formData, {
-      onSuccess: () => {
-        toast.success("Tạo cơ sở thành công!");
-        setIsModalOpen(false);
-        setFormData({ name: '', address: '', attendanceRadius: 200, latitude: 21.028511, longitude: 105.804817 });
-      },
-      onError: (err: any) => {
-        toast.error(err.response?.data?.message || "Lỗi tạo cơ sở");
-      }
-    });
+    if (editingSchoolId) {
+      updateMutation.mutate({ id: editingSchoolId, data: formData }, {
+        onSuccess: () => {
+          toast.success("Cập nhật cơ sở thành công!");
+          setIsModalOpen(false);
+        },
+        onError: (err: any) => {
+          toast.error(err.response?.data?.message || "Lỗi cập nhật cơ sở");
+        }
+      });
+    } else {
+      createMutation.mutate(formData, {
+        onSuccess: () => {
+          toast.success("Tạo cơ sở thành công!");
+          setIsModalOpen(false);
+        },
+        onError: (err: any) => {
+          toast.error(err.response?.data?.message || "Lỗi tạo cơ sở");
+        }
+      });
+    }
   };
 
   return (
@@ -50,7 +91,7 @@ export default function SchoolsPage() {
           <p className="text-edu-muted text-sm">Quản lý điểm dạy và tọa độ GPS Check-in</p>
         </div>
         <Button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 px-4 py-2 bg-edu-accent text-white rounded-lg font-medium hover:bg-edu-accentHover transition-colors shadow-sm"
         >
           <Plus size={18} />
@@ -63,13 +104,22 @@ export default function SchoolsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {schools?.items?.map((s, i) => (
-            <div key={s.id} className="bg-white rounded-2xl p-5 border border-edu-border hover:border-edu-accent hover:shadow-md transition-all cursor-pointer group">
+            <div key={s.id} className="bg-white rounded-2xl p-5 border border-edu-border hover:border-edu-accent hover:shadow-md transition-all group relative">
+              <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => openEditModal(s)} className="p-1.5 bg-gray-100 text-gray-600 rounded-md hover:bg-edu-accent hover:text-white transition-colors">
+                  <Edit size={14} />
+                </button>
+                <button onClick={() => handleDelete(s.id)} className="p-1.5 bg-gray-100 text-gray-600 rounded-md hover:bg-red-500 hover:text-white transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ backgroundColor: COLORS[i % 8] }}>
                   <SchoolIcon size={20} />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-edu-fg text-base leading-tight">{s.name}</h4>
+                  <h4 className="font-semibold text-edu-fg text-base leading-tight pr-14">{s.name}</h4>
                   {s.latitude && s.longitude && (
                     <span className="text-[10px] text-edu-success font-medium flex items-center mt-1">
                       <Target size={10} className="mr-1" /> Có tọa độ GPS
@@ -96,12 +146,12 @@ export default function SchoolsPage() {
         </div>
       )}
 
-      {/* CREATE MODAL */}
+      {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
             <div className="flex justify-between items-center p-5 border-b border-edu-border">
-              <h3 className="text-xl font-bold text-edu-fg">Thêm Cơ Sở Mới</h3>
+              <h3 className="text-xl font-bold text-edu-fg">{editingSchoolId ? 'Sửa Cơ Sở' : 'Thêm Cơ Sở Mới'}</h3>
               <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(false)} className="text-edu-muted hover:bg-gray-100 rounded-full h-8 w-8"><X size={20} /></Button>
             </div>
             
@@ -135,8 +185,8 @@ export default function SchoolsPage() {
 
               <div className="flex justify-end gap-3 pt-4">
                 <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Hủy</Button>
-                <Button disabled={createMutation.isPending} type="submit" className="bg-edu-accent text-white gap-2">
-                  {createMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+                <Button disabled={createMutation.isPending || updateMutation.isPending} type="submit" className="bg-edu-accent text-white gap-2">
+                  {(createMutation.isPending || updateMutation.isPending) && <Loader2 size={16} className="animate-spin" />}
                   Lưu cơ sở
                 </Button>
               </div>

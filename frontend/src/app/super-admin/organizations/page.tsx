@@ -150,6 +150,7 @@ export default function OrganizationsPage() {
               <TableHead>Tên Trung tâm</TableHead>
               <TableHead>Thành phố</TableHead>
               <TableHead>Trạng thái</TableHead>
+              <TableHead>Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

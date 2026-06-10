@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import { useClasses, useCreateClass, useUpdateClass } from "@/hooks/queries/useClasses";
+import { useClasses, useCreateClass, useUpdateClass, useDeleteClass } from "@/hooks/queries/useClasses";
 import { useSchools } from "@/hooks/queries/useSchools";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
@@ -35,6 +35,18 @@ export default function ClassesPage() {
   const { data: schools } = useSchools();
   const createClass = useCreateClass();
   const updateClass = useUpdateClass();
+  const deleteClass = useDeleteClass();
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Bạn có chắc chắn muốn xóa lớp học này?')) {
+      try {
+        await deleteClass.mutateAsync(id);
+        toast.success('Đã xóa lớp học!');
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || 'Lỗi khi xóa lớp');
+      }
+    }
+  };
 
   const handleCreate = async () => {
     if (!newClass.name || !newClass.schoolId) {
@@ -160,6 +172,7 @@ export default function ClassesPage() {
                     <div className="flex gap-2">
                       <Button variant="secondary" size="sm" className="hover:border-[#4CAF50] hover:text-[#4CAF50]">Chi tiết</Button>
                       <Button variant="outline" size="sm" onClick={() => openEditModal(c)}>Sửa</Button>
+                      <Button variant="danger" size="sm" onClick={() => handleDelete(c.id)}>Xóa</Button>
                     </div>
                   </TableCell>
                 </TableRow>

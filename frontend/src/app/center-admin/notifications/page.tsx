@@ -1,11 +1,12 @@
 'use client';
 
-import { useNotifications, useMarkNotificationRead } from "@/hooks/queries/useNotifications";
+import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from "@/hooks/queries/useNotifications";
 import { CheckCheck, BellRing, Info, AlertTriangle, MessageSquare } from "lucide-react";
 
 export default function NotificationsPage() {
   const { data: notifications, isLoading } = useNotifications();
   const markReadMutation = useMarkNotificationRead();
+  const markAllReadMutation = useMarkAllNotificationsRead();
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -31,9 +32,13 @@ export default function NotificationsPage() {
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Thông báo</h2>
           <p className="text-edu-muted text-sm">Cập nhật tin tức và thông báo từ hệ thống</p>
         </div>
-        <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-edu-accent hover:bg-edu-accentLight rounded-lg transition-colors">
+        <button 
+          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-edu-accent hover:bg-edu-accentLight rounded-lg transition-colors disabled:opacity-50"
+          onClick={() => markAllReadMutation.mutate()}
+          disabled={markAllReadMutation.isPending}
+        >
           <CheckCheck size={16} />
-          Đánh dấu tất cả đã đọc
+          {markAllReadMutation.isPending ? 'Đang xử lý...' : 'Đánh dấu tất cả đã đọc'}
         </button>
       </div>
 

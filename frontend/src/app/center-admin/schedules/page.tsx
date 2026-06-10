@@ -1,6 +1,6 @@
 'use client';
 
-import { useSessions, useCreateSession } from "@/hooks/queries/useSessions";
+import { useSessions, useCreateSession, useUpdateSession, useDeleteSession } from "@/hooks/queries/useSessions";
 import { useClasses } from "@/hooks/queries/useClasses";
 import { useUsers } from "@/hooks/queries/useUsers";
 import { Badge } from "@/components/ui/badge";
@@ -10,13 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
-import { Plus } from "lucide-react";
+import { Plus, Edit, Trash2 } from "lucide-react";
 
 export default function SchedulesPage() {
   const { data: sessions, isLoading } = useSessions();
   const { data: classes } = useClasses();
   const { data: teachers } = useUsers('TEACHER');
   const createSession = useCreateSession();
+  const updateSession = useUpdateSession();
+  const deleteSession = useDeleteSession();
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newSession, setNewSession] = useState({ classId: '', teacherId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: '' });
@@ -40,6 +42,15 @@ export default function SchedulesPage() {
       setNewSession({ classId: '', teacherId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: '' });
     } catch (e) {
       toast.error('Lỗi khi thêm buổi học');
+    }
+  const handleDelete = async (id: string) => {
+    if (confirm('Bạn có chắc chắn muốn xóa buổi học này?')) {
+      try {
+        await deleteSession.mutateAsync(id);
+        toast.success('Đã xóa buổi học');
+      } catch (error) {
+        toast.error('Lỗi khi xóa buổi học');
+      }
     }
   };
 
@@ -69,9 +80,14 @@ export default function SchedulesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {todaySessions.map((s, i) => (
               <div key={s.id} className="flex gap-4 p-4 border border-edu-border rounded-xl bg-white hover:shadow-lg hover:-translate-y-1 hover:border-[#4CAF50]/50 transition-all duration-300 relative group overflow-hidden">
-                 {s.statusCode === 'ONGOING' && (
+                  {s.statusCode === 'ONGOING' && (
                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-[#4CAF50] to-[#81C784] rounded-l-xl shadow-[0_0_8px_rgba(76,175,80,0.5)]"></div>
                  )}
+                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <button onClick={() => handleDelete(s.id)} className="p-1.5 bg-gray-100 text-gray-600 rounded-md hover:bg-red-500 hover:text-white transition-colors">
+                     <Trash2 size={14} />
+                   </button>
+                 </div>
                  <div className="w-20 text-center border-r border-dashed border-edu-border pr-4 flex flex-col justify-center">
                    <div className="text-lg font-bold text-edu-fg">{s.startTime.substring(0, 5)}</div>
                    <div className="text-sm text-edu-muted">{s.endTime.substring(0, 5)}</div>
