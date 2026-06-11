@@ -13,7 +13,7 @@ namespace EduOps.Infrastructure.Data
         {
             var context = serviceProvider.GetRequiredService<EduOpsDbContext>();
 
-            // Tự động Apply Migrations nếu chưa
+            // Tự động Apply Migrations nếu chưa có
             if (context.Database.IsRelational())
             {
                 await context.Database.MigrateAsync();
@@ -54,101 +54,7 @@ namespace EduOps.Infrastructure.Data
                 }
             }
 
-            // 3. Seed Gói cước (Để test mua bán)
-            SubscriptionPlan? plan = await context.Set<SubscriptionPlan>().IgnoreQueryFilters().FirstOrDefaultAsync(p => p.Name == "Gói Pro");
-            if (plan == null)
-            {
-                plan = new SubscriptionPlan
-                {
-                    Name = "Gói Pro",
-                    SubscriptionPlanDetail = new SubscriptionPlanDetail { Description = "Gói cao cấp cho trung tâm - Tất cả tính năng" },
-                    PricePerMonth = 500000,
-                    PricePerYear = 5000000,
-                    MaxUsers = 100,
-                    StatusId = activeStatus?.Id
-                };
-                context.Set<SubscriptionPlan>().Add(plan);
-                await context.SaveChangesAsync();
-            }
 
-            // 4. Seed Organization
-            Organization? org = await context.Organizations.IgnoreQueryFilters().FirstOrDefaultAsync(o => o.Code == "TESTORG");
-            if (org == null)
-            {
-                org = new Organization
-                {
-                    Name = "Trung tâm Test (Tự động tạo)",
-                    Code = "TESTORG",
-                    CurrentPlanId = plan.Id,
-                    StatusId = activeStatus?.Id,
-                    SubscriptionStatus = "ACTIVE",
-                    SubscriptionStart = DateTime.UtcNow,
-                    SubscriptionEnd = DateTime.UtcNow.AddMonths(1),
-                    OrganizationDetail = new OrganizationDetail
-                    {
-                        Email = "center@test.com",
-                        Phone = "0987654321"
-                    }
-                };
-                context.Organizations.Add(org);
-                await context.SaveChangesAsync(); // Lưu để lấy ID cho User
-            }
-
-            // 5. Seed Center Admin
-            var centerAdmin = await context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == "centeradmin@test.com");
-            if (centerAdmin == null)
-            {
-                context.Users.Add(new User
-                {
-                    OrganizationId = org.Id,
-                    FullName = "Quản lý Trung tâm",
-                    Email = "centeradmin@test.com",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-                    RoleId = centerAdminRole?.Id,
-                    StatusId = activeStatus?.Id,
-                    UserDetail = new UserDetail()
-                });
-            }
-            else
-            {
-                var currentRole = await context.Roles.IgnoreQueryFilters().FirstOrDefaultAsync(r => r.Id == centerAdmin.RoleId);
-                if ((centerAdmin.RoleId == null || currentRole == null || currentRole.Code != "CENTER_ADMIN") && centerAdminRole != null)
-                {
-                    centerAdmin.RoleId = centerAdminRole.Id;
-                    centerAdmin.StatusId = activeStatus?.Id;
-                    context.Users.Update(centerAdmin);
-                }
-            }
-
-            // 6. Seed Teacher
-            if (!context.Users.IgnoreQueryFilters().Any(u => u.Email == "teacher@test.com"))
-            {
-                context.Users.Add(new User
-                {
-                    OrganizationId = org.Id,
-                    FullName = "Giáo viên Test",
-                    Email = "teacher@test.com",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-                    RoleId = teacherRole?.Id,
-                    StatusId = activeStatus?.Id,
-                    UserDetail = new UserDetail()
-                });
-            }
-
-            // 7. Seed Assistant
-            if (!context.Users.IgnoreQueryFilters().Any(u => u.Email == "assistant@test.com"))
-            {
-                context.Users.Add(new User
-                {
-                    OrganizationId = org.Id,
-                    FullName = "Trợ giảng Test",
-                    Email = "assistant@test.com",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-                    RoleId = assistantRole?.Id,
-                    StatusId = activeStatus?.Id,
-                    UserDetail = new UserDetail()
-                });
-            }
 
             // 8. Seed System Settings (Feature Toggles)
             if (!context.SystemSettings.IgnoreQueryFilters().Any())
@@ -184,22 +90,22 @@ namespace EduOps.Infrastructure.Data
                 new Permission { Module = "Users", Action = "READ", Description = "Xem danh sách người dùng" },
                 new Permission { Module = "Users", Action = "UPDATE", Description = "Cập nhật người dùng" },
                 new Permission { Module = "Users", Action = "DELETE", Description = "Xóa người dùng" },
-                
+
                 new Permission { Module = "Roles", Action = "CREATE", Description = "Tạo chức vụ mới" },
                 new Permission { Module = "Roles", Action = "READ", Description = "Xem danh sách chức vụ" },
                 new Permission { Module = "Roles", Action = "UPDATE", Description = "Cập nhật chức vụ" },
                 new Permission { Module = "Roles", Action = "DELETE", Description = "Xóa chức vụ" },
-                
+
                 new Permission { Module = "Students", Action = "CREATE", Description = "Tạo học viên mới" },
                 new Permission { Module = "Students", Action = "READ", Description = "Xem danh sách học viên" },
                 new Permission { Module = "Students", Action = "UPDATE", Description = "Cập nhật học viên" },
                 new Permission { Module = "Students", Action = "DELETE", Description = "Xóa học viên" },
-                
+
                 new Permission { Module = "Classes", Action = "CREATE", Description = "Tạo lớp học mới" },
                 new Permission { Module = "Classes", Action = "READ", Description = "Xem danh sách lớp học" },
                 new Permission { Module = "Classes", Action = "UPDATE", Description = "Cập nhật lớp học" },
                 new Permission { Module = "Classes", Action = "DELETE", Description = "Xóa lớp học" },
-                
+
                 new Permission { Module = "Finance", Action = "READ", Description = "Xem báo cáo tài chính" },
                 new Permission { Module = "System", Action = "MANAGE_SETTINGS", Description = "Quản lý cài đặt hệ thống" }
             };

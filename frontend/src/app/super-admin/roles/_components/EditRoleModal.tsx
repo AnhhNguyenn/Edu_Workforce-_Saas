@@ -1,8 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUpdateRole } from '@/hooks/queries/useRoles';
+import { toast } from 'react-hot-toast';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+const roleSchema = z.object({
+  name: z.string().min(1, 'Vui lòng nhập tên chức vụ'),
+  description: z.string().optional()
+});
+
+type RoleFormValues = z.infer<typeof roleSchema>;
 
 interface EditRoleModalProps {
   role: any;
@@ -10,30 +21,32 @@ interface EditRoleModalProps {
 }
 
 export default function EditRoleModal({ role, onClose }: EditRoleModalProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    description: ''
+  const updateMutation = useUpdateRole();
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<RoleFormValues>({
+    resolver: zodResolver(roleSchema),
+    defaultValues: {
+      name: role?.name || '',
+      description: role?.description || ''
+    }
   });
 
   useEffect(() => {
     if (role) {
-      setFormData({
+      reset({
         name: role.name || '',
         description: role.description || ''
       });
     }
-  }, [role]);
+  }, [role, reset]);
 
-  const updateMutation = useUpdateRole();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: RoleFormValues) => {
     try {
-      await updateMutation.mutateAsync({ id: role.id, data: formData });
+      await updateMutation.mutateAsync({ id: role.id, data });
+      toast.success('Cập nhật chức vụ thành công!');
       onClose();
-    } catch (err) {
-      alert('Lỗi cập nhật chức vụ!');
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi cập nhật chức vụ!');
     }
   };
 
@@ -49,7 +62,7 @@ export default function EditRoleModal({ role, onClose }: EditRoleModalProps) {
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {role.isSystemRole && (
             <div className="p-3 bg-orange-50 text-orange-800 text-sm rounded-lg mb-4">
               Đây là vai trò hệ thống. Bạn chỉ có thể sửa Mô tả, không thể sửa Tên.
@@ -58,17 +71,16 @@ export default function EditRoleModal({ role, onClose }: EditRoleModalProps) {
           <div className="space-y-2">
             <label className="text-sm font-semibold text-edu-fgSecondary">Tên chức vụ <span className="text-red-500">*</span></label>
             <Input 
-              required 
               disabled={role.isSystemRole}
-              value={formData.name} 
-              onChange={e => setFormData({...formData, name: e.target.value})} 
+              {...register('name')}
+              error={errors.name?.message}
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-edu-fgSecondary">Mô tả</label>
             <Input 
-              value={formData.description} 
-              onChange={e => setFormData({...formData, description: e.target.value})} 
+              {...register('description')}
+              error={errors.description?.message}
             />
           </div>
 

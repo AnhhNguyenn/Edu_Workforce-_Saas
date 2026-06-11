@@ -5,6 +5,9 @@ namespace EduOps.Domain.Entities
 {
     public class Promotion : BaseEntity
     {
+        public Guid? SubscriptionPlanId { get; set; }
+        public virtual SubscriptionPlan? SubscriptionPlan { get; set; }
+
         // Có thể null nếu là AUTO_DISCOUNT
         public string? Code { get; set; }
 

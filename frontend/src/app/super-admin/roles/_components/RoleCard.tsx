@@ -1,6 +1,8 @@
-import { Key, ShieldCheck, Edit2, Trash2 } from 'lucide-react';
+import { Key, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/providers/ConfirmProvider';
+import { ActionButtons } from '@/components/ui/action-buttons';
 
 interface RoleCardProps {
   role: any;
@@ -10,6 +12,20 @@ interface RoleCardProps {
 }
 
 export function RoleCard({ role, onOpenPermissionModal, onEdit, onDelete }: RoleCardProps) {
+  const { confirm } = useConfirm();
+
+  const handleDelete = () => {
+    confirm({
+      title: 'Xác nhận xóa chức vụ',
+      description: 'Bạn có chắc chắn muốn xóa chức vụ này không? Các người dùng thuộc chức vụ này có thể sẽ bị mất quyền truy cập.',
+      requireInput: true,
+      expectedInput: 'XAC NHAN',
+      action: () => {
+        onDelete(role.id);
+      }
+    });
+  };
+
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-edu-border hover:shadow-md transition-shadow relative overflow-hidden flex flex-col h-full">
       <div className="flex justify-between items-start mb-4">
@@ -23,18 +39,10 @@ export function RoleCard({ role, onOpenPermissionModal, onEdit, onDelete }: Role
             </Badge>
           </div>
         </div>
-        <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => onEdit(role)}>
-            <Edit2 size={16} />
-          </Button>
-          {!role.isSystemRole && (
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => {
-              if (confirm('Bạn có chắc chắn muốn xóa chức vụ này?')) onDelete(role.id);
-            }}>
-              <Trash2 size={16} />
-            </Button>
-          )}
-        </div>
+        <ActionButtons 
+          onEdit={() => onEdit(role)} 
+          onDelete={!role.isSystemRole ? handleDelete : undefined} 
+        />
       </div>
       
       <h3 className="text-lg font-bold text-edu-fg mb-1">{role.name}</h3>

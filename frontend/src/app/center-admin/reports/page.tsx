@@ -8,18 +8,26 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useReports } from "@/hooks/queries/useReports";
 import { useState, useMemo } from "react";
+import { useDebounce } from '@/hooks/useDebounce';
+import { useProfile } from '@/hooks/queries/useProfile';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Loader2 } from 'lucide-react';
 
 export default function ReportsPage() {
   const { data: reports, isLoading } = useReports();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 500);
   const [statusFilter, setStatusFilter] = useState('all');
+
+  const { data: profile } = useProfile();
+  const isAuthorized = profile?.role === 'SUPER_ADMIN' || profile?.role === 'CENTER_ADMIN';
 
   const filteredReports = useMemo(() => {
     if (!reports?.items) return [];
     let items = reports.items;
     
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
+    if (debouncedSearch) {
+      const lowerSearch = debouncedSearch.toLowerCase();
       items = items.filter(r => 
         r.sessionId.toLowerCase().includes(lowerSearch)
       );
@@ -30,7 +38,7 @@ export default function ReportsPage() {
     }
     
     return items;
-  }, [reports, searchTerm, statusFilter]);
+  }, [reports, debouncedSearch, statusFilter]);
 
   const handleExport = () => {
     const headers = ['Mã Session', 'Sĩ số hiện diện', 'Số vắng', 'Trạng thái', 'Ngày nộp'];
@@ -55,10 +63,12 @@ export default function ReportsPage() {
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Báo cáo điểm danh</h2>
           <p className="text-edu-muted text-sm">Theo dõi tiến độ nộp báo cáo điểm danh của giáo viên</p>
         </div>
-        <Button className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white" onClick={handleExport}>
-          <Download size={18} />
-          Xuất file Excel
-        </Button>
+        {isAuthorized && (
+          <Button className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white" onClick={handleExport}>
+            <Download size={18} />
+            Xuất file Excel
+          </Button>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
@@ -126,15 +136,19 @@ export default function ReportsPage() {
             ))}
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
-                  Đang tải dữ liệu báo cáo điểm danh...
+                <TableCell colSpan={6} className="h-24 text-center text-edu-muted">
+                  <Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu báo cáo điểm danh...
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && filteredReports.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-edu-muted">
-                  Không tìm thấy báo cáo phù hợp.
+                <TableCell colSpan={6} className="p-0">
+                  <EmptyState 
+                    hasFilter={!!searchTerm || statusFilter !== 'all'}
+                    onClearFilter={() => { setSearchTerm(''); setStatusFilter('all'); }}
+                    description="Không tìm thấy báo cáo phù hợp."
+                  />
                 </TableCell>
               </TableRow>
             )}

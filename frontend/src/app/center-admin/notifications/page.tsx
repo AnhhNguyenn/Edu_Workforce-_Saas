@@ -2,6 +2,9 @@
 
 import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from "@/hooks/queries/useNotifications";
 import { CheckCheck, BellRing, Info, AlertTriangle, MessageSquare } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Button } from "@/components/ui/button";
+import { toast } from "react-hot-toast";
 
 export default function NotificationsPage() {
   const { data: notifications, isLoading } = useNotifications();
@@ -20,10 +23,19 @@ export default function NotificationsPage() {
   const handleMarkAsRead = async (id: string) => {
     try {
       await markReadMutation.mutateAsync(id);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Có lỗi xảy ra');
     }
   };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllReadMutation.mutateAsync();
+      toast.success('Đã đánh dấu tất cả là đã đọc');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Có lỗi xảy ra');
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-7">
@@ -32,21 +44,24 @@ export default function NotificationsPage() {
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Thông báo</h2>
           <p className="text-edu-muted text-sm">Cập nhật tin tức và thông báo từ hệ thống</p>
         </div>
-        <button 
-          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-edu-accent hover:bg-edu-accentLight rounded-lg transition-colors disabled:opacity-50"
-          onClick={() => markAllReadMutation.mutate()}
-          disabled={markAllReadMutation.isPending}
+        <Button 
+          variant="secondary" 
+          className="gap-2" 
+          onClick={handleMarkAllRead}
+          disabled={markAllReadMutation.isPending || notifications?.items?.length === 0}
         >
-          <CheckCheck size={16} />
+          <CheckCheck size={18} />
           {markAllReadMutation.isPending ? 'Đang xử lý...' : 'Đánh dấu tất cả đã đọc'}
-        </button>
+        </Button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
         {isLoading ? (
           <div className="text-center py-10 text-edu-muted">Đang tải thông báo...</div>
         ) : notifications?.items?.length === 0 ? (
-          <div className="text-center py-10 text-edu-muted">Chưa có thông báo nào.</div>
+          <div className="py-6">
+            <EmptyState description="Chưa có thông báo nào." />
+          </div>
         ) : (
           <div className="divide-y divide-edu-border">
             {notifications?.items?.map((n) => (

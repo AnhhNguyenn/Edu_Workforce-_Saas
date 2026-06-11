@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/providers/ConfirmProvider";
 
 export default function ProfilePage() {
   const { data: profile, isLoading } = useProfile();
@@ -15,6 +16,7 @@ export default function ProfilePage() {
   
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ phone: '' });
+  const { confirm } = useConfirm();
 
   useEffect(() => {
     if (profile) {
@@ -23,12 +25,14 @@ export default function ProfilePage() {
   }, [profile]);
 
   const handleUpdate = async () => {
+    if (!editForm.phone.trim()) return toast.error('Vui lòng nhập Số điện thoại');
+    
     try {
       await updateProfile.mutateAsync(editForm);
       toast.success('Cập nhật thông tin thành công!');
       setIsEditOpen(false);
-    } catch (e) {
-      toast.error('Lỗi khi cập nhật thông tin');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Lỗi khi cập nhật thông tin');
     }
   };
 
@@ -97,13 +101,22 @@ export default function ProfilePage() {
           Đổi mật khẩu
         </button>
         <button 
-          onClick={() => signOut({ callbackUrl: '/login' })}
+          onClick={() => {
+            confirm({
+              title: "Đăng xuất",
+              description: "Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?",
+              action: async () => {
+                await signOut({ callbackUrl: '/login' });
+              }
+            });
+          }}
           className="flex items-center justify-center gap-2 w-full py-3.5 bg-edu-dangerLight text-edu-danger border border-transparent rounded-xl text-sm font-bold hover:bg-edu-danger hover:text-white transition-colors mt-2"
         >
           <LogOut size={16} />
           Đăng xuất
         </button>
       </div>
+
 
       <Modal 
         isOpen={isEditOpen} 
@@ -113,10 +126,11 @@ export default function ProfilePage() {
           <>
             <Button variant="secondary" onClick={() => setIsEditOpen(false)}>Hủy</Button>
             <Button 
-              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" 
+              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white gap-2" 
               onClick={handleUpdate}
               disabled={updateProfile.isPending}
             >
+              {updateProfile.isPending && <Loader2 size={16} className="animate-spin" />}
               {updateProfile.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
             </Button>
           </>

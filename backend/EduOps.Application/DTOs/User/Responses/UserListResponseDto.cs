@@ -13,5 +13,7 @@ namespace EduOps.Application.DTOs.User.Responses
         public string RoleCode { get; set; } = string.Empty;
         public Guid? StatusId { get; set; }
         public string StatusCode { get; set; } = string.Empty;
+        public DateTime? LastLoginAt { get; set; }
+        public DateTime? LockEndAt { get; set; }
     }
 }

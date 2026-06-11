@@ -1,10 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { Portal } from '@/components/ui/portal';
 import { SubscriptionPlanDto, useCreatePlan, useUpdatePlan } from '@/hooks/queries/useSubscriptions';
 import { toast } from 'react-hot-toast';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+const planSchema = z.object({
+  name: z.string().min(1, 'Vui lòng nhập tên gói cước'),
+  description: z.string().optional(),
+  maxUsers: z.coerce.number({ invalid_type_error: "Vui lòng nhập số hợp lệ" }).min(1, 'Giới hạn người dùng phải lớn hơn 0'),
+  pricePerMonth: z.coerce.number({ invalid_type_error: "Vui lòng nhập giá hợp lệ" }).min(0, 'Giá 1 tháng không hợp lệ'),
+  pricePerYear: z.coerce.number({ invalid_type_error: "Vui lòng nhập giá hợp lệ" }).min(0, 'Giá 1 năm không hợp lệ')
+});
+
+type PlanFormValues = z.infer<typeof planSchema>;
 
 interface PlanModalProps {
   plan?: SubscriptionPlanDto | null;
@@ -16,43 +29,44 @@ export function PlanModal({ plan, onClose }: PlanModalProps) {
   const createMutation = useCreatePlan();
   const updateMutation = useUpdatePlan();
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    maxUsers: 50,
-    pricePerMonth: 0,
-    pricePerYear: 0
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<PlanFormValues>({
+    resolver: zodResolver(planSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      maxUsers: 50,
+      pricePerMonth: 0,
+      pricePerYear: 0
+    }
   });
 
   useEffect(() => {
     if (plan) {
-      setFormData({
+      reset({
         name: plan.name || '',
         description: plan.description || '',
         maxUsers: plan.maxUsers || 50,
         pricePerMonth: plan.pricePerMonth || 0,
         pricePerYear: plan.pricePerYear || 0
       });
+    } else {
+      reset({
+        name: '',
+        description: '',
+        maxUsers: 50,
+        pricePerMonth: 0,
+        pricePerYear: 0
+      });
     }
-  }, [plan]);
+  }, [plan, reset]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    const numFields = ['maxUsers', 'pricePerMonth', 'pricePerYear'];
-    setFormData(prev => ({
-      ...prev,
-      [name]: numFields.includes(name) ? Number(value) : value
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: PlanFormValues) => {
     try {
       if (isEditing) {
-        await updateMutation.mutateAsync({ id: plan.id, data: formData });
+        await updateMutation.mutateAsync({ id: plan.id, data });
         toast.success('Cập nhật gói cước thành công');
       } else {
-        await createMutation.mutateAsync(formData);
+        await createMutation.mutateAsync(data);
         toast.success('Tạo gói cước mới thành công');
       }
       onClose();
@@ -76,30 +90,30 @@ export function PlanModal({ plan, onClose }: PlanModalProps) {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Tên gói cước <span className="text-red-500">*</span></label>
-              <Input name="name" value={formData.name} onChange={handleChange} required placeholder="Ví dụ: Gói Cơ Bản" />
+              <Input {...register('name')} error={errors.name?.message} placeholder="Ví dụ: Gói Cơ Bản" />
             </div>
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả ngắn gọn</label>
-              <Input name="description" value={formData.description} onChange={handleChange} placeholder="Phù hợp cho trung tâm nhỏ..." />
+              <Input {...register('description')} error={errors.description?.message} placeholder="Phù hợp cho trung tâm nhỏ..." />
             </div>
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Giới hạn số lượng tài khoản (Users) <span className="text-red-500">*</span></label>
-              <Input name="maxUsers" type="number" min="1" value={formData.maxUsers} onChange={handleChange} required />
+              <Input {...register('maxUsers')} type="number" min="1" error={errors.maxUsers?.message} />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Giá 1 Tháng (VNĐ) <span className="text-red-500">*</span></label>
-                <Input name="pricePerMonth" type="number" min="0" value={formData.pricePerMonth} onChange={handleChange} required />
+                <Input {...register('pricePerMonth')} type="number" min="0" error={errors.pricePerMonth?.message} />
               </div>
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Giá 1 Năm (VNĐ) <span className="text-red-500">*</span></label>
-                <Input name="pricePerYear" type="number" min="0" value={formData.pricePerYear} onChange={handleChange} required />
+                <Input {...register('pricePerYear')} type="number" min="0" error={errors.pricePerYear?.message} />
               </div>
             </div>
 

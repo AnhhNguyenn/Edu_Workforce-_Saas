@@ -18,12 +18,15 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export const useClasses = (searchKeyword?: string) => {
+export const useClasses = (searchKeyword?: string, schoolId?: string) => {
   return useQuery({
-    queryKey: ['classes', searchKeyword],
+    queryKey: ['classes', searchKeyword, schoolId],
     queryFn: async () => {
       const response = await apiClient.get<PagedResult<ClassDto>>('/classes', {
-        params: { searchKeyword: searchKeyword || undefined }
+        params: { 
+          searchKeyword: searchKeyword || undefined,
+          schoolId: schoolId || undefined
+        }
       });
       return response.data; // Trả về toàn bộ PagedResult
     }

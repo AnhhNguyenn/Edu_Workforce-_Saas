@@ -4,6 +4,7 @@ import { ClipboardCheck, Loader2, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSessions } from "@/hooks/queries/useSessions";
 import { useRouter } from "next/navigation";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useProfile } from "@/hooks/queries/useProfile";
 
 export default function TeacherReportsPage() {
@@ -29,13 +30,7 @@ export default function TeacherReportsPage() {
       </div>
 
       {completedSessions.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-edu-border p-6 text-center mt-6">
-          <div className="w-16 h-16 bg-edu-accentLight text-edu-accent rounded-full flex items-center justify-center mx-auto mb-4">
-            <ClipboardCheck size={32} />
-          </div>
-          <h3 className="font-bold text-lg mb-2">Chưa có ca học nào cần báo cáo</h3>
-          <p className="text-sm text-edu-muted mb-6">Bạn chỉ có thể nộp báo cáo sau khi kết thúc ca học hoặc điểm danh hoàn tất.</p>
-        </div>
+        <EmptyState description="Chưa có ca học nào cần báo cáo. Bạn chỉ có thể nộp báo cáo sau khi kết thúc ca học hoặc điểm danh hoàn tất." />
       ) : (
         <div className="space-y-3">
           {completedSessions.map(session => (
@@ -45,9 +40,9 @@ export default function TeacherReportsPage() {
               className="bg-white rounded-xl border border-edu-border p-4 shadow-sm cursor-pointer hover:border-edu-accent transition-colors flex items-center justify-between"
             >
               <div>
-                <div className="font-bold text-edu-fg text-sm mb-1">{session.lessonTitle || 'Chưa có chủ đề'}</div>
+                <div className="font-bold text-edu-fg text-sm mb-1 truncate max-w-[200px]" title={session.lessonTitle}>{session.lessonTitle || 'Chưa có chủ đề'}</div>
                 <div className="text-xs text-edu-muted flex gap-2">
-                  <span>Mã lớp: {session.classId.substring(0, 8)}...</span>
+                  <span>Mã lớp: {session.classId?.substring(0, 8) ?? 'N/A'}...</span>
                   <span>•</span>
                   <span>{new Date(session.sessionDate).toLocaleDateString('vi-VN')}</span>
                 </div>

@@ -1,24 +1,33 @@
 'use client';
 
 import { useState } from "react";
-import { Search, Filter, Plus } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CreateButton } from "@/components/ui/create-button";
+import { ActionButtons } from "@/components/ui/action-buttons";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select } from "@/components/ui/select";
 import { getAvatarInitials } from "@/lib/utils";
 import { useOrganizations, useCreateOrganization, useUpdateOrganization, useDeleteOrganization, useToggleOrgStatus, useOrganizationStats, useUpdateOrgSubscription } from "@/hooks/queries/useOrganizations";
 import { usePlans } from "@/hooks/queries/useSubscriptions";
 import { useEffect } from "react";
+import { toast } from "react-hot-toast";
+import { Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useConfirm } from "@/providers/ConfirmProvider";
 
 export default function OrganizationsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isChangePlanOpen, setIsChangePlanOpen] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<any>(null);
-  const [formData, setFormData] = useState({ name: '', email: '', address: '' });
+  const { confirm } = useConfirm();
+  const [formData, setFormData] = useState({ name: '', email: '', address: '', planId: '' });
   const [editFormData, setEditFormData] = useState({ name: '', email: '', address: '' });
+  const [errors, setErrors] = useState<{name?: string, email?: string, address?: string, planId?: string}>({});
   const [subscriptionFormData, setSubscriptionFormData] = useState({ planId: '', subscriptionStatus: 'TRIAL', subscriptionEnd: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,33 +50,51 @@ export default function OrganizationsPage() {
   const { data: plansData } = usePlans();
 
   const handleCreate = async () => {
-    if (!formData.name || !formData.email) return alert("Vui lòng nhập tên và email");
+    const newErrors: any = {};
+    if (!formData.name.trim()) newErrors.name = "Vui lòng nhập Tên trung tâm";
+    if (!formData.email.trim()) newErrors.email = "Vui lòng nhập Email liên hệ";
+    if (!formData.address.trim()) newErrors.address = "Vui lòng nhập Thành phố";
+    if (!formData.planId) newErrors.planId = "Vui lòng chọn Gói cước";
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
+    
     try {
       await createMutation.mutateAsync({
         name: formData.name,
         code: formData.name.toUpperCase().replace(/\s+/g, '_').substring(0, 10) + '_' + Math.floor(Math.random() * 1000),
         email: formData.email,
         address: formData.address,
+        planId: formData.planId,
         maxUsers: 50 // Default
       });
       setIsCreateOpen(false);
-      setFormData({ name: '', email: '', address: '' });
-      // alert("Tạo trung tâm thành công!"); // using hot toast later if we implement it globally
-    } catch (e) {
-      alert("Tạo trung tâm thất bại. Kiểm tra log.");
+      setFormData({ name: '', email: '', address: '', planId: '' });
+      setErrors({});
+      toast.success("Tạo trung tâm thành công!");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Tạo trung tâm thất bại.");
     }
   };
 
   const handleEdit = async () => {
     if (!selectedOrg) return;
+    if (!editFormData.name.trim()) return toast.error("Vui lòng nhập Tên trung tâm");
+    if (!editFormData.email.trim()) return toast.error("Vui lòng nhập Email Admin");
+    if (!editFormData.address.trim()) return toast.error("Vui lòng nhập Thành phố");
+
     try {
       await updateMutation.mutateAsync({
         id: selectedOrg.id,
         data: editFormData
       });
       setIsEditOpen(false);
-    } catch (e) {
-      alert("Cập nhật trung tâm thất bại.");
+      toast.success("Cập nhật trung tâm thành công!");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Cập nhật trung tâm thất bại.");
     }
   };
 
@@ -77,8 +104,9 @@ export default function OrganizationsPage() {
     try {
       await toggleStatusMutation.mutateAsync({ id: selectedOrg.id, action });
       setSelectedOrg({ ...selectedOrg, statusCode: action === 'suspend' ? 'SUSPENDED' : 'ACTIVE' });
-    } catch (e) {
-      alert("Thay đổi trạng thái thất bại.");
+      toast.success("Thay đổi trạng thái thành công!");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Thay đổi trạng thái thất bại.");
     }
   };
 
@@ -95,18 +123,27 @@ export default function OrganizationsPage() {
       });
       setIsChangePlanOpen(false);
       setSelectedOrg(null); // Close detail modal to refresh
-    } catch (e) {
-      alert("Đổi gói thất bại.");
+      toast.success("Đổi gói thành công!");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Đổi gói thất bại.");
     }
   };
 
-  const handleDelete = async (orgId: string, orgName: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa trung tâm "${orgName}" không? Hành động này không thể hoàn tác.`)) return;
-    try {
-      await deleteMutation.mutateAsync(orgId);
-    } catch (e) {
-      alert("Xóa trung tâm thất bại.");
-    }
+  const handleDeleteClick = (org: any) => {
+    confirm({
+      title: "Xác nhận xóa Trung tâm",
+      description: `Bạn có chắc chắn muốn xóa trung tâm "${org.name}" không? Hành động này không thể hoàn tác.`,
+      requireInput: true,
+      expectedInput: "XAC NHAN",
+      action: async () => {
+        try {
+          await deleteMutation.mutateAsync(org.id);
+          toast.success("Đã xóa trung tâm.");
+        } catch (e: any) {
+          toast.error(e.response?.data?.message || "Xóa trung tâm thất bại.");
+        }
+      }
+    });
   };
 
   return (
@@ -116,10 +153,7 @@ export default function OrganizationsPage() {
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Tổ chức & Trung tâm</h2>
           <p className="text-edu-muted text-sm">Quản lý toàn bộ các trung tâm sử dụng hệ thống EduOps</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-          <Plus size={18} />
-          Tạo trung tâm mới
-        </Button>
+        <CreateButton onClick={() => setIsCreateOpen(true)} label="Tạo trung tâm mới" />
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
@@ -144,6 +178,9 @@ export default function OrganizationsPage() {
           </div>
         </div>
         
+        {isLoading ? (
+          <div className="p-10 text-center text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu trung tâm...</div>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -154,57 +191,52 @@ export default function OrganizationsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {orgs?.items?.map((org: any, idx: number) => (
+            {orgs?.items?.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="p-0">
+                  <EmptyState 
+                    hasFilter={!!searchTerm}
+                    onClearFilter={() => setSearchTerm('')}
+                    description="Không tìm thấy trung tâm nào."
+                  />
+                </TableCell>
+              </TableRow>
+            ) : orgs?.items?.map((org: any, idx: number) => (
               <TableRow key={idx} onClick={() => setSelectedOrg(org)} className="cursor-pointer">
-                <TableCell>{org.name}</TableCell>
-                <TableCell>{org.city}</TableCell>
+                <TableCell className="font-medium text-edu-fg truncate max-w-[200px]" title={org.name}>{org.name ?? 'Chưa cập nhật'}</TableCell>
+                <TableCell className="truncate max-w-[150px]" title={org.city}>{org.city ?? 'Chưa cập nhật'}</TableCell>
                 <TableCell>
                   <Badge variant={org.statusCode === 'ACTIVE' ? 'success' : 'danger'}>
                     {org.statusCode === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                   <div className="flex items-center gap-2">
-                     <Button 
-                       variant="secondary" 
-                       size="sm" 
-                       onClick={(e) => { 
-                         e.stopPropagation(); 
-                         setSelectedOrg(org); 
-                         setEditFormData({ name: org.name || '', email: org.email || '', address: org.address || '' }); 
-                         setIsEditOpen(true); 
-                       }}
-                     >
-                       Sửa
-                     </Button>
-                     <Button 
-                       variant="danger" 
-                       size="sm" 
-                       onClick={(e) => { 
-                         e.stopPropagation(); 
-                         handleDelete(org.id, org.name); 
-                       }}
-                       disabled={deleteMutation.isPending}
-                     >
-                       Xóa
-                     </Button>
-                   </div>
+                   <ActionButtons
+                     onEdit={() => {
+                       setSelectedOrg(org); 
+                       setEditFormData({ name: org.name || '', email: org.email || '', address: org.address || '' }); 
+                       setIsEditOpen(true); 
+                     }}
+                     onDelete={() => handleDeleteClick(org)}
+                   />
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        )}
       </div>
 
       {/* CREATE MODAL */}
       <Modal 
         isOpen={isCreateOpen} 
-        onClose={() => setIsCreateOpen(false)} 
+        onClose={() => { setIsCreateOpen(false); setErrors({}); }} 
         title="Tạo trung tâm mới"
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsCreateOpen(false)} disabled={createMutation.isPending}>Hủy</Button>
-            <Button onClick={handleCreate} disabled={createMutation.isPending}>
+            <Button onClick={handleCreate} disabled={createMutation.isPending} className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white">
+              {createMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {createMutation.isPending ? "Đang lưu..." : "Lưu trung tâm"}
             </Button>
           </>
@@ -216,17 +248,19 @@ export default function OrganizationsPage() {
             <Input 
               placeholder="Nhập tên trung tâm..." 
               value={formData.name}
-              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              onChange={e => { setFormData({ ...formData, name: e.target.value }); setErrors({...errors, name: ''}); }}
+              error={errors.name}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Email Admin</label>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Email liên hệ</label>
               <Input 
                 type="email" 
-                placeholder="admin@center.com" 
+                placeholder="contact@center.com" 
                 value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                onChange={e => { setFormData({ ...formData, email: e.target.value }); setErrors({...errors, email: ''}); }}
+                error={errors.email}
               />
             </div>
             <div>
@@ -234,8 +268,19 @@ export default function OrganizationsPage() {
               <Input 
                 placeholder="Ví dụ: TP.HCM" 
                 value={formData.address}
-                onChange={e => setFormData({ ...formData, address: e.target.value })}
+                onChange={e => { setFormData({ ...formData, address: e.target.value }); setErrors({...errors, address: ''}); }}
+                error={errors.address}
               />
+            </div>
+            <div className="col-span-2 mt-1">
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Gói cước khởi tạo *</label>
+              <Select 
+                placeholder="Chọn gói cước..."
+                value={formData.planId}
+                onChange={val => { setFormData({ ...formData, planId: val }); setErrors({...errors, planId: ''}); }}
+                options={plansData?.map((p: any) => ({ value: p.id, label: p.name })) || []}
+              />
+              {errors.planId && <p className="mt-1 text-xs text-edu-danger">{errors.planId}</p>}
             </div>
           </div>
         </div>
@@ -253,7 +298,9 @@ export default function OrganizationsPage() {
               variant={selectedOrg?.statusCode === 'ACTIVE' ? "danger" : "primary"}
               onClick={handleToggleStatus}
               disabled={toggleStatusMutation.isPending}
+              className="gap-2"
             >
+              {toggleStatusMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {toggleStatusMutation.isPending ? 'Đang xử lý...' : (selectedOrg?.statusCode === 'ACTIVE' ? 'Khóa trung tâm' : 'Mở khóa trung tâm')}
             </Button>
           </>
@@ -274,7 +321,8 @@ export default function OrganizationsPage() {
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsEditOpen(false)} disabled={updateMutation.isPending}>Hủy</Button>
-            <Button onClick={handleEdit} disabled={updateMutation.isPending}>
+            <Button onClick={handleEdit} disabled={updateMutation.isPending} className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white">
+              {updateMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {updateMutation.isPending ? "Đang lưu..." : "Lưu thay đổi"}
             </Button>
           </>
@@ -319,7 +367,8 @@ export default function OrganizationsPage() {
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsChangePlanOpen(false)} disabled={updateSubscriptionMutation.isPending}>Hủy</Button>
-            <Button onClick={handleChangePlan} disabled={updateSubscriptionMutation.isPending}>
+            <Button onClick={handleChangePlan} disabled={updateSubscriptionMutation.isPending} className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white">
+              {updateSubscriptionMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {updateSubscriptionMutation.isPending ? "Đang lưu..." : "Xác nhận đổi gói"}
             </Button>
           </>
@@ -328,30 +377,31 @@ export default function OrganizationsPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Gói cước (Plan)</label>
-            <select 
-              className="flex h-10 w-full rounded-md border border-edu-border bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-edu-accent focus-visible:ring-offset-2"
+            <Select 
               value={subscriptionFormData.planId}
-              onChange={e => setSubscriptionFormData({ ...subscriptionFormData, planId: e.target.value })}
-            >
-              <option value="">-- Không gán gói / Mặc định --</option>
-              {plansData?.map((plan: any) => (
-                <option key={plan.id} value={plan.id}>{plan.name} - {plan.pricePerMonth?.toLocaleString('vi-VN')}đ/tháng</option>
-              ))}
-            </select>
+              onChange={v => setSubscriptionFormData({ ...subscriptionFormData, planId: v })}
+              options={[
+                { value: '', label: '-- Không gán gói / Mặc định --' },
+                ...(plansData?.map((plan: any) => ({
+                  value: plan.id,
+                  label: `${plan.name} - ${plan.pricePerMonth?.toLocaleString('vi-VN')}đ/tháng`
+                })) || [])
+              ]}
+            />
           </div>
           
           <div>
             <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Trạng thái gói</label>
-            <select 
-              className="flex h-10 w-full rounded-md border border-edu-border bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-edu-accent focus-visible:ring-offset-2"
+            <Select 
               value={subscriptionFormData.subscriptionStatus}
-              onChange={e => setSubscriptionFormData({ ...subscriptionFormData, subscriptionStatus: e.target.value })}
-            >
-              <option value="TRIAL">Dùng thử (TRIAL)</option>
-              <option value="PAID">Đã thanh toán (PAID)</option>
-              <option value="UNPAID">Chưa thanh toán / Miễn phí (UNPAID)</option>
-              <option value="EXPIRED">Đã hết hạn (EXPIRED)</option>
-            </select>
+              onChange={v => setSubscriptionFormData({ ...subscriptionFormData, subscriptionStatus: v })}
+              options={[
+                { value: 'TRIAL', label: 'Dùng thử (TRIAL)' },
+                { value: 'PAID', label: 'Đã thanh toán (PAID)' },
+                { value: 'UNPAID', label: 'Chưa thanh toán / Miễn phí (UNPAID)' },
+                { value: 'EXPIRED', label: 'Đã hết hạn (EXPIRED)' }
+              ]}
+            />
           </div>
 
           <div>

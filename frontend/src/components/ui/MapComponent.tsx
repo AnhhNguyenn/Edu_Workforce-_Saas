@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -26,8 +27,27 @@ function LocationMarker({ position, setPosition }: any) {
   });
 
   return position === null ? null : (
-    <Marker position={position} icon={customIcon}></Marker>
+    <Marker 
+      draggable={true}
+      eventHandlers={{
+        dragend: (e) => {
+          const marker = e.target;
+          const pos = marker.getLatLng();
+          setPosition(pos);
+        },
+      }}
+      position={position} 
+      icon={customIcon}
+    ></Marker>
   );
+}
+
+function MapUpdater({ center }: { center: [number, number] }) {
+  const map = useMapEvents({});
+  useEffect(() => {
+    map.flyTo(center, 15);
+  }, [center[0], center[1], map]);
+  return null;
 }
 
 export default function MapComponent({ lat, lng, onChange }: MapComponentProps) {
@@ -39,6 +59,7 @@ export default function MapComponent({ lat, lng, onChange }: MapComponentProps) 
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <MapUpdater center={[lat, lng]} />
       <LocationMarker 
         position={position} 
         setPosition={(pos: any) => onChange(pos.lat, pos.lng)} 

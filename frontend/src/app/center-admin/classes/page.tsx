@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from "react";
-import { Plus, Search, Filter } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CreateButton } from '@/components/ui/create-button';
+import { ActionButtons } from '@/components/ui/action-buttons';
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -12,40 +14,49 @@ import { useClasses, useCreateClass, useUpdateClass, useDeleteClass } from "@/ho
 import { useSchools } from "@/hooks/queries/useSchools";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { useProfile } from '@/hooks/queries/useProfile';
+import { useDebounce } from '@/hooks/useDebounce';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { useConfirm } from '@/providers/ConfirmProvider';
+import { Loader2 } from 'lucide-react';
 
 export default function ClassesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<any>(null);
+  const { confirm } = useConfirm();
 
   const [newClass, setNewClass] = useState({ name: '', schoolId: '', description: '' });
   const [editClass, setEditClass] = useState({ name: '', schoolId: '', description: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 500);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filterSchoolId, setFilterSchoolId] = useState<string>('');
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchTerm]);
-
-  const { data: classes, isLoading, isError } = useClasses(debouncedSearch);
+  const { data: classes, isLoading, isError } = useClasses(debouncedSearch, filterSchoolId);
   const { data: schools } = useSchools();
+  const { data: profile } = useProfile();
+  const isAuthorized = profile?.role === 'SUPER_ADMIN' || profile?.role === 'CENTER_ADMIN';
   const createClass = useCreateClass();
   const updateClass = useUpdateClass();
   const deleteClass = useDeleteClass();
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Bạn có chắc chắn muốn xóa lớp học này?')) {
-      try {
-        await deleteClass.mutateAsync(id);
-        toast.success('Đã xóa lớp học!');
-      } catch (error: any) {
-        toast.error(error.response?.data?.message || 'Lỗi khi xóa lớp');
+  const handleDeleteClick = (classId: string) => {
+    confirm({
+      title: "Xóa Lớp học",
+      description: "Bạn có chắc chắn muốn xóa lớp học này không? Mọi dữ liệu về học sinh và điểm danh thuộc lớp này có thể bị ảnh hưởng.",
+      requireInput: true,
+      expectedInput: "XAC NHAN",
+      action: async () => {
+        try {
+          await deleteClass.mutateAsync(classId);
+          toast.success('Đã xóa lớp học!');
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || 'Lỗi khi xóa lớp');
+        }
       }
-    }
+    });
   };
 
   const handleCreate = async () => {
@@ -107,10 +118,9 @@ export default function ClassesPage() {
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Quản lý lớp học</h2>
           <p className="text-edu-muted text-sm">Danh sách các lớp học đang vận hành tại trung tâm</p>
         </div>
-        <Button className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white" onClick={() => setIsCreateOpen(true)}>
-          <Plus size={18} />
-          Mở lớp mới
-        </Button>
+        {isAuthorized && (
+          <CreateButton onClick={() => setIsCreateOpen(true)} label="Mở lớp mới" />
+        )}
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
@@ -129,18 +139,22 @@ export default function ClassesPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant="secondary" size="icon" className="h-9 w-9">
+            <Button variant={filterSchoolId ? "primary" : "secondary"} size="icon" className="h-9 w-9" onClick={() => setIsFilterOpen(true)}>
               <Filter size={16} />
             </Button>
           </div>
         </div>
         
         {isLoading ? (
-           <div className="p-10 text-center text-edu-muted">Đang tải dữ liệu lớp học...</div>
+           <div className="p-10 text-center text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu lớp học...</div>
         ) : isError ? (
            <div className="p-10 text-center text-edu-danger">Lỗi kết nối API.</div>
         ) : !classes?.items || classes.items.length === 0 ? (
-           <div className="p-10 text-center text-edu-muted">Chưa có lớp học nào.</div>
+           <EmptyState 
+             hasFilter={!!searchTerm || !!filterSchoolId}
+             onClearFilter={() => { setSearchTerm(''); setFilterSchoolId(''); }}
+             description="Không có lớp học nào."
+           />
         ) : (
           <div className="overflow-x-auto w-full">
             <Table className="w-full whitespace-nowrap">
@@ -159,8 +173,8 @@ export default function ClassesPage() {
               {classes.items.map((c) => (
                 <TableRow key={c.id} className="hover:bg-slate-50/50 transition-colors">
                   <TableCell className="font-semibold text-edu-fg">{c.id.substring(0, 8)}...</TableCell>
-                  <TableCell className="font-semibold text-[#2E7D32]">{c.name}</TableCell>
-                  <TableCell>{c.teacherName || 'Chưa phân công'}</TableCell>
+                  <TableCell className="font-semibold text-[#2E7D32] truncate max-w-[200px]" title={c.name}>{c.name}</TableCell>
+                  <TableCell>{c.teacherName ?? 'Chưa phân công'}</TableCell>
                   <TableCell className="text-edu-muted text-sm">{c.schedule || 'Chưa xếp lịch'}</TableCell>
                   <TableCell>{c.studentsCount || 0}</TableCell>
                   <TableCell>
@@ -169,10 +183,14 @@ export default function ClassesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 justify-end items-center">
                       <Button variant="secondary" size="sm" className="hover:border-[#4CAF50] hover:text-[#4CAF50]">Chi tiết</Button>
-                      <Button variant="outline" size="sm" onClick={() => openEditModal(c)}>Sửa</Button>
-                      <Button variant="danger" size="sm" onClick={() => handleDelete(c.id)}>Xóa</Button>
+                      {isAuthorized && (
+                        <ActionButtons
+                          onEdit={() => openEditModal(c)}
+                          onDelete={() => handleDeleteClick(c.id)}
+                        />
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -191,10 +209,11 @@ export default function ClassesPage() {
           <>
             <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Hủy</Button>
             <Button 
-              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" 
+              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white gap-2" 
               onClick={handleCreate}
               disabled={createClass.isPending}
             >
+              {createClass.isPending && <Loader2 size={16} className="animate-spin" />}
               {createClass.isPending ? 'Đang tạo...' : 'Tạo lớp'}
             </Button>
           </>
@@ -243,10 +262,11 @@ export default function ClassesPage() {
           <>
             <Button variant="secondary" onClick={() => setIsEditOpen(false)}>Hủy</Button>
             <Button 
-              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" 
+              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white gap-2" 
               onClick={handleEdit}
               disabled={updateClass.isPending}
             >
+              {updateClass.isPending && <Loader2 size={16} className="animate-spin" />}
               {updateClass.isPending ? 'Đang lưu...' : 'Lưu lớp'}
             </Button>
           </>
@@ -285,6 +305,33 @@ export default function ClassesPage() {
           </div>
         </div>
       </Modal>
+
+      {/* FILTER MODAL */}
+      <Modal
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        title="Bộ lọc Tìm kiếm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setFilterSchoolId(''); setIsFilterOpen(false); }}>Bỏ lọc</Button>
+            <Button className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" onClick={() => setIsFilterOpen(false)}>Áp dụng</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Cơ sở trực thuộc</label>
+            <Select 
+              options={schools?.items?.map(s => ({ value: s.id, label: s.name })) || []}
+              placeholder="Chọn cơ sở để lọc..."
+              className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
+              value={filterSchoolId}
+              onChange={(val) => setFilterSchoolId(val)}
+            />
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 }

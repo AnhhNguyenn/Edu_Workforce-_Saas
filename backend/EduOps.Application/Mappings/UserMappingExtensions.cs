@@ -19,7 +19,9 @@ namespace EduOps.Application.Mappings
                 RoleId = user.RoleId,
                 RoleCode = user.Role?.Code ?? string.Empty,
                 StatusId = user.StatusId,
-                StatusCode = user.Status?.Code ?? string.Empty
+                StatusCode = user.Status?.Code ?? string.Empty,
+                LastLoginAt = user.LastLoginAt,
+                LockEndAt = user.LockEndAt
             };
         }
 

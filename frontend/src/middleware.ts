@@ -8,18 +8,25 @@ export default withAuth(
     
     const role = (token?.role as string)?.toUpperCase()?.replace('-', '_'); // Chuẩn hóa thành SUPER_ADMIN hoặc CENTER_ADMIN
 
+    const redirectWithAccessDenied = () => {
+      const response = NextResponse.redirect(new URL("/login", req.url));
+      // Dùng cookie tồn tại trong 10 giây để truyền lỗi (Flash Message)
+      response.cookies.set("auth_error", "access-denied", { path: "/", maxAge: 10 });
+      return response;
+    };
+
     // Route Guard Logic theo Role (Backend trả về chữ Hoa: SUPER_ADMIN, CENTER_ADMIN, TEACHER)
     if (path.startsWith("/super-admin") && role !== "SUPER_ADMIN") {
-      return NextResponse.redirect(new URL("/login?error=AccessDenied", req.url));
+      return redirectWithAccessDenied();
     }
     
     if (path.startsWith("/center-admin") && role !== "CENTER_ADMIN" && role !== "SUPER_ADMIN") {
-      return NextResponse.redirect(new URL("/login?error=AccessDenied", req.url));
+      return redirectWithAccessDenied();
     }
 
     if (path.startsWith("/teacher") && role !== "TEACHER" && role !== "ASSISTANT") {
       // Logic tuỳ biến: Center admin/Super admin có thể không được vào giao diện app giáo viên
-      return NextResponse.redirect(new URL("/login?error=AccessDenied", req.url));
+      return redirectWithAccessDenied();
     }
 
     return NextResponse.next();

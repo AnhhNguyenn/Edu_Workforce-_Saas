@@ -147,7 +147,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 ngày
+    maxAge: 1 * 24 * 60 * 60, // 1 ngày thay vì 30 ngày để đảm bảo bảo mật và không lưu session quá lâu
   },
   debug: true,
   secret: process.env.NEXTAUTH_SECRET as string,

@@ -14,5 +14,7 @@ namespace EduOps.Application.DTOs.Billing.Responses
         public int? MaxUses { get; set; }
         public int CurrentUses { get; set; }
         public string? Status { get; set; }
+        public Guid? SubscriptionPlanId { get; set; }
+        public string? SubscriptionPlanName { get; set; }
     }
 }

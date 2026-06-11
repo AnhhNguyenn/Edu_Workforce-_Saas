@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
@@ -8,29 +8,70 @@ import { Button } from '@/components/ui/button';
 import { ShieldCheck, BookOpen } from 'lucide-react';
 import axios from 'axios';
 import { ENV } from '@/config/env';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+const loginSchema = z.object({
+  email: z.string().email('Email không hợp lệ'),
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu')
+});
+
+const otpSchema = z.object({
+  otp: z.string().length(6, 'Mã OTP phải có 6 chữ số')
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+type OtpFormValues = z.infer<typeof otpSchema>;
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const errorMsg = searchParams.get('error');
+  const [errorMsg, setErrorMsg] = useState<string | null>(searchParams.get('error'));
+
+  // Đọc flash message từ cookie để không lộ trên URL
+  useEffect(() => {
+    const cookies = document.cookie.split('; ');
+    const authErrorCookie = cookies.find(row => row.startsWith('auth_error='));
+    if (authErrorCookie) {
+      const value = authErrorCookie.split('=')[1];
+      if (value === 'access-denied') {
+        setErrorMsg('access-denied');
+      }
+      // Xóa cookie ngay lập tức để không hiện lại nếu người dùng F5
+      document.cookie = 'auth_error=; path=/; max-age=0';
+    }
+  }, []);
 
   const [requires2FA, setRequires2FA] = useState(false);
   const [tempToken, setTempToken] = useState('');
-  const [otp, setOtp] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const { register: registerLogin, handleSubmit: handleSubmitLogin, formState: { errors: loginErrors } } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema)
+  });
+
+  const { register: registerOtp, handleSubmit: handleSubmitOtp, formState: { errors: otpErrors }, watch } = useForm<OtpFormValues>({
+    resolver: zodResolver(otpSchema)
+  });
+  
+  const otpValue = watch('otp') || '';
+
+  const onLoginSubmit = async (data: LoginFormValues) => {
     setLoading(true);
     setError('');
+    
+    // Clear URL error on new attempt
+    if (errorMsg) {
+      setErrorMsg(null);
+      window.history.replaceState(null, '', '/login');
+    }
 
     try {
       const res = await signIn('credentials', {
-        email,
-        password,
+        email: data.email,
+        password: data.password,
         redirect: false,
       });
 
@@ -42,8 +83,7 @@ function LoginContent() {
           setError('Sai email hoặc mật khẩu!');
         }
       } else if (res?.ok) {
-        router.push('/');
-        router.refresh();
+        window.location.href = '/';
       }
     } catch (err) {
       setError('Đã xảy ra lỗi hệ thống!');
@@ -52,30 +92,28 @@ function LoginContent() {
     }
   };
 
-  const handleVerify2FA = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onVerifySubmit = async (data: OtpFormValues) => {
     setLoading(true);
     setError('');
 
     try {
       const verifyRes = await axios.post(`${ENV.API_URL}/auth/verify-2fa`, {
         tempToken,
-        otpCode: otp
+        otpCode: data.otp
       });
 
-      const data = verifyRes.data;
+      const responseData = verifyRes.data;
       
       // Save token to NextAuth
       const signInRes = await signIn('credentials', {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        userStr: JSON.stringify(data.user),
+        accessToken: responseData.accessToken,
+        refreshToken: responseData.refreshToken,
+        userStr: JSON.stringify(responseData.user),
         redirect: false
       });
 
       if (signInRes?.ok) {
-        router.push('/');
-        router.refresh();
+        window.location.href = '/';
       } else {
         setError('Không thể lưu phiên đăng nhập!');
       }
@@ -103,14 +141,14 @@ function LoginContent() {
 
         {errorMsg && (
           <div className="bg-edu-dangerLight text-edu-danger p-3 rounded-lg text-sm mb-4 text-center font-medium">
-            {errorMsg === 'AccessDenied' 
+            {errorMsg === 'access-denied' 
               ? 'Bạn không có quyền truy cập trang này!' 
               : 'Sai email hoặc mật khẩu (hoặc tài khoản đã bị khóa)!'}
           </div>
         )}
 
         {requires2FA ? (
-          <form onSubmit={handleVerify2FA} className="space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <form method="POST" onSubmit={handleSubmitOtp(onVerifySubmit)} className="space-y-5 animate-in fade-in zoom-in-95 duration-200">
             <div className="text-center mb-2">
               <ShieldCheck className="mx-auto text-edu-success mb-2" size={32} />
               <p className="text-sm text-edu-fgSecondary font-medium">Bảo mật 2 lớp (2FA) đã được bật. Vui lòng nhập mã OTP từ ứng dụng Authenticator của bạn.</p>
@@ -122,15 +160,14 @@ function LoginContent() {
                 placeholder="123456" 
                 className="text-center text-xl tracking-[0.5em] font-bold"
                 maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                required
+                {...registerOtp('otp')}
+                error={otpErrors.otp?.message}
               />
             </div>
             
             {error && <p className="text-edu-danger text-sm font-medium text-center">{error}</p>}
 
-            <Button type="submit" className="w-full text-base py-3" disabled={loading || otp.length !== 6}>
+            <Button type="submit" className="w-full text-base py-3" disabled={loading || otpValue.length !== 6}>
               {loading ? 'Đang xác minh...' : 'Xác minh'}
             </Button>
             <div className="text-center">
@@ -138,15 +175,14 @@ function LoginContent() {
             </div>
           </form>
         ) : (
-          <form onSubmit={handleLogin} className="space-y-5 animate-in fade-in duration-200">
+          <form method="POST" onSubmit={handleSubmitLogin(onLoginSubmit)} className="space-y-5 animate-in fade-in duration-200">
             <div>
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Email</label>
               <Input 
                 type="email" 
                 placeholder="Nhập địa chỉ email..." 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                {...registerLogin('email')}
+                error={loginErrors.email?.message}
               />
             </div>
             
@@ -158,9 +194,8 @@ function LoginContent() {
               <Input 
                 type="password" 
                 placeholder="Nhập mật khẩu..." 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+                {...registerLogin('password')}
+                error={loginErrors.password?.message}
               />
             </div>
 

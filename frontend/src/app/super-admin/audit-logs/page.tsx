@@ -77,8 +77,14 @@ export default function AuditLogsPage() {
           </div>
         </div>
 
-        <AuditLogTable logs={filteredLogs} isLoading={isLoading} />
+        <AuditLogTable 
+          logs={filteredLogs} 
+          isLoading={isLoading} 
+          hasFilter={!!searchTerm || !!actionFilter}
+          onClearFilter={() => { setSearchTerm(''); setActionFilter(''); }}
+        />
       </div>
     </FeatureGuard>
   );
+}
 

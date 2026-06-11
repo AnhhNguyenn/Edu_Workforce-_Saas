@@ -5,6 +5,7 @@ import { CheckCircle2, MapPin, Loader2, AlertCircle } from "lucide-react";
 import { useCheckIn, useCheckOut, useMyAttendances } from "@/hooks/queries/useAttendances";
 import { useProfile } from "@/hooks/queries/useProfile";
 import { toast } from "react-hot-toast";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function CheckinPage() {
   const { data: profile } = useProfile();
@@ -168,7 +169,7 @@ export default function CheckinPage() {
             )}
           </div>
         ) : (
-          <div className="text-sm text-edu-muted italic text-center py-4">Chưa có lịch sử check-in hôm nay.</div>
+          <EmptyState description="Chưa có lịch sử check-in hôm nay." />
         )}
       </div>
     </div>

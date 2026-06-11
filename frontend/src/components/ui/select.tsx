@@ -67,7 +67,7 @@ export function Select({ options, value, onChange, placeholder = "Chọn...", cl
                 }}
                 className={cn(
                   "relative flex w-full cursor-pointer select-none items-center rounded-md py-2.5 pl-3 pr-9 text-sm outline-none transition-colors mx-1.5 w-[calc(100%-12px)]",
-                  "hover:bg-edu-accentLighter hover:text-edu-accent",
+                  "text-edu-fg hover:bg-edu-accentLighter hover:text-edu-accent",
                   value === option.value && "bg-edu-accentLighter text-edu-accent font-semibold"
                 )}
               >

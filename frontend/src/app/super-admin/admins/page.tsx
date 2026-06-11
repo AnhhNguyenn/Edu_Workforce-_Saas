@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { Plus, Search, Filter } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CreateButton } from "@/components/ui/create-button";
+import { ActionButtons } from "@/components/ui/action-buttons";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -13,11 +15,13 @@ import { useUsers, useDeleteUser, useLockUser, useUnlockUser, useCreateUser, use
 import { useOrganizations } from "@/hooks/queries/useOrganizations";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "react-hot-toast";
+import { Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useConfirm } from "@/providers/ConfirmProvider";
 
 export default function AdminsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isLockOpen, setIsLockOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
   const [lockType, setLockType] = useState('permanent'); // 'permanent' or 'date'
@@ -49,8 +53,17 @@ export default function AdminsPage() {
   const deleteMutation = useDeleteUser();
   const lockMutation = useLockUser();
   const unlockMutation = useUnlockUser();
+  const { confirm } = useConfirm();
 
   const handleCreate = () => {
+    if (!formData.fullName.trim()) return toast.error("Vui lòng nhập Họ tên");
+    if (!formData.email.trim()) return toast.error("Vui lòng nhập Email");
+    if (!formData.password.trim()) return toast.error("Vui lòng nhập Mật khẩu khởi tạo");
+    if (!formData.phone.trim()) return toast.error("Vui lòng nhập Số điện thoại");
+    if (formData.roleCode === 'CENTER_ADMIN' && !formData.organizationId) {
+      return toast.error("Vui lòng chọn Trực thuộc Trung tâm");
+    }
+
     createMutation.mutate(formData, {
       onSuccess: () => {
         setIsCreateOpen(false);
@@ -65,9 +78,19 @@ export default function AdminsPage() {
 
   const handleEdit = () => {
     if (selectedUser) {
+      if (!editFormData.fullName.trim()) return toast.error("Vui lòng nhập Họ tên");
+      if (!editFormData.phone.trim()) return toast.error("Vui lòng nhập Số điện thoại");
+      if (editFormData.roleCode === 'CENTER_ADMIN' && !editFormData.organizationId) {
+        return toast.error("Vui lòng chọn Trực thuộc Trung tâm");
+      }
+
       updateMutation.mutate({ id: selectedUser.id, data: editFormData }, {
         onSuccess: () => {
           setIsEditOpen(false);
+          toast.success("Cập nhật thành công!");
+        },
+        onError: (err: any) => {
+          toast.error(err.response?.data?.message || "Có lỗi xảy ra khi cập nhật.");
         }
       });
     }
@@ -84,15 +107,21 @@ export default function AdminsPage() {
     setIsEditOpen(true);
   };
 
-  const handleDelete = () => {
-    if (selectedUser) {
-      deleteMutation.mutate(selectedUser.id, {
-        onSuccess: () => {
-          setIsDeleteOpen(false);
+  const handleDeleteClick = (user: UserDto) => {
+    confirm({
+      title: "Xác nhận xóa Admin",
+      description: `Bạn có chắc chắn muốn xóa tài khoản ${user.fullName} (${user.email}) không? Hành động này sẽ chuyển tài khoản vào trạng thái đã xóa.`,
+      requireInput: true,
+      expectedInput: "XAC NHAN",
+      action: async () => {
+        try {
+          await deleteMutation.mutateAsync(user.id);
           toast.success("Đã xóa tài khoản.");
+        } catch (err: any) {
+          toast.error(err.response?.data?.message || "Lỗi xóa tài khoản.");
         }
-      });
-    }
+      }
+    });
   };
 
   const handleLock = () => {
@@ -102,6 +131,9 @@ export default function AdminsPage() {
         onSuccess: () => {
           setIsLockOpen(false);
           toast.success("Đã khóa tài khoản thành công!");
+        },
+        onError: (err: any) => {
+          toast.error(err.response?.data?.message || "Có lỗi xảy ra khi khóa tài khoản.");
         }
       });
     }
@@ -112,8 +144,8 @@ export default function AdminsPage() {
       onSuccess: () => {
         toast.success("Đã mở khóa tài khoản thành công!");
       },
-      onError: () => {
-        toast.error("Có lỗi xảy ra khi mở khóa tài khoản.");
+      onError: (err: any) => {
+        toast.error(err.response?.data?.message || "Có lỗi xảy ra khi mở khóa tài khoản.");
       }
     });
   };
@@ -125,10 +157,7 @@ export default function AdminsPage() {
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Quản trị viên (Admins)</h2>
           <p className="text-edu-muted text-sm">Quản lý tài khoản Super Admin và Center Admin</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-          <Plus size={18} />
-          Thêm Admin
-        </Button>
+        <CreateButton onClick={() => setIsCreateOpen(true)} label="Thêm Admin" />
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
@@ -162,7 +191,7 @@ export default function AdminsPage() {
         </div>
         
         {isLoading ? (
-           <div className="p-10 text-center text-edu-muted">Đang tải dữ liệu admin...</div>
+           <div className="p-10 text-center text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu admin...</div>
         ) : isError ? (
            <div className="p-10 text-center text-edu-danger">
              Lỗi kết nối API.
@@ -185,18 +214,24 @@ export default function AdminsPage() {
             <TableBody>
               {admins?.items?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-edu-muted">Không tìm thấy tài khoản nào.</TableCell>
+                  <TableCell colSpan={6} className="p-0">
+                    <EmptyState 
+                      hasFilter={!!searchTerm || !!roleFilter}
+                      onClearFilter={() => { setSearchTerm(''); setRoleFilter(''); }}
+                      description="Không tìm thấy tài khoản quản trị nào."
+                    />
+                  </TableCell>
                 </TableRow>
               ) : admins?.items?.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-edu-accentLighter flex items-center justify-center text-edu-accent font-bold text-xs">
-                        {getAvatarInitials(a.fullName || '')}
+                      <div className="w-9 h-9 rounded-full bg-edu-accentLighter flex items-center justify-center text-edu-accent font-bold text-xs shrink-0">
+                        {getAvatarInitials(a.fullName || 'U')}
                       </div>
-                      <div>
-                        <div className="font-semibold text-edu-fg">{a.fullName}</div>
-                        <div className="text-xs text-edu-muted">{a.email}</div>
+                      <div className="overflow-hidden">
+                        <div className="font-semibold text-edu-fg truncate max-w-[150px]" title={a.fullName}>{a.fullName ?? 'Chưa cập nhật'}</div>
+                        <div className="text-xs text-edu-muted truncate max-w-[150px]" title={a.email}>{a.email ?? 'Chưa cập nhật'}</div>
                       </div>
                     </div>
                   </TableCell>
@@ -205,34 +240,25 @@ export default function AdminsPage() {
                       {a.roleCode || a.role}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-edu-fgSecondary">{a.organizationName || 'Tất cả'}</TableCell>
+                  <TableCell className="text-edu-fgSecondary truncate max-w-[150px]" title={a.organizationName}>{a.organizationName || 'Tất cả'}</TableCell>
                   <TableCell className="text-edu-muted">{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString('vi-VN') : 'Chưa đăng nhập'}</TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1 items-start">
-                      <Badge variant={a.status === 'ACTIVE' ? 'success' : 'danger'}>
-                        {a.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
+                      <Badge variant={a.statusCode === 'ACTIVE' ? 'success' : 'danger'}>
+                        {a.statusCode === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
                       </Badge>
-                      {a.status === 'SUSPENDED' && a.lockEndAt && new Date(a.lockEndAt).getFullYear() < 9999 && (
+                      {a.statusCode === 'SUSPENDED' && a.lockEndAt && new Date(a.lockEndAt).getFullYear() < 9999 && (
                         <span className="text-[10px] text-edu-danger">Đến {new Date(a.lockEndAt).toLocaleDateString('vi-VN')}</span>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1.5">
-                      <Button variant="secondary" size="sm" onClick={() => openEditModal(a)}>Sửa</Button>
-                      {a.status === 'ACTIVE' ? (
-                        <Button variant="danger" size="sm" onClick={() => { setSelectedUser(a); setIsLockOpen(true); }}>
-                          Khóa
-                        </Button>
-                      ) : (
-                        <Button variant="primary" size="sm" onClick={() => handleUnlock(a.id)}>
-                          Mở Khóa
-                        </Button>
-                      )}
-                      <Button variant="secondary" size="sm" className="text-edu-danger border-edu-danger/20 hover:bg-edu-danger/10" onClick={() => { setSelectedUser(a); setIsDeleteOpen(true); }}>
-                        Xóa
-                      </Button>
-                    </div>
+                    <ActionButtons
+                      onEdit={() => openEditModal(a)}
+                      onDelete={() => handleDeleteClick(a)}
+                      onToggleStatus={a.statusCode === 'ACTIVE' ? () => { setSelectedUser(a); setIsLockOpen(true); } : () => handleUnlock(a.id)}
+                      isLocked={a.statusCode !== 'ACTIVE'}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -248,7 +274,8 @@ export default function AdminsPage() {
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Hủy</Button>
-            <Button onClick={handleCreate} disabled={createMutation.isPending}>
+            <Button onClick={handleCreate} disabled={createMutation.isPending} className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white">
+              {createMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {createMutation.isPending ? 'Đang tạo...' : 'Tạo tài khoản'}
             </Button>
           </>
@@ -308,7 +335,8 @@ export default function AdminsPage() {
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsEditOpen(false)}>Hủy</Button>
-            <Button onClick={handleEdit} disabled={updateMutation.isPending}>
+            <Button onClick={handleEdit} disabled={updateMutation.isPending} className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white">
+              {updateMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
             </Button>
           </>
@@ -358,31 +386,14 @@ export default function AdminsPage() {
       </Modal>
 
       <Modal 
-        isOpen={isDeleteOpen} 
-        onClose={() => setIsDeleteOpen(false)} 
-        title="Xác nhận xóa Admin"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setIsDeleteOpen(false)}>Hủy</Button>
-            <Button variant="danger" onClick={handleDelete} disabled={deleteMutation.isPending}>
-              {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa tài khoản'}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-edu-fgSecondary text-sm">
-          Bạn có chắc chắn muốn xóa tài khoản <strong>{selectedUser?.fullName}</strong> ({selectedUser?.email}) không? Hành động này sẽ chuyển tài khoản vào trạng thái đã xóa, không thể đăng nhập.
-        </p>
-      </Modal>
-
-      <Modal 
         isOpen={isLockOpen} 
         onClose={() => setIsLockOpen(false)} 
         title="Khóa tài khoản Admin"
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsLockOpen(false)}>Hủy</Button>
-            <Button variant="danger" onClick={handleLock} disabled={lockMutation.isPending}>
+            <Button variant="danger" onClick={handleLock} disabled={lockMutation.isPending} className="gap-2">
+              {lockMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {lockMutation.isPending ? 'Đang khóa...' : 'Xác nhận Khóa'}
             </Button>
           </>

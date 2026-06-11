@@ -7,11 +7,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { AttendanceModal } from "./_components/AttendanceModal";
+import { useProfile } from '@/hooks/queries/useProfile';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Loader2 } from 'lucide-react';
 
 export default function AttendancePage() {
   const { data: sessions, isLoading } = useSessions();
   const today = new Date().toISOString().split('T')[0];
   const todaySessions = sessions?.items?.filter(s => s.sessionDate.startsWith(today)) || [];
+
+  const { data: profile } = useProfile();
+  const isAuthorized = profile?.role === 'SUPER_ADMIN' || profile?.role === 'CENTER_ADMIN' || profile?.role === 'TEACHER';
 
   const [selectedSession, setSelectedSession] = useState<any>(null);
 
@@ -32,17 +38,21 @@ export default function AttendancePage() {
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
         <div className="p-5 flex justify-between items-center border-b border-edu-border">
           <h3 className="font-semibold text-edu-fg">Chi tiết điểm danh giảng dạy</h3>
-          <Button variant="outline" className="flex items-center gap-2 text-edu-fg font-semibold hover:border-edu-accent hover:text-edu-accent transition-colors">
-            <Download size={16} />
-            Export Excel
-          </Button>
+          {isAuthorized && (
+            <Button variant="outline" className="flex items-center gap-2 text-edu-fg font-semibold hover:border-edu-accent hover:text-edu-accent transition-colors">
+              <Download size={16} />
+              Export Excel
+            </Button>
+          )}
         </div>
 
         <div className="overflow-x-auto w-full">
           {isLoading ? (
-            <div className="text-center py-10 text-edu-muted">Đang tải dữ liệu điểm danh...</div>
+            <div className="text-center py-10 text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu điểm danh...</div>
           ) : todaySessions.length === 0 ? (
-            <div className="text-center py-10 text-edu-muted">Không có ca học nào trong hôm nay.</div>
+            <EmptyState 
+              description="Không có ca học nào được xếp lịch trong hôm nay."
+            />
           ) : (
             <Table className="w-full whitespace-nowrap">
               <TableHeader>
@@ -58,9 +68,9 @@ export default function AttendancePage() {
               <TableBody>
                 {todaySessions.map((s) => (
                   <TableRow key={s.id} className="hover:bg-slate-50/50 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-all duration-300">
-                    <TableCell className="font-semibold text-edu-fg">{s.classId.substring(0, 8)}...</TableCell>
-                    <TableCell>{s.lessonTitle || '---'}</TableCell>
-                    <TableCell className="font-bold text-edu-accent">{s.startTime.substring(0, 5)} - {s.endTime.substring(0, 5)}</TableCell>
+                    <TableCell className="font-semibold text-edu-fg">{s.classId?.substring(0, 8)}...</TableCell>
+                    <TableCell className="truncate max-w-[200px]" title={s.lessonTitle}>{s.lessonTitle || '---'}</TableCell>
+                    <TableCell className="font-bold text-edu-accent">{s.startTime?.substring(0, 5)} - {s.endTime?.substring(0, 5)}</TableCell>
                     <TableCell className="text-edu-muted">Chưa ghi nhận</TableCell>
                     <TableCell>
                       <Badge variant={s.statusCode === 'COMPLETED' ? 'success' : s.statusCode === 'ONGOING' ? 'info' : 'muted'}>
@@ -68,14 +78,16 @@ export default function AttendancePage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        className="bg-[#E8F5E9] text-[#2E7D32] border-transparent hover:bg-[#C8E6C9] font-medium transition-colors"
-                        onClick={() => setSelectedSession(s)}
-                      >
-                        Điểm danh
-                      </Button>
+                      {isAuthorized && (
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="bg-[#E8F5E9] text-[#2E7D32] border-transparent hover:bg-[#C8E6C9] font-medium transition-colors"
+                          onClick={() => setSelectedSession(s)}
+                        >
+                          Điểm danh
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

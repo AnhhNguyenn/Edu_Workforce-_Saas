@@ -1,29 +1,41 @@
-import { useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCreateRole } from '@/hooks/queries/useRoles';
+import { toast } from 'react-hot-toast';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+const roleSchema = z.object({
+  name: z.string().min(1, 'Vui lòng nhập tên chức vụ'),
+  description: z.string().optional()
+});
+
+type RoleFormValues = z.infer<typeof roleSchema>;
 
 interface CreateRoleModalProps {
   onClose: () => void;
 }
 
 export default function CreateRoleModal({ onClose }: CreateRoleModalProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    description: ''
-  });
-
   const createMutation = useCreateRole();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const { register, handleSubmit, formState: { errors } } = useForm<RoleFormValues>({
+    resolver: zodResolver(roleSchema),
+    defaultValues: {
+      name: '',
+      description: ''
+    }
+  });
+
+  const onSubmit = async (data: RoleFormValues) => {
     try {
-      await createMutation.mutateAsync(formData);
+      await createMutation.mutateAsync(data);
+      toast.success('Tạo chức vụ mới thành công!');
       onClose();
-    } catch (err) {
-      alert('Lỗi tạo chức vụ mới!');
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi tạo chức vụ mới!');
     }
   };
 
@@ -37,21 +49,20 @@ export default function CreateRoleModal({ onClose }: CreateRoleModalProps) {
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-semibold text-edu-fgSecondary">Tên chức vụ <span className="text-red-500">*</span></label>
             <Input 
-              required 
-              value={formData.name} 
-              onChange={e => setFormData({...formData, name: e.target.value})} 
+              {...register('name')} 
+              error={errors.name?.message}
               placeholder="VD: Quản lý chi nhánh" 
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-edu-fgSecondary">Mô tả</label>
             <Input 
-              value={formData.description} 
-              onChange={e => setFormData({...formData, description: e.target.value})} 
+              {...register('description')} 
+              error={errors.description?.message}
               placeholder="Mô tả chức năng công việc" 
             />
           </div>

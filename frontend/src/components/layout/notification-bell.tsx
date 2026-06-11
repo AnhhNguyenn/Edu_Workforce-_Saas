@@ -2,19 +2,28 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Bell, Check, Trash2 } from 'lucide-react';
-import { useAppStore } from '@/store/useAppStore';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/components/ui/stat-card';
+import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from '@/hooks/queries/useNotifications';
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
-  const notifications = useAppStore(state => state.notifications);
-  const unreadCount = useAppStore(state => state.unreadCount);
-  const markAsRead = useAppStore(state => state.markAsRead);
-  const markAllAsRead = useAppStore(state => state.markAllAsRead);
+  const { data: notificationsData } = useNotifications(1, 10);
+  const notifications = notificationsData?.items || [];
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const markReadMutation = useMarkNotificationRead();
+  const markAllReadMutation = useMarkAllNotificationsRead();
+
+  const markAsRead = (id: string) => {
+    markReadMutation.mutate(id);
+  };
+  const markAllAsRead = () => {
+    markAllReadMutation.mutate();
+  };
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -57,9 +66,10 @@ export function NotificationBell() {
             {unreadCount > 0 && (
               <button 
                 onClick={markAllAsRead}
-                className="text-[0.7rem] text-edu-accent font-medium hover:underline flex items-center gap-1"
+                disabled={markAllReadMutation.isPending}
+                className="text-[0.7rem] text-edu-accent font-medium hover:underline flex items-center gap-1 disabled:opacity-50"
               >
-                <Check size={12} /> Đánh dấu đã đọc
+                <Check size={12} /> {markAllReadMutation.isPending ? 'Đang đánh dấu...' : 'Đánh dấu đã đọc'}
               </button>
             )}
           </div>
@@ -75,13 +85,13 @@ export function NotificationBell() {
                 {notifications.map((n) => (
                   <div 
                     key={n.id} 
-                    onClick={() => markAsRead(n.id)}
+                    onClick={() => !n.isRead && markAsRead(n.id)}
                     className={cn(
                       "p-4 border-b border-edu-border hover:bg-gray-50 cursor-pointer transition-colors relative group",
-                      !n.read ? "bg-edu-accentLighter/30" : "opacity-80"
+                      !n.isRead ? "bg-edu-accentLighter/30" : "opacity-80"
                     )}
                   >
-                    {!n.read && (
+                    {!n.isRead && (
                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-edu-accent"></div>
                     )}
                     <div className="flex gap-3">
@@ -95,7 +105,7 @@ export function NotificationBell() {
                         <Bell size={14} />
                       </div>
                       <div className="flex-1">
-                        <div className={cn("text-sm font-semibold mb-0.5", !n.read ? "text-edu-fg" : "text-edu-fgSecondary")}>
+                        <div className={cn("text-sm font-semibold mb-0.5", !n.isRead ? "text-edu-fg" : "text-edu-fgSecondary")}>
                           {n.title}
                         </div>
                         <div className="text-xs text-edu-muted mb-1.5">{n.message}</div>

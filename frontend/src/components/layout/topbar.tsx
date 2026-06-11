@@ -189,26 +189,40 @@ export function Topbar() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {plans?.map((plan) => (
                     <div key={plan.id} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col h-full">
-                      {plan.pricePerMonth > 0 && (
+                      {plan.activeDiscountPercentage && plan.activeDiscountPercentage > 0 ? (
+                        <div className="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">
+                          Giảm {plan.activeDiscountPercentage}%
+                        </div>
+                      ) : plan.pricePerMonth > 0 && (
                         <div className="absolute top-0 right-0 bg-gradient-to-r from-orange-400 to-red-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">
                           Nổi bật
                         </div>
                       )}
                       <h3 className="text-lg font-bold text-gray-800 mb-1">{plan.name}</h3>
-                      <div className="flex items-baseline gap-1 mb-6">
-                        <span className="text-3xl font-extrabold text-gray-900">{plan.pricePerMonth.toLocaleString('vi-VN')}đ</span>
+                      <div className="flex items-baseline gap-1 mb-6 flex-wrap">
+                        {plan.activeDiscountPercentage && plan.activeDiscountPercentage > 0 ? (
+                          <>
+                            <div className="w-full flex items-center gap-2 mb-1">
+                              <span className="text-xl font-medium text-gray-400 line-through">{plan.pricePerMonth.toLocaleString('vi-VN')}đ</span>
+                            </div>
+                            <span className="text-3xl font-extrabold text-red-600">
+                              {(plan.pricePerMonth * (1 - plan.activeDiscountPercentage / 100)).toLocaleString('vi-VN')}đ
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-3xl font-extrabold text-gray-900">{plan.pricePerMonth.toLocaleString('vi-VN')}đ</span>
+                        )}
                         <span className="text-gray-500 text-sm">/tháng</span>
                       </div>
                       
                       <ul className="space-y-3 mb-8 flex-1">
                         <li className="flex gap-2 text-sm text-gray-600"><CheckCircle2 size={18} className="text-green-500 shrink-0" /> Tối đa {plan.maxUsers} người dùng</li>
-                        <li className="flex gap-2 text-sm text-gray-600"><CheckCircle2 size={18} className="text-green-500 shrink-0" /> Báo cáo cơ bản</li>
-                        {plan.pricePerMonth > 0 && (
-                           <>
-                             <li className="flex gap-2 text-sm text-gray-600"><CheckCircle2 size={18} className="text-green-500 shrink-0" /> Báo cáo chuyên sâu</li>
-                             <li className="flex gap-2 text-sm text-gray-600"><CheckCircle2 size={18} className="text-green-500 shrink-0" /> Hỗ trợ ưu tiên</li>
-                           </>
-                        )}
+                        {plan.description && plan.description.split('\n').filter(line => line.trim() !== '').map((line, i) => (
+                          <li key={i} className="flex gap-2 text-sm text-gray-600">
+                            <CheckCircle2 size={18} className="text-green-500 shrink-0" /> 
+                            {line}
+                          </li>
+                        ))}
                       </ul>
                       
                       <div className="space-y-2 mt-auto">

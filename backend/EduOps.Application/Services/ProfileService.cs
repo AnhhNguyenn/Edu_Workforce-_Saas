@@ -25,7 +25,7 @@ namespace EduOps.Application.Services
 
         public async Task<UserDetailResponseDto> GetProfileAsync(Guid userId)
         {
-            var user = await _unitOfWork.Repository<User>().GetByIdAsync(userId);
+            var user = await _unitOfWork.Repository<User>().FirstOrDefaultAsync(u => u.Id == userId, includeProperties: "Role,Status");
             if (user == null || user.DeletedAt != null) throw new NotFoundException("User", userId);
             user.UserDetail = await _unitOfWork.Repository<UserDetail>().FirstOrDefaultAsync(d => d.UserId == userId);
 

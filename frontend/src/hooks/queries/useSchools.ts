@@ -17,11 +17,13 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export const useSchools = () => {
+export const useSchools = (searchKeyword?: string) => {
   return useQuery({
-    queryKey: ['schools'],
+    queryKey: ['schools', searchKeyword],
     queryFn: async () => {
-      const response = await apiClient.get<PagedResult<SchoolDto>>('/schools');
+      const response = await apiClient.get<PagedResult<SchoolDto>>('/schools', {
+        params: { searchKeyword }
+      });
       return response.data;
     }
   });

@@ -20,8 +20,13 @@ export const useProfile = () => {
   return useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
-      const response = await apiClient.get<UserProfileDto>('/profile');
-      return response.data;
+      const response = await apiClient.get<any>('/profile');
+      const data = response.data;
+      return {
+        ...data,
+        role: data.roleCode || data.role,
+        status: data.statusCode || data.status
+      } as UserProfileDto;
     }
   });
 };

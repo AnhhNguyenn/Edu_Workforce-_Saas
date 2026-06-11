@@ -1,12 +1,32 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, School as SchoolIcon, MapPin, Users, Target, X, Loader2, Edit, Trash2 } from "lucide-react";
+import { School as SchoolIcon, MapPin, Users, Target, X, Loader2, Search, Filter } from "lucide-react";
 import { useSchools, useCreateSchool, useUpdateSchool, useDeleteSchool } from "@/hooks/queries/useSchools";
 import LocationPicker from '@/components/ui/LocationPicker';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { CreateButton } from '@/components/ui/create-button';
+import { ActionButtons } from '@/components/ui/action-buttons';
+import { Select } from "@/components/ui/select";
 import { toast } from 'react-hot-toast';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useProfile } from '@/hooks/queries/useProfile';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { useConfirm } from '@/providers/ConfirmProvider';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+const schoolSchema = z.object({
+  name: z.string().min(1, 'Vui lòng nhập tên cơ sở'),
+  address: z.string().optional(),
+  attendanceRadius: z.coerce.number({ invalid_type_error: "Vui lòng nhập số hợp lệ" }).min(10, 'Bán kính tối thiểu 10m'),
+  latitude: z.number().optional(),
+  longitude: z.number().optional()
+});
+
+type SchoolFormValues = z.infer<typeof schoolSchema>;
 
 const COLORS = [
   '#4CAF50', '#2196F3', '#FF9800', '#9C27B0', 
@@ -14,30 +34,49 @@ const COLORS = [
 ];
 
 export default function SchoolsPage() {
-  const { data: schools, isLoading } = useSchools();
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 500);
+  const [gpsFilter, setGpsFilter] = useState<string>('ALL');
+
+  const { data: schools, isLoading } = useSchools(debouncedSearch);
+  const { data: profile } = useProfile();
+  
   const createMutation = useCreateSchool();
   const updateMutation = useUpdateSchool();
   const deleteMutation = useDeleteSchool();
 
+  const isAuthorized = profile?.role === 'SUPER_ADMIN' || profile?.role === 'CENTER_ADMIN';
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    attendanceRadius: 200,
-    latitude: 21.028511, // Default to Hanoi
-    longitude: 105.804817
+  const { confirm } = useConfirm();
+
+  const { register, control, handleSubmit, reset, setValue, formState: { errors } } = useForm<SchoolFormValues>({
+    resolver: zodResolver(schoolSchema),
+    defaultValues: {
+      name: '',
+      address: '',
+      attendanceRadius: 200,
+      latitude: 21.028511,
+      longitude: 105.804817
+    }
+  });
+
+  const filteredSchools = schools?.items?.filter(s => {
+    if (gpsFilter === 'HAS_GPS') return s.latitude && s.longitude;
+    if (gpsFilter === 'NO_GPS') return !s.latitude || !s.longitude;
+    return true;
   });
 
   const openCreateModal = () => {
     setEditingSchoolId(null);
-    setFormData({ name: '', address: '', attendanceRadius: 200, latitude: 21.028511, longitude: 105.804817 });
+    reset({ name: '', address: '', attendanceRadius: 200, latitude: 21.028511, longitude: 105.804817 });
     setIsModalOpen(true);
   };
 
   const openEditModal = (school: any) => {
     setEditingSchoolId(school.id);
-    setFormData({
+    reset({
       name: school.name || '',
       address: school.address || '',
       attendanceRadius: school.gpsRadius || 200,
@@ -47,21 +86,26 @@ export default function SchoolsPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa cơ sở này?")) {
-      deleteMutation.mutate(id, {
-        onSuccess: () => toast.success("Đã xóa cơ sở!"),
-        onError: (err: any) => toast.error(err.response?.data?.message || "Lỗi xóa cơ sở")
-      });
-    }
+  const handleDeleteClick = (schoolId: string) => {
+    confirm({
+      title: "Xóa cơ sở (Trường học)",
+      description: "Bạn đang chuẩn bị xóa một cơ sở. Nếu cơ sở này đang có lớp học hoặc nhân sự, hệ thống có thể từ chối xóa.",
+      requireInput: true,
+      expectedInput: "XAC NHAN",
+      action: async () => {
+        try {
+          await deleteMutation.mutateAsync(schoolId);
+          toast.success("Đã xóa cơ sở!");
+        } catch (err: any) {
+          toast.error(err.response?.data?.message || "Lỗi xóa cơ sở");
+        }
+      }
+    });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name) return toast.error("Vui lòng nhập tên cơ sở");
-    
+  const onSubmit = (data: SchoolFormValues) => {
     if (editingSchoolId) {
-      updateMutation.mutate({ id: editingSchoolId, data: formData }, {
+      updateMutation.mutate({ id: editingSchoolId, data }, {
         onSuccess: () => {
           toast.success("Cập nhật cơ sở thành công!");
           setIsModalOpen(false);
@@ -71,7 +115,7 @@ export default function SchoolsPage() {
         }
       });
     } else {
-      createMutation.mutate(formData, {
+      createMutation.mutate(data, {
         onSuccess: () => {
           toast.success("Tạo cơ sở thành công!");
           setIsModalOpen(false);
@@ -90,29 +134,61 @@ export default function SchoolsPage() {
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Cơ sở / Trường học</h2>
           <p className="text-edu-muted text-sm">Quản lý điểm dạy và tọa độ GPS Check-in</p>
         </div>
-        <Button 
-          onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2 bg-edu-accent text-white rounded-lg font-medium hover:bg-edu-accentHover transition-colors shadow-sm"
-        >
-          <Plus size={18} />
-          Thêm cơ sở
-        </Button>
+        {isAuthorized && (
+          <CreateButton onClick={openCreateModal} label="Thêm cơ sở" />
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-edu-border p-5 mb-5 flex flex-col md:flex-row gap-4 justify-between md:items-center">
+        <h3 className="text-base font-semibold text-edu-fg flex items-center gap-2">
+          Danh sách Cơ sở
+        </h3>
+        <div className="flex gap-3 flex-1 max-w-md">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={16} />
+            <Input 
+              placeholder="Tìm tên cơ sở..." 
+              className="pl-9 h-9 text-sm focus:border-edu-accent focus:ring-edu-accent/30" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="w-[160px]">
+            <Select 
+              options={[
+                { value: 'ALL', label: 'Tất cả trạng thái' },
+                { value: 'HAS_GPS', label: 'Đã ghim GPS' },
+                { value: 'NO_GPS', label: 'Chưa có GPS' }
+              ]}
+              value={gpsFilter}
+              onChange={(val) => setGpsFilter(val)}
+              className="h-9 focus:border-edu-accent focus:ring-edu-accent/30"
+              placeholder="Lọc GPS"
+            />
+          </div>
+        </div>
       </div>
 
       {isLoading ? (
         <div className="text-center py-10 text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải...</div>
+      ) : filteredSchools?.length === 0 ? (
+        <EmptyState 
+          hasFilter={!!searchTerm || gpsFilter !== 'ALL'}
+          onClearFilter={() => { setSearchTerm(''); setGpsFilter('ALL'); }}
+          description="Không tìm thấy cơ sở nào. Hãy thử đổi từ khóa hoặc bộ lọc."
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {schools?.items?.map((s, i) => (
+          {filteredSchools?.map((s, i) => (
             <div key={s.id} className="bg-white rounded-2xl p-5 border border-edu-border hover:border-edu-accent hover:shadow-md transition-all group relative">
-              <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => openEditModal(s)} className="p-1.5 bg-gray-100 text-gray-600 rounded-md hover:bg-edu-accent hover:text-white transition-colors">
-                  <Edit size={14} />
-                </button>
-                <button onClick={() => handleDelete(s.id)} className="p-1.5 bg-gray-100 text-gray-600 rounded-md hover:bg-red-500 hover:text-white transition-colors">
-                  <Trash2 size={14} />
-                </button>
-              </div>
+              {isAuthorized && (
+                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ActionButtons
+                    onEdit={() => openEditModal(s)}
+                    onDelete={() => handleDeleteClick(s.id)}
+                  />
+                </div>
+              )}
 
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ backgroundColor: COLORS[i % 8] }}>
@@ -155,19 +231,19 @@ export default function SchoolsPage() {
               <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(false)} className="text-edu-muted hover:bg-gray-100 rounded-full h-8 w-8"><X size={20} /></Button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-5 space-y-4 flex-1">
+            <form onSubmit={handleSubmit(onSubmit)} className="p-5 space-y-4 flex-1">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-sm font-semibold text-edu-fg mb-1">Tên cơ sở *</label>
-                  <Input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="VD: Cơ sở Cầu Giấy..." />
+                  <Input {...register('name')} error={errors.name?.message} placeholder="VD: Cơ sở Cầu Giấy..." />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-semibold text-edu-fg mb-1">Địa chỉ</label>
-                  <Input value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Số nhà, đường..." />
+                  <Input {...register('address')} error={errors.address?.message} placeholder="Số nhà, đường..." />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-edu-fg mb-1">Bán kính điểm danh (m)</label>
-                  <Input type="number" value={formData.attendanceRadius} onChange={e => setFormData({...formData, attendanceRadius: Number(e.target.value)})} />
+                  <Input type="number" {...register('attendanceRadius')} error={errors.attendanceRadius?.message} />
                 </div>
               </div>
 
@@ -176,10 +252,28 @@ export default function SchoolsPage() {
                   <MapPin size={16} className="text-edu-accent" /> 
                   Ghim Tọa Độ Bản Đồ (Bắt buộc cho Check-in)
                 </label>
-                <LocationPicker 
-                  lat={formData.latitude} 
-                  lng={formData.longitude} 
-                  onChange={(lat, lng) => setFormData({...formData, latitude: lat, longitude: lng})} 
+                <Controller
+                  name="latitude"
+                  control={control}
+                  render={({ field: { value: lat, onChange: setLat } }) => (
+                    <Controller
+                      name="longitude"
+                      control={control}
+                      render={({ field: { value: lng, onChange: setLng } }) => (
+                        <LocationPicker 
+                          lat={lat!} 
+                          lng={lng!} 
+                          onChange={(newLat, newLng) => {
+                            setLat(newLat);
+                            setLng(newLng);
+                          }} 
+                          onAddressChange={(address) => {
+                            setValue('address', address, { shouldValidate: true, shouldDirty: true });
+                          }}
+                        />
+                      )}
+                    />
+                  )}
                 />
               </div>
 
@@ -194,6 +288,7 @@ export default function SchoolsPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

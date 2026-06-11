@@ -10,6 +10,7 @@ export interface SubscriptionPlanDto {
   pricePerMonth: number;
   pricePerYear: number;
   status: string;
+  activeDiscountPercentage?: number;
 }
 
 export interface SubscribeResponseDto {

@@ -51,6 +51,10 @@ export default function SubmitReportPage({ params }: { params: { sessionId: stri
 
   const handleSubmit = () => {
     if (isTeacher) {
+      if (!lessonTaught.trim()) return toast.error("Vui lòng nhập Nội dung bài giảng");
+      if (!teacherComment.trim()) return toast.error("Vui lòng nhập Nhận xét lớp học");
+      if (ratingForAssistant < 1 || ratingForAssistant > 5) return toast.error("Điểm đánh giá trợ giảng từ 1 đến 5");
+
       teacherMutation.mutate({
         lessonTaught,
         progress,
@@ -73,6 +77,9 @@ export default function SubmitReportPage({ params }: { params: { sessionId: stri
         onError: (e: any) => toast.error(e.response?.data?.message || "Lỗi nộp báo cáo")
       });
     } else {
+      if (!assistantNote.trim()) return toast.error("Vui lòng nhập Ghi chú của trợ giảng");
+      if (ratingForTeacher < 1 || ratingForTeacher > 5) return toast.error("Điểm đánh giá giáo viên từ 1 đến 5");
+
       assistantMutation.mutate({
         assistantNote,
         ratingForTeacher,

@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from "react";
-import { Plus, Search, Filter } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CreateButton } from '@/components/ui/create-button';
+import { ActionButtons } from '@/components/ui/action-buttons';
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -12,27 +14,29 @@ import { Select } from "@/components/ui/select";
 import { useUsers, useCreateUser, useUpdateUser, useLockUser, useUnlockUser, UserDto } from "@/hooks/queries/useUsers";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { useDebounce } from '@/hooks/useDebounce';
+import { useProfile } from '@/hooks/queries/useProfile';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { useConfirm } from '@/providers/ConfirmProvider';
+import { Loader2 } from 'lucide-react';
 
 export default function TeachersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
+  const { confirm } = useConfirm();
 
   const [newUser, setNewUser] = useState({ fullName: '', email: '', roleCode: 'TEACHER' });
   const [editUser, setEditUser] = useState({ fullName: '', roleCode: 'TEACHER', email: '', phone: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 500);
   const [roleFilter, setRoleFilter] = useState<string | undefined>('TEACHER');
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchTerm]);
-
   const { data: users, isLoading } = useUsers(roleFilter, debouncedSearch);
+  const { data: profile } = useProfile();
+  const isAuthorized = profile?.role === 'SUPER_ADMIN' || profile?.role === 'CENTER_ADMIN';
+
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const lockUser = useLockUser();
@@ -72,18 +76,28 @@ export default function TeachersPage() {
     setIsEditOpen(true);
   };
 
-  const toggleStatus = async (user: UserDto) => {
-    try {
-      if (user.statusCode === 'ACTIVE' || user.status === 'ACTIVE') {
-        await lockUser.mutateAsync({ id: user.id, lockEndAt: null });
-        toast.success("Đã khóa nhân sự!");
-      } else {
-        await unlockUser.mutateAsync(user.id);
-        toast.success("Đã mở khóa nhân sự!");
+  const handleToggleStatusClick = (user: UserDto) => {
+    const isLocking = user.statusCode === 'ACTIVE' || user.status === 'ACTIVE';
+    confirm({
+      title: isLocking ? "Khóa tài khoản" : "Mở khóa tài khoản",
+      description: isLocking 
+        ? `Bạn có chắc chắn muốn khóa nhân sự này? Họ sẽ không thể đăng nhập vào hệ thống.` 
+        : `Bạn có chắc chắn muốn mở khóa cho nhân sự này?`,
+      requireInput: false,
+      action: async () => {
+        try {
+          if (isLocking) {
+            await lockUser.mutateAsync({ id: user.id, lockEndAt: null });
+            toast.success("Đã khóa nhân sự!");
+          } else {
+            await unlockUser.mutateAsync(user.id);
+            toast.success("Đã mở khóa nhân sự!");
+          }
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || "Lỗi thao tác");
+        }
       }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Lỗi thao tác");
-    }
+    });
   };
 
   return (
@@ -93,10 +107,9 @@ export default function TeachersPage() {
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Giáo viên & Trợ giảng</h2>
           <p className="text-edu-muted text-sm">Quản lý nhân sự giảng dạy trực thuộc trung tâm</p>
         </div>
-        <Button className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white" onClick={() => setIsCreateOpen(true)}>
-          <Plus size={18} />
-          Thêm nhân sự
-        </Button>
+        {isAuthorized && (
+          <CreateButton onClick={() => setIsCreateOpen(true)} label="Thêm nhân sự" />
+        )}
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
@@ -157,10 +170,10 @@ export default function TeachersPage() {
               <TableRow key={t.id} className="hover:bg-slate-50/50 transition-colors">
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-[#E8F5E9] flex items-center justify-center text-[#2E7D32] font-bold text-xs">
-                      {getAvatarInitials(t.fullName)}
+                    <div className="w-9 h-9 rounded-full bg-[#E8F5E9] flex items-center justify-center text-[#2E7D32] font-bold text-xs shrink-0">
+                      {getAvatarInitials(t.fullName ?? 'U')}
                     </div>
-                    <div className="font-semibold text-edu-fg">{t.fullName}</div>
+                    <div className="font-semibold text-edu-fg truncate max-w-[150px]" title={t.fullName}>{t.fullName ?? 'Chưa cập nhật'}</div>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -168,37 +181,38 @@ export default function TeachersPage() {
                     {t.roleCode === 'TEACHER' ? 'Giáo viên' : 'Trợ giảng'}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm text-edu-muted">{t.email}</TableCell>
+                <TableCell className="text-sm text-edu-muted truncate max-w-[180px]" title={t.email}>{t.email ?? 'Chưa cập nhật'}</TableCell>
                 <TableCell>
                   <Badge variant={(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE') ? 'success' : (t.statusCode === 'INACTIVE' || t.status === 'INACTIVE') ? 'danger' : 'warn'}>
                     {(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE') ? 'Đang làm' : 'Đã nghỉ'}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" className="hover:border-[#4CAF50] hover:text-[#4CAF50]" onClick={() => openEditModal(t)}>Sửa</Button>
-                    <Button 
-                      variant={(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE') ? "danger" : "primary"} 
-                      size="sm" 
-                      onClick={() => toggleStatus(t)}
-                    >
-                      {(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE') ? 'Khóa' : 'Mở khóa'}
-                    </Button>
-                  </div>
-                </TableCell>
+                  <TableCell>
+                    {isAuthorized && (
+                      <ActionButtons
+                        onEdit={() => openEditModal(t)}
+                        onToggleStatus={() => handleToggleStatusClick(t)}
+                        isLocked={!(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE')}
+                      />
+                    )}
+                  </TableCell>
               </TableRow>
             ))}
             {(!users?.items || users.items.length === 0) && !isLoading && (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-edu-muted">
-                  Chưa có nhân sự nào.
+                <TableCell colSpan={5} className="h-48 text-center p-0">
+                  <EmptyState 
+                    hasFilter={!!searchTerm || !!roleFilter}
+                    onClearFilter={() => { setSearchTerm(''); setRoleFilter(undefined); }}
+                    description="Không tìm thấy nhân sự nào."
+                  />
                 </TableCell>
               </TableRow>
             )}
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center text-edu-muted">
-                  Đang tải dữ liệu...
+                  <Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu...
                 </TableCell>
               </TableRow>
             )}
@@ -215,10 +229,11 @@ export default function TeachersPage() {
           <>
             <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Hủy</Button>
             <Button 
-              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" 
+              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white gap-2" 
               onClick={handleCreate}
               disabled={createUser.isPending}
             >
+              {createUser.isPending && <Loader2 size={16} className="animate-spin" />}
               {createUser.isPending ? 'Đang tạo...' : 'Tạo tài khoản'}
             </Button>
           </>
@@ -271,10 +286,11 @@ export default function TeachersPage() {
           <>
             <Button variant="secondary" onClick={() => setIsEditOpen(false)}>Hủy</Button>
             <Button 
-              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" 
+              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white gap-2" 
               onClick={handleEdit}
               disabled={updateUser.isPending}
             >
+              {updateUser.isPending && <Loader2 size={16} className="animate-spin" />}
               {updateUser.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
             </Button>
           </>
@@ -325,6 +341,7 @@ export default function TeachersPage() {
           </div>
         </div>
       </Modal>
+
     </div>
   );
 }

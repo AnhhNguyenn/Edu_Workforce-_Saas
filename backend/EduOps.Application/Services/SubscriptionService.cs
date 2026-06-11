@@ -51,15 +51,23 @@ namespace EduOps.Application.Services
                 p.SubscriptionPlanDetail = await _unitOfWork.Repository<SubscriptionPlanDetail>().FirstOrDefaultAsync(d => d.SubscriptionPlanId == p.Id);
             }
 
-            cachedPlans = plans.Select(p => new SubscriptionPlanResponseDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.SubscriptionPlanDetail?.Description ?? string.Empty,
-                MaxUsers = p.MaxUsers,
-                PricePerMonth = p.PricePerMonth,
-                PricePerYear = p.PricePerYear,
-                Status = p.Status?.Code
+            var activeDiscounts = await _unitOfWork.Repository<Promotion>().FindAsync(
+                p => p.Type != null && p.Type.Code == "AUTO_DISCOUNT" && p.Status != null && p.Status.Code == "ACTIVE" && p.StartDate <= DateTime.UtcNow && p.EndDate >= DateTime.UtcNow && p.DeletedAt == null
+            );
+
+            cachedPlans = plans.Select(p => {
+                var discount = activeDiscounts.FirstOrDefault(d => d.SubscriptionPlanId == p.Id);
+                return new SubscriptionPlanResponseDto
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.SubscriptionPlanDetail?.Description ?? string.Empty,
+                    MaxUsers = p.MaxUsers,
+                    PricePerMonth = p.PricePerMonth,
+                    PricePerYear = p.PricePerYear,
+                    Status = p.Status?.Code,
+                    ActiveDiscountPercentage = discount?.DiscountPercentage
+                };
             }).ToList();
 
             await _cache.SetAsync(PLANS_CACHE_KEY, cachedPlans, TimeSpan.FromHours(24));
@@ -106,7 +114,7 @@ namespace EduOps.Application.Services
 
             var promos = await _unitOfWork.Repository<Promotion>().FindAsync(
                 p => p.Status != null && p.Status.Code == "ACTIVE",
-                includeProperties: "Status,Type"
+                includeProperties: "Status,Type,SubscriptionPlan"
             );
 
             return promos.Select(p => new PromotionResponseDto
@@ -119,7 +127,9 @@ namespace EduOps.Application.Services
                 EndDate = p.EndDate,
                 MaxUses = p.MaxUses,
                 CurrentUses = p.CurrentUses,
-                Status = p.Status?.Code
+                Status = p.Status?.Code,
+                SubscriptionPlanId = p.SubscriptionPlanId,
+                SubscriptionPlanName = p.SubscriptionPlan?.Name
             }).ToList();
         }
 
@@ -138,16 +148,19 @@ namespace EduOps.Application.Services
             {
                 Code = request.Code,
                 DiscountPercentage = request.DiscountPercentage,
-                StartDate = request.StartDate,
-                EndDate = request.EndDate,
+                StartDate = request.StartDate.ToUniversalTime(),
+                EndDate = request.EndDate.ToUniversalTime(),
                 MaxUses = request.MaxUses,
                 CurrentUses = 0,
+                SubscriptionPlanId = request.SubscriptionPlanId,
                 TypeId = (await _unitOfWork.Repository<EduOps.Domain.Entities.PromotionType>().FirstOrDefaultAsync(t => t.Code == request.Type))?.Id,
                 StatusId = (await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == "ACTIVE"))?.Id
             };
 
             await _unitOfWork.Repository<Promotion>().AddAsync(promo);
             await _unitOfWork.CommitAsync();
+
+            await _cache.RemoveAsync(PLANS_CACHE_KEY);
 
             return new PromotionResponseDto
             {
@@ -159,7 +172,9 @@ namespace EduOps.Application.Services
                 EndDate = promo.EndDate,
                 MaxUses = promo.MaxUses,
                 CurrentUses = promo.CurrentUses,
-                Status = "ACTIVE"
+                Status = "ACTIVE",
+                SubscriptionPlanId = promo.SubscriptionPlanId,
+                SubscriptionPlanName = promo.SubscriptionPlanId.HasValue ? (await _unitOfWork.Repository<SubscriptionPlan>().GetByIdAsync(promo.SubscriptionPlanId.Value))?.Name : null
             };
         }
 
@@ -232,14 +247,17 @@ namespace EduOps.Application.Services
             }
 
             promo.Code = request.Code;
+            promo.SubscriptionPlanId = request.SubscriptionPlanId;
             promo.TypeId = (await _unitOfWork.Repository<EduOps.Domain.Entities.PromotionType>().FirstOrDefaultAsync(t => t.Code == request.Type))?.Id;
             promo.DiscountPercentage = request.DiscountPercentage;
-            promo.StartDate = request.StartDate;
-            promo.EndDate = request.EndDate;
+            promo.StartDate = request.StartDate.ToUniversalTime();
+            promo.EndDate = request.EndDate.ToUniversalTime();
             promo.MaxUses = request.MaxUses;
 
             _unitOfWork.Repository<Promotion>().Update(promo);
             await _unitOfWork.CommitAsync();
+
+            await _cache.RemoveAsync(PLANS_CACHE_KEY);
         }
 
         public async Task DeletePromotionAsync(Guid id)
@@ -255,6 +273,8 @@ namespace EduOps.Application.Services
 
             _unitOfWork.Repository<Promotion>().Update(promo);
             await _unitOfWork.CommitAsync();
+
+            await _cache.RemoveAsync(PLANS_CACHE_KEY);
         }
 
         public async Task<List<PromotionUsageResponseDto>> GetPromotionUsageHistoryAsync(Guid promotionId)
@@ -301,9 +321,9 @@ namespace EduOps.Application.Services
             var now = DateTime.UtcNow;
             Guid? appliedPromotionId = null;
 
-            // 1. Kiểm tra Auto Discount đang diễn ra
+            // 1. Kiểm tra Auto Discount đang diễn ra cho gói này
             var autoPromo = await _unitOfWork.Repository<Promotion>().FirstOrDefaultAsync(
-                p => p.Type != null && p.Type.Code == "AUTO_DISCOUNT" && p.Status != null && p.Status.Code == "ACTIVE" && p.StartDate <= now && p.EndDate >= now
+                p => p.Type != null && p.Type.Code == "AUTO_DISCOUNT" && p.Status != null && p.Status.Code == "ACTIVE" && p.StartDate <= now && p.EndDate >= now && p.SubscriptionPlanId == request.PlanId
             );
 
             if (autoPromo != null)

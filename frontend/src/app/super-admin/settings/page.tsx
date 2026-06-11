@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { useSystemSettings, useUpdateSystemSetting } from "@/hooks/queries/useSystemSettings";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-hot-toast";
+import { Loader2 } from "lucide-react";
 
 export default function SettingsPage() {
   const { data: settings, isLoading } = useSystemSettings();
   const updateMutation = useUpdateSystemSetting();
 
   const [form, setForm] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -28,16 +30,32 @@ export default function SettingsPage() {
   };
 
   const handleSave = async (keys: string[]) => {
-    for (const key of keys) {
-      if (form[key] !== undefined) {
-        await updateMutation.mutateAsync({ key, value: form[key] });
-      }
+    setIsSaving(true);
+    
+    // Validate
+    const hasEmpty = keys.some(key => form[key] === undefined || form[key].trim() === '');
+    if (hasEmpty) {
+      toast.error('Vui lòng không để trống các cấu hình');
+      setIsSaving(false);
+      return;
     }
-    toast.success('Đã lưu cấu hình thành công!');
+
+    try {
+      for (const key of keys) {
+        if (form[key] !== undefined) {
+          await updateMutation.mutateAsync({ key, value: form[key] });
+        }
+      }
+      toast.success('Đã lưu cấu hình thành công!');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi lưu cấu hình.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
-    return <div className="text-center text-edu-muted py-10">Đang tải cấu hình...</div>;
+    return <div className="text-center text-edu-muted py-10"><Loader2 className="animate-spin inline mr-2" /> Đang tải cấu hình...</div>;
   }
 
   return (
@@ -74,11 +92,12 @@ export default function SettingsPage() {
               />
             </div>
             <Button 
-              className="mt-4"
+              className="mt-4 gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white"
               onClick={() => handleSave(['SYSTEM_ADMIN_EMAIL', 'PAYMENT_BANK_ACCOUNT', 'PAYMENT_BANK_NAME'])}
-              disabled={updateMutation.isPending}
+              disabled={isSaving}
             >
-              Lưu thay đổi
+              {isSaving && <Loader2 size={16} className="animate-spin" />}
+              {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
             </Button>
           </div>
         </div>
@@ -96,11 +115,12 @@ export default function SettingsPage() {
               />
             </div>
             <Button 
-              className="mt-4"
+              className="mt-4 gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white"
               onClick={() => handleSave(['DEFAULT_TRIAL_MAX_USERS'])}
-              disabled={updateMutation.isPending}
+              disabled={isSaving}
             >
-              Lưu thay đổi
+              {isSaving && <Loader2 size={16} className="animate-spin" />}
+              {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
             </Button>
           </div>
         </div>
@@ -130,11 +150,12 @@ export default function SettingsPage() {
             ))}
           </div>
           <Button 
-            className="mt-6"
+            className="mt-6 gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white"
             onClick={() => handleSave(['FEATURE_AUDIT_LOGS', 'FEATURE_ANALYTICS', 'FEATURE_ROLES', 'FEATURE_PROMOTIONS'])}
-            disabled={updateMutation.isPending}
+            disabled={isSaving}
           >
-            Lưu Công Tắc
+            {isSaving && <Loader2 size={16} className="animate-spin" />}
+            {isSaving ? 'Đang lưu...' : 'Lưu Công Tắc'}
           </Button>
         </div>
       </div>

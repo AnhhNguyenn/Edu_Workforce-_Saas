@@ -4,6 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Shield, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CreateButton } from '@/components/ui/create-button';
 import { useRoles, usePermissions, useUpdateRolePermissions, useDeleteRole } from '@/hooks/queries/useRoles';
 import { RoleCard } from './_components/RoleCard';
 
@@ -13,6 +14,9 @@ const CreateRoleModal = dynamic(() => import('./_components/CreateRoleModal'), {
 const EditRoleModal = dynamic(() => import('./_components/EditRoleModal'), { ssr: false });
 
 import { FeatureGuard } from '@/components/ui/feature-guard';
+import { toast } from 'react-hot-toast';
+import { Loader2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function RolesPage() {
   const { data: roles = [], isLoading: loadingRoles } = useRoles();
@@ -51,10 +55,18 @@ export default function RolesPage() {
         permissionIds: rolePermissions
       });
       setShowModal(false);
-      // Optional: show toast success
-    } catch (err) {
-      console.error(err);
-      alert('Có lỗi xảy ra khi lưu phân quyền');
+      toast.success('Lưu phân quyền thành công!');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi lưu phân quyền');
+    }
+  };
+
+  const handleDeleteRole = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast.success("Đã xóa chức vụ thành công!");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Lỗi khi xóa chức vụ");
     }
   };
 
@@ -74,22 +86,23 @@ export default function RolesPage() {
             <h2 className="text-2xl font-bold mb-1 text-edu-fg">Phân quyền Hệ thống</h2>
             <p className="text-edu-muted text-sm">Quản lý các vai trò và quyền truy cập vào các module trong hệ thống</p>
           </div>
-          <Button className="gap-2 bg-[#7B1FA2] hover:bg-[#6A1B9A]" onClick={() => setShowCreate(true)}>
-            <Plus size={18} />
-            Tạo chức vụ mới
-          </Button>
+          <CreateButton className="bg-[#7B1FA2] hover:bg-[#6A1B9A]" onClick={() => setShowCreate(true)} label="Tạo chức vụ mới" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {isLoading ? (
-            <div className="col-span-3 text-center text-edu-muted py-10">Đang tải dữ liệu...</div>
-          ) : roles.map((r: any, i: number) => (
+            <div className="col-span-3 text-center text-edu-muted py-10"><Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu...</div>
+          ) : roles.length === 0 ? (
+            <div className="col-span-3">
+              <EmptyState description="Chưa có chức vụ nào trong hệ thống." />
+            </div>
+          ) : roles.map((r: any) => (
             <RoleCard 
-              key={i} 
+              key={r.id} 
               role={r} 
               onOpenPermissionModal={openPermissionModal} 
               onEdit={setEditingRole}
-              onDelete={(id) => deleteMutation.mutate(id)}
+              onDelete={handleDeleteRole}
             />
           ))}
         </div>

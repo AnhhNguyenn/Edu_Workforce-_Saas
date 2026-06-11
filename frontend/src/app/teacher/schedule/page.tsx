@@ -4,6 +4,7 @@ import { BookOpen, User, Loader2, ChevronRight } from "lucide-react";
 import { useSessions } from "@/hooks/queries/useSessions";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function SchedulePage() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function SchedulePage() {
               </div>
               
               <div className="pl-2 space-y-1">
-                <div className="font-bold text-edu-fg text-sm">Mã lớp: {s.classId.substring(0, 8)}...</div>
+                <div className="font-bold text-edu-fg text-sm">Mã lớp: {s.classId?.substring(0, 8) ?? 'N/A'}...</div>
                 <div className="text-xs text-edu-muted flex items-center justify-between">
                    <div className="flex items-center gap-1.5">
                      <BookOpen size={14} className="text-edu-muted" />
@@ -55,9 +56,7 @@ export default function SchedulePage() {
           );
         })
       ) : (
-        <div className="text-center text-edu-muted py-10 border border-dashed border-edu-border rounded-xl">
-          Không có lịch dạy nào
-        </div>
+        <EmptyState description="Không có lịch dạy nào" />
       )}
     </div>
   );

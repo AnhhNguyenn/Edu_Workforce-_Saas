@@ -1,17 +1,20 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-import { Edit2, Trash2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ActionButtons } from '@/components/ui/action-buttons';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface StudentTableProps {
   students: any[];
   isLoading: boolean;
   onEdit: (student: any) => void;
   onDelete: (studentId: string) => void;
+  isAuthorized: boolean;
 }
 
-export function StudentTable({ students, isLoading, onEdit, onDelete }: StudentTableProps) {
+export function StudentTable({ students, isLoading, onEdit, onDelete, isAuthorized }: StudentTableProps) {
   return (
     <div className="bg-white rounded-2xl border border-edu-border overflow-hidden shadow-sm">
       <div className="overflow-x-auto w-full">
@@ -30,24 +33,26 @@ export function StudentTable({ students, isLoading, onEdit, onDelete }: StudentT
         <TableBody>
           {isLoading ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-10 text-edu-muted">Đang tải dữ liệu...</TableCell>
+              <TableCell colSpan={7} className="text-center py-10 text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu...</TableCell>
             </TableRow>
           ) : students.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-10 text-edu-muted">Chưa có học viên nào.</TableCell>
+              <TableCell colSpan={7} className="p-0">
+                <EmptyState description="Không tìm thấy học viên nào." />
+              </TableCell>
             </TableRow>
           ) : students.map((std: any, i: number) => (
             <TableRow key={std.id || i} className="hover:bg-slate-50/50 transition-colors">
-              <TableCell className="font-medium text-edu-fg">{std.studentCode}</TableCell>
+              <TableCell className="font-medium text-edu-fg">{std.studentCode ?? 'Chưa cấp'}</TableCell>
               <TableCell>
-                <div className="font-semibold text-edu-fgSecondary">{std.fullName}</div>
+                <div className="font-semibold text-edu-fgSecondary truncate max-w-[150px]" title={std.fullName}>{std.fullName ?? 'Chưa cập nhật'}</div>
                 <div className="text-xs text-edu-muted">
                   {std.dateOfBirth ? new Date(std.dateOfBirth).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
                 </div>
               </TableCell>
               <TableCell>
-                <div className="text-sm">{std.phoneNumber || 'Trống'}</div>
-                <div className="text-xs text-edu-muted">{std.email || 'Trống'}</div>
+                <div className="text-sm truncate max-w-[120px]">{std.phoneNumber ?? 'Trống'}</div>
+                <div className="text-xs text-edu-muted truncate max-w-[120px]">{std.email ?? 'Trống'}</div>
               </TableCell>
               <TableCell className="text-edu-fgSecondary font-medium">{std.currentClass || 'Chưa xếp lớp'}</TableCell>
               <TableCell>
@@ -59,15 +64,11 @@ export function StudentTable({ students, isLoading, onEdit, onDelete }: StudentT
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => onEdit(std)}>
-                    <Edit2 size={16} />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => {
-                    if(confirm('Bạn có chắc chắn muốn xóa học viên này?')) onDelete(std.id);
-                  }}>
-                    <Trash2 size={16} />
-                  </Button>
+                <div className="flex justify-end">
+                  <ActionButtons
+                    onEdit={() => onEdit(std)}
+                    onDelete={isAuthorized ? () => onDelete(std.id) : undefined}
+                  />
                 </div>
               </TableCell>
             </TableRow>

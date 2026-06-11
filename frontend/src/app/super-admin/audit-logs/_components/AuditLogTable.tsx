@@ -1,13 +1,17 @@
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Loader2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface AuditLogTableProps {
   logs: any[];
   isLoading: boolean;
+  hasFilter?: boolean;
+  onClearFilter?: () => void;
 }
 
-export function AuditLogTable({ logs, isLoading }: AuditLogTableProps) {
+export function AuditLogTable({ logs, isLoading, hasFilter, onClearFilter }: AuditLogTableProps) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
       <Table>
@@ -23,20 +27,26 @@ export function AuditLogTable({ logs, isLoading }: AuditLogTableProps) {
         <TableBody>
           {isLoading ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-10 text-edu-muted">Đang tải dữ liệu...</TableCell>
+              <TableCell colSpan={5} className="text-center py-10 text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu...</TableCell>
             </TableRow>
           ) : logs.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-10 text-edu-muted">Chưa có nhật ký nào.</TableCell>
+              <TableCell colSpan={5} className="p-0">
+                <EmptyState 
+                  hasFilter={hasFilter}
+                  onClearFilter={onClearFilter}
+                  description="Chưa có nhật ký nào."
+                />
+              </TableCell>
             </TableRow>
-          ) : logs.map((log: any, i: number) => (
-            <TableRow key={log.id || i}>
+          ) : logs.map((log: any) => (
+            <TableRow key={log.id}>
               <TableCell className="text-edu-muted text-xs whitespace-nowrap">
                 {format(new Date(log.createdAt), 'dd/MM/yyyy HH:mm:ss')}
               </TableCell>
-              <TableCell className="font-medium text-edu-fg">{log.userId}</TableCell>
-              <TableCell className="font-semibold text-edu-fgSecondary">{log.action}</TableCell>
-              <TableCell className="text-edu-muted max-w-xs truncate">{log.entityType} ({log.entityId})</TableCell>
+              <TableCell className="font-medium text-edu-fg truncate max-w-[200px]" title={log.userId}>{log.userId}</TableCell>
+              <TableCell className="font-semibold text-edu-fgSecondary truncate max-w-[150px]" title={log.action}>{log.action}</TableCell>
+              <TableCell className="text-edu-muted truncate max-w-[250px]" title={`${log.entityType} (${log.entityId})`}>{log.entityType} ({log.entityId})</TableCell>
               <TableCell>
                 <Badge variant={
                   log.action === 'DELETE' ? 'danger' : 

@@ -5,6 +5,8 @@ namespace EduOps.Application.DTOs.Billing.Requests
 {
     public class CreatePromotionRequestDto
     {
+        public Guid? SubscriptionPlanId { get; set; }
+        
         public string? Code { get; set; }
 
         public string? Type { get; set; }

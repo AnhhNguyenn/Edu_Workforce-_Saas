@@ -7,6 +7,7 @@ import apiClient from '@/lib/api-client';
 import { useSubmitStudentAttendances } from '@/hooks/queries/useAttendances';
 import { ChevronLeft, Loader2, Users, Save } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function AttendancePage() {
   const params = useParams();
@@ -130,9 +131,7 @@ export default function AttendancePage() {
             );
           })
         ) : (
-          <div className="text-center py-10 text-edu-muted text-sm border border-dashed rounded-xl border-edu-border">
-            Lớp chưa có học sinh nào.
-          </div>
+          <EmptyState description="Lớp chưa có học sinh nào." />
         )}
       </div>
 

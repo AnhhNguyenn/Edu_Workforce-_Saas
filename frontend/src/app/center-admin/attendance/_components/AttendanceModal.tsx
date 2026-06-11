@@ -5,6 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useStudents } from '@/hooks/queries/useStudents';
 import { useSubmitAttendance } from '@/hooks/queries/useSessions';
 import { toast } from 'react-hot-toast';
+import { Loader2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface AttendanceModalProps {
   session: any;
@@ -44,8 +46,8 @@ export function AttendanceModal({ session, onClose }: AttendanceModalProps) {
       });
       toast.success('Đã lưu điểm danh thành công!');
       onClose();
-    } catch (e) {
-      toast.error('Lỗi lưu điểm danh');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Lỗi lưu điểm danh');
     }
   };
 
@@ -64,7 +66,9 @@ export function AttendanceModal({ session, onClose }: AttendanceModalProps) {
         
         <div className="p-6 max-h-[60vh] overflow-y-auto">
           {isLoading ? (
-            <div className="text-center py-4 text-edu-muted">Đang tải danh sách học viên...</div>
+            <div className="text-center py-4 text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải danh sách học viên...</div>
+          ) : !studentsData?.items || studentsData.items.length === 0 ? (
+            <EmptyState description="Lớp này chưa có học viên nào." />
           ) : (
             <Table>
               <TableHeader>
@@ -76,7 +80,7 @@ export function AttendanceModal({ session, onClose }: AttendanceModalProps) {
               <TableBody>
                 {studentsData?.items?.slice(0, 10).map((s: any) => ( // Demo: lấy 10 học sinh
                   <TableRow key={s.id}>
-                    <TableCell className="font-medium text-edu-fg">{s.fullName}</TableCell>
+                    <TableCell className="font-medium text-edu-fg truncate max-w-[200px]" title={s.fullName}>{s.fullName ?? 'Chưa cập nhật'}</TableCell>
                     <TableCell className="text-center">
                       <Button 
                         size="sm" 
@@ -97,10 +101,11 @@ export function AttendanceModal({ session, onClose }: AttendanceModalProps) {
         <div className="p-6 border-t border-edu-border bg-gray-50/50 rounded-b-2xl flex justify-end gap-3">
           <Button variant="outline" onClick={onClose}>Hủy</Button>
           <Button 
-            className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" 
+            className="bg-[#4CAF50] hover:bg-[#388E3C] text-white gap-2" 
             onClick={handleSubmit}
             disabled={submitAttendance.isPending}
           >
+            {submitAttendance.isPending && <Loader2 size={16} className="animate-spin" />}
             {submitAttendance.isPending ? 'Đang lưu...' : 'Chốt điểm danh'}
           </Button>
         </div>

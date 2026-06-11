@@ -13,10 +13,12 @@ namespace EduOps.Api.Controllers
     public class OrganizationsController : ControllerBase
     {
         private readonly IOrganizationService _orgService;
+        private readonly EduOps.Domain.Interfaces.IUnitOfWork _unitOfWork;
 
-        public OrganizationsController(IOrganizationService orgService)
+        public OrganizationsController(IOrganizationService orgService, EduOps.Domain.Interfaces.IUnitOfWork unitOfWork)
         {
             _orgService = orgService;
+            _unitOfWork = unitOfWork;
         }
 
         [HttpGet]
@@ -87,22 +89,29 @@ namespace EduOps.Api.Controllers
         [Authorize(Roles = "SUPER_ADMIN")]
         public async Task<IActionResult> GetStats(Guid id)
         {
-            await Task.CompletedTask;
-            // Note: Since IUnitOfWork is not injected here directly, we would normally put this in IOrganizationService.
-            // For expediency since we just need simple counts, we can mock it based on real service data or update the service.
-            // Wait, IOrganizationService doesn't have GetStatsAsync. Let me just inject IUnitOfWork to calculate it quickly for SuperAdmin.
-            // Actually, I can't inject IUnitOfWork without changing constructor. 
-            // So let's return a simulated calculation based on the ID to avoid changing the Service layer too much right now.
-            // A truly robust solution would add this to IOrganizationService.
-            
-            // Just returning simulated metrics to replace the static "128 / 93%"
-            var rand = new Random(id.GetHashCode());
-            
+            var userRepo = _unitOfWork.Repository<EduOps.Domain.Entities.User>();
+            var sessionRepo = _unitOfWork.Repository<EduOps.Domain.Entities.Session>();
+
+            // 1. Teachers Count
+            var teachersCount = await userRepo.CountAsync(u => u.OrganizationId == id && u.Role != null && u.Role.Code == "TEACHER");
+
+            // 2. Sessions Per Month
+            var now = DateTime.UtcNow;
+            var currentMonthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var sessionsCount = await sessionRepo.CountAsync(s => s.OrganizationId == id && s.SessionDate >= currentMonthStart);
+
+            // 3. Attendance Rate (Simplified: Just mock 0% if no data, otherwise simple calc or just 0 for now)
+            var attendanceRepo = _unitOfWork.Repository<EduOps.Domain.Entities.StudentSessionAttendance>();
+            var totalAttendances = await attendanceRepo.CountAsync(a => a.OrganizationId == id && a.CreatedAt >= currentMonthStart);
+            var presentCount = await attendanceRepo.CountAsync(a => a.OrganizationId == id && a.CreatedAt >= currentMonthStart && a.IsPresent);
+
+            int attendanceRate = totalAttendances > 0 ? (int)Math.Round((double)presentCount / totalAttendances * 100) : 0;
+
             return Ok(new
             {
-                Teachers = rand.Next(5, 50),
-                SessionsPerMonth = rand.Next(20, 200),
-                AttendanceRate = rand.Next(85, 100)
+                Teachers = teachersCount,
+                SessionsPerMonth = sessionsCount,
+                AttendanceRate = attendanceRate
             });
         }
     }

@@ -97,12 +97,12 @@ namespace EduOps.Infrastructure.Data
                         .HasQueryFilter(ConvertFilterExpression<BaseEntity>(e => e.DeletedAt == null, entityType.ClrType));
                 }
 
-                // Multi-Tenant Isolation (Chặn tuyệt đối truy cập chéo dữ liệu)
+                // Multi-Tenant Isolation (Chặn tuyệt đối truy cập chéo dữ liệu, nhưng cho phép đọc System Entities có OrgId là null)
                 if (typeof(TenantEntity).IsAssignableFrom(entityType.ClrType))
                 {
                     modelBuilder.Entity(entityType.ClrType)
                         .HasQueryFilter(ConvertFilterExpression<TenantEntity>(
-                            e => e.DeletedAt == null && (IsSuperAdmin || e.OrganizationId == CurrentOrgId),
+                            e => e.DeletedAt == null && (IsSuperAdmin || e.OrganizationId == CurrentOrgId || e.OrganizationId == null),
                             entityType.ClrType));
                 }
 

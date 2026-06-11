@@ -12,5 +12,6 @@ namespace EduOps.Application.DTOs.Billing.Responses
         public decimal PricePerMonth { get; set; }
         public decimal PricePerYear { get; set; }
         public string? Status { get; set; }
+        public decimal? ActiveDiscountPercentage { get; set; }
     }
 }

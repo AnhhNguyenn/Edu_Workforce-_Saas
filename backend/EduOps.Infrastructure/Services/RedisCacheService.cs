@@ -17,30 +17,53 @@ namespace EduOps.Infrastructure.Services
 
         public async Task<T?> GetAsync<T>(string key)
         {
-            var cachedData = await _cache.GetStringAsync(key);
-            if (string.IsNullOrEmpty(cachedData))
+            try
             {
+                var cachedData = await _cache.GetStringAsync(key);
+                if (string.IsNullOrEmpty(cachedData))
+                {
+                    return default;
+                }
+
+                return JsonSerializer.Deserialize<T>(cachedData);
+            }
+            catch (Exception ex)
+            {
+                // Fallback to DB gracefully if Redis is down
+                Console.WriteLine($"[Redis Error] Failed to GET key '{key}': {ex.Message}");
                 return default;
             }
-
-            return JsonSerializer.Deserialize<T>(cachedData);
         }
 
         public async Task SetAsync<T>(string key, T value, TimeSpan? absoluteExpireTime = null)
         {
-            var options = new DistributedCacheEntryOptions();
-            if (absoluteExpireTime.HasValue)
+            try
             {
-                options.AbsoluteExpirationRelativeToNow = absoluteExpireTime;
-            }
+                var options = new DistributedCacheEntryOptions();
+                if (absoluteExpireTime.HasValue)
+                {
+                    options.AbsoluteExpirationRelativeToNow = absoluteExpireTime;
+                }
 
-            var serializedData = JsonSerializer.Serialize(value);
-            await _cache.SetStringAsync(key, serializedData, options);
+                var serializedData = JsonSerializer.Serialize(value);
+                await _cache.SetStringAsync(key, serializedData, options);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Redis Error] Failed to SET key '{key}': {ex.Message}");
+            }
         }
 
         public async Task RemoveAsync(string key)
         {
-            await _cache.RemoveAsync(key);
+            try
+            {
+                await _cache.RemoveAsync(key);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Redis Error] Failed to REMOVE key '{key}': {ex.Message}");
+            }
         }
     }
 }
