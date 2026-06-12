@@ -22,6 +22,14 @@ export interface SubscribeResponseDto {
   qrCodeUrl: string;
 }
 
+export interface PreviewSubscribeResponseDto {
+  originalPrice: number;
+  discountAmount: number;
+  finalPrice: number;
+  appliedPromotionCode?: string;
+  planName: string;
+}
+
 export interface PromotionDto {
   id: string;
   code: string;
@@ -41,6 +49,16 @@ export interface PromotionUsageDto {
   amountPaid: number;
   paymentDate: string;
   referenceCode: string;
+}
+
+export interface MySubscriptionDto {
+  planId?: string;
+  planName: string;
+  subscriptionStart?: string;
+  subscriptionEnd?: string;
+  subscriptionStatus: string;
+  maxUsers: number;
+  currentUsers: number;
 }
 
 export const usePlans = () => {
@@ -155,8 +173,17 @@ export const usePromotionHistory = (promotionId: string | null) => {
 
 export const useSubscribe = () => {
   return useMutation({
-    mutationFn: async (data: { planId: string; billingCycle: 'MONTHLY' | 'YEARLY'; promoCode?: string }) => {
+    mutationFn: async (data: { planId: string, billingCycle: string, promoCode?: string }) => {
       const response = await apiClient.post<SubscribeResponseDto>('/subscriptions/subscribe', data);
+      return response.data;
+    }
+  });
+};
+
+export const usePreviewSubscribe = () => {
+  return useMutation({
+    mutationFn: async (data: { planId: string, billingCycle: string, promoCode?: string }) => {
+      const response = await apiClient.post<PreviewSubscribeResponseDto>('/subscriptions/preview-subscribe', data);
       return response.data;
     }
   });
@@ -179,6 +206,16 @@ export const useAllTransactions = () => {
     queryKey: ['all-transactions'],
     queryFn: async () => {
       const response = await apiClient.get<any[]>('/subscriptions/transactions');
+      return response.data;
+    }
+  });
+};
+
+export const useMySubscription = () => {
+  return useQuery({
+    queryKey: ['my-subscription'],
+    queryFn: async () => {
+      const response = await apiClient.get<MySubscriptionDto>('/subscriptions/my-subscription');
       return response.data;
     }
   });

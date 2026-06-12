@@ -18,11 +18,15 @@ namespace EduOps.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICustomLogger _logger;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly INotificationService _notificationService;
 
-        public SchoolService(IUnitOfWork unitOfWork, ICustomLogger logger)
+        public SchoolService(IUnitOfWork unitOfWork, ICustomLogger logger, ICurrentUserService currentUserService, INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _currentUserService = currentUserService;
+            _notificationService = notificationService;
         }
 
         public async Task<PagedResult<SchoolListResponseDto>> GetSchoolsAsync(Guid organizationId, GetSchoolListQueryDto query)
@@ -94,6 +98,16 @@ namespace EduOps.Application.Services
 
                 _logger.LogInformation($"Created school {school.Name} under Org {organizationId}");
 
+                if (_currentUserService.UserId != Guid.Empty)
+                {
+                    await _notificationService.CreateAndSendAsync(
+                        _currentUserService.UserId,
+                        "Hệ thống",
+                        $"Bạn đã tạo thành công cơ sở mới: {school.Name}",
+                        "SYSTEM"
+                    );
+                }
+
                 return school.ToDetailResponseDto();
             }
             catch (Exception ex)
@@ -139,6 +153,16 @@ namespace EduOps.Application.Services
 
             repo.Update(school);
             await _unitOfWork.CommitAsync();
+
+            if (_currentUserService.UserId != Guid.Empty)
+            {
+                await _notificationService.CreateAndSendAsync(
+                    _currentUserService.UserId,
+                    "Hệ thống",
+                    $"Bạn đã cập nhật thành công cơ sở: {school.Name}",
+                    "SYSTEM"
+                );
+            }
         }
 
         public async Task DeleteAsync(Guid id, Guid organizationId)

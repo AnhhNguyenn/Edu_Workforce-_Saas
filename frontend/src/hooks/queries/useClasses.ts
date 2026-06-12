@@ -33,6 +33,28 @@ export const useClasses = (searchKeyword?: string, schoolId?: string) => {
   });
 };
 
+export const useClassDetails = (id: string | null) => {
+  return useQuery({
+    queryKey: ['class', id],
+    queryFn: async () => {
+      const response = await apiClient.get<ClassDto>(`/classes/${id}`);
+      return response.data;
+    },
+    enabled: !!id
+  });
+};
+
+export const useClassStudents = (id: string | null) => {
+  return useQuery({
+    queryKey: ['class-students', id],
+    queryFn: async () => {
+      const response = await apiClient.get<any[]>(`/classes/${id}/students`);
+      return response.data;
+    },
+    enabled: !!id
+  });
+};
+
 export const useCreateClass = () => {
   const queryClient = useQueryClient();
   return useMutation({

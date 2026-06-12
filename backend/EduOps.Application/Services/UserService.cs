@@ -137,7 +137,7 @@ namespace EduOps.Application.Services
         public async Task UpdateUserAsync(Guid id, UpdateUserRequestDto request)
         {
             var repo = _unitOfWork.Repository<User>();
-            var user = await repo.GetByIdAsync(id);
+            var user = await repo.FirstOrDefaultAsync(u => u.Id == id, includeProperties: "UserDetail,Role");
             if (user == null) throw new NotFoundException("User", id);
 
             if (_currentUserService.Role != "SUPER_ADMIN" && user.OrganizationId != _currentUserService.OrganizationId)
@@ -157,7 +157,11 @@ namespace EduOps.Application.Services
             user.FullName = request.FullName;
             user.Phone = request.Phone;
             
-            if (user.UserDetail == null) user.UserDetail = new EduOps.Domain.Entities.UserDetail();
+            if (user.UserDetail == null) 
+            {
+                user.UserDetail = new EduOps.Domain.Entities.UserDetail { UserId = user.Id };
+                await _unitOfWork.Repository<EduOps.Domain.Entities.UserDetail>().AddAsync(user.UserDetail);
+            }
             
             if (!string.IsNullOrEmpty(request.Gender))
             {
@@ -183,7 +187,11 @@ namespace EduOps.Application.Services
                 user.RoleId = newRole?.Id;
             }
 
-            repo.Update(user);
+            if (_currentUserService.Role == "SUPER_ADMIN" && request.OrganizationId.HasValue)
+            {
+                user.OrganizationId = request.OrganizationId.Value;
+            }
+
             await _unitOfWork.CommitAsync();
         }
 

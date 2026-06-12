@@ -19,9 +19,9 @@ namespace EduOps.Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICustomLogger _logger;
         private readonly ICurrentUserService _currentUserService;
-        private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
+        private readonly ICacheService _cache;
 
-        public OrganizationService(IUnitOfWork unitOfWork, ICustomLogger logger, ICurrentUserService currentUserService, Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
+        public OrganizationService(IUnitOfWork unitOfWork, ICustomLogger logger, ICurrentUserService currentUserService, ICacheService cache)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
@@ -44,7 +44,7 @@ namespace EduOps.Application.Services
                     (string.IsNullOrEmpty(query.SearchKeyword) || o.Name.ToLower().Contains(query.SearchKeyword.ToLower()) || o.Code.ToLower().Contains(query.SearchKeyword.ToLower())) &&
                     (!query.Status.HasValue || o.Status != null && o.Status.Code == query.Status.Value.ToString());
 
-                var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Status");
+                var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Status,OrganizationDetail");
 
                 var orgIds = result.Items.Select(o => o.Id).ToList();
                 var planIds = result.Items.Where(o => o.CurrentPlanId.HasValue).Select(o => o.CurrentPlanId!.Value).Distinct().ToList();
@@ -222,7 +222,7 @@ namespace EduOps.Application.Services
             }
 
             var repo = _unitOfWork.Repository<Organization>();
-            var org = await repo.GetByIdAsync(id);
+            var org = await repo.FirstOrDefaultAsync(o => o.Id == id, includeProperties: "OrganizationDetail");
 
             if (org == null) throw new NotFoundException("Organization", id);
 
@@ -245,7 +245,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             // Xóa Cache để cập nhật trạng thái ngay lập tức
-            _cache.Remove($"OrgSubscription_{id}");
+            await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogInformation($"Updated Organization: {org.Code}");
         }
 
@@ -280,7 +280,7 @@ namespace EduOps.Application.Services
             repo.Update(org);
             await _unitOfWork.CommitAsync();
 
-            _cache.Remove($"OrgSubscription_{id}");
+            await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogInformation($"Updated Subscription for Organization: {org.Code}");
         }
 
@@ -296,7 +296,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             // Xóa Cache để lệnh Đình chỉ có hiệu lực ngay lập tức (0.001 giây)
-            _cache.Remove($"OrgSubscription_{id}");
+            await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogWarning($"Suspended Organization: {org.Code}");
         }
 
@@ -312,7 +312,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             // Xóa Cache để cập nhật trạng thái ngay lập tức
-            _cache.Remove($"OrgSubscription_{id}");
+            await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogInformation($"Activated Organization: {org.Code}");
         }
 
@@ -329,7 +329,7 @@ namespace EduOps.Application.Services
             repo.Update(org);
             await _unitOfWork.CommitAsync();
 
-            _cache.Remove($"OrgSubscription_{id}");
+            await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogWarning($"Soft Deleted Organization: {org.Code}");
         }
     }

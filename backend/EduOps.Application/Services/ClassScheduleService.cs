@@ -15,11 +15,15 @@ namespace EduOps.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ISessionService _sessionService;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly INotificationService _notificationService;
 
-        public ClassScheduleService(IUnitOfWork unitOfWork, ISessionService sessionService)
+        public ClassScheduleService(IUnitOfWork unitOfWork, ISessionService sessionService, ICurrentUserService currentUserService, INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _sessionService = sessionService;
+            _currentUserService = currentUserService;
+            _notificationService = notificationService;
         }
 
         public async Task AddScheduleAsync(Guid classId, Guid organizationId, AddClassScheduleRequestDto request)
@@ -56,6 +60,23 @@ namespace EduOps.Application.Services
 
             await _unitOfWork.Repository<ClassSchedule>().AddAsync(schedule);
             await _unitOfWork.CommitAsync();
+
+            await _notificationService.CreateAndSendAsync(
+                request.TeacherId,
+                "Phân công giảng dạy",
+                $"Bạn đã được phân công dạy lịch cố định mới cho lớp {classEntity.Name}.",
+                "SYSTEM"
+            );
+
+            if (request.AssistantId.HasValue)
+            {
+                await _notificationService.CreateAndSendAsync(
+                    request.AssistantId.Value,
+                    "Phân công trợ giảng",
+                    $"Bạn đã được phân công làm trợ giảng lịch cố định mới cho lớp {classEntity.Name}.",
+                    "SYSTEM"
+                );
+            }
         }
 
         public async Task EnrollStudentAsync(Guid classId, Guid organizationId, EnrollStudentRequestDto request)
@@ -91,6 +112,16 @@ namespace EduOps.Application.Services
 
             await enrollmentRepo.AddAsync(enrollment);
             await _unitOfWork.CommitAsync();
+
+            if (_currentUserService.UserId != Guid.Empty)
+            {
+                await _notificationService.CreateAndSendAsync(
+                    _currentUserService.UserId,
+                    "Hệ thống",
+                    $"Đã ghi danh học viên {student.FullName} vào lớp {classEntity.Name} thành công.",
+                    "SYSTEM"
+                );
+            }
         }
 
         public async Task GenerateSessionsAsync(Guid classId, Guid organizationId, GenerateSessionsRequestDto request)
@@ -145,6 +176,28 @@ namespace EduOps.Application.Services
                 }
             }
             await _unitOfWork.CommitAsync();
+
+            var uniqueTeachers = schedules.Select(s => s.TeacherId).Distinct();
+            foreach (var tId in uniqueTeachers)
+            {
+                await _notificationService.CreateAndSendAsync(
+                    tId,
+                    "Lịch học tự động",
+                    $"Hệ thống đã tự động sinh lịch học chi tiết cho lớp {classEntity.Name} từ ngày {request.FromDate:dd/MM} đến {request.ToDate:dd/MM}.",
+                    "SYSTEM"
+                );
+            }
+
+            var uniqueAssistants = schedules.Where(s => s.AssistantId.HasValue).Select(s => s.AssistantId!.Value).Distinct();
+            foreach (var aId in uniqueAssistants)
+            {
+                await _notificationService.CreateAndSendAsync(
+                    aId,
+                    "Lịch học tự động",
+                    $"Hệ thống đã tự động sinh lịch học chi tiết (trợ giảng) cho lớp {classEntity.Name} từ ngày {request.FromDate:dd/MM} đến {request.ToDate:dd/MM}.",
+                    "SYSTEM"
+                );
+            }
         }
     }
 }

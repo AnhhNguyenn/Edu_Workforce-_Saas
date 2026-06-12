@@ -8,7 +8,7 @@ import { NotificationBell } from './notification-bell';
 import { useSignalR } from '@/lib/useSignalR';
 import { useSession, signOut } from 'next-auth/react';
 import { useState, useRef, useEffect } from 'react';
-import { usePlans, useSubscribe, useTransactionStatus, SubscribeResponseDto } from '@/hooks/queries/useSubscriptions';
+import { usePlans, useSubscribe, usePreviewSubscribe, useTransactionStatus, SubscribeResponseDto, PreviewSubscribeResponseDto, useMySubscription } from '@/hooks/queries/useSubscriptions';
 
 export function Topbar() {
   const sidebarOpen = useAppStore(state => state.sidebarOpen);
@@ -38,8 +38,15 @@ export function Topbar() {
 
   const { data: plans, isLoading: isPlansLoading } = usePlans();
   const subscribeMutation = useSubscribe();
+  const previewSubscribeMutation = usePreviewSubscribe();
   const [subscribeResult, setSubscribeResult] = useState<SubscribeResponseDto | null>(null);
+  
+  const [checkoutPlan, setCheckoutPlan] = useState<{ planId: string, billingCycle: string, planName: string, basePrice: number } | null>(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [previewResult, setPreviewResult] = useState<PreviewSubscribeResponseDto | null>(null);
+  const [promoError, setPromoError] = useState('');
 
+  const { data: mySubscription } = useMySubscription();
   const { data: txStatus } = useTransactionStatus(subscribeResult?.referenceCode || null);
 
   useEffect(() => {
@@ -51,10 +58,44 @@ export function Topbar() {
     }
   }, [txStatus]);
 
-  const handleSubscribe = async (planId: string, billingCycle: 'MONTHLY' | 'YEARLY') => {
+  const openCheckout = (planId: string, billingCycle: string, planName: string, basePrice: number) => {
+    setCheckoutPlan({ planId, billingCycle, planName, basePrice });
+    setPromoCode('');
+    setPreviewResult(null);
+    setPromoError('');
+    // Automatically preview without promo code to get any active auto discounts
+    handlePreviewDiscount(planId, billingCycle, '');
+  };
+
+  const handlePreviewDiscount = async (planId: string, billingCycle: string, code: string) => {
     try {
-      const res = await subscribeMutation.mutateAsync({ planId, billingCycle });
+      setPromoError('');
+      const res = await previewSubscribeMutation.mutateAsync({ planId, billingCycle, promoCode: code });
+      setPreviewResult(res);
+    } catch (error: any) {
+      setPreviewResult(null);
+      if (code) {
+        setPromoError(error.response?.data?.message || 'Mã giảm giá không hợp lệ');
+      }
+    }
+  };
+
+  const handleApplyPromo = () => {
+    if (checkoutPlan) {
+      handlePreviewDiscount(checkoutPlan.planId, checkoutPlan.billingCycle, promoCode);
+    }
+  };
+
+  const handleConfirmSubscribe = async () => {
+    if (!checkoutPlan) return;
+    try {
+      const res = await subscribeMutation.mutateAsync({ 
+        planId: checkoutPlan.planId, 
+        billingCycle: checkoutPlan.billingCycle,
+        promoCode: promoCode 
+      });
       setSubscribeResult(res);
+      setCheckoutPlan(null);
     } catch (error) {
       console.error('Failed to subscribe', error);
     }
@@ -117,7 +158,7 @@ export function Topbar() {
                 
                 {userRole === 'CENTER_ADMIN' && (
                   <button 
-                    onClick={() => { setMenuOpen(false); setShowUpgradeModal(true); setSubscribeResult(null); }}
+                    onClick={() => { setMenuOpen(false); setShowUpgradeModal(true); setSubscribeResult(null); setCheckoutPlan(null); }}
                     className="w-full text-left px-4 py-2 text-sm text-edu-accent hover:bg-edu-accentLight flex items-center gap-2 font-medium"
                   >
                     <Zap size={16} className="text-edu-accent" />
@@ -144,7 +185,15 @@ export function Topbar() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
             <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-gray-800">Nâng cấp gói dịch vụ</h2>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Nâng cấp gói dịch vụ</h2>
+                {mySubscription && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Gói hiện tại: <span className="font-semibold text-edu-accent">{mySubscription.planName}</span> 
+                    {mySubscription.subscriptionEnd && ` • Hết hạn: ${new Date(mySubscription.subscriptionEnd).toLocaleDateString('vi-VN')}`}
+                  </p>
+                )}
+              </div>
               <button onClick={() => setShowUpgradeModal(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
                 <X size={20} />
               </button>
@@ -183,66 +232,172 @@ export function Topbar() {
                     </>
                   )}
                 </div>
-              ) : isPlansLoading ? (
-                <div className="text-center py-10 text-gray-500">Đang tải danh sách gói cước...</div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {plans?.map((plan) => (
-                    <div key={plan.id} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col h-full">
-                      {plan.activeDiscountPercentage && plan.activeDiscountPercentage > 0 ? (
-                        <div className="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">
-                          Giảm {plan.activeDiscountPercentage}%
+              ) : checkoutPlan ? (
+                  <div className="max-w-2xl mx-auto py-4">
+                    <button 
+                      onClick={() => setCheckoutPlan(null)}
+                      className="text-sm text-edu-muted hover:text-edu-fg flex items-center gap-1 mb-6"
+                    >
+                      &larr; Quay lại chọn gói
+                    </button>
+                    
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                      <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-4">Xác nhận thanh toán</h3>
+                      
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <p className="font-medium text-gray-800">Gói {checkoutPlan.planName}</p>
+                          <p className="text-sm text-gray-500">Chu kỳ: {checkoutPlan.billingCycle === 'MONTHLY' ? 'Hàng tháng' : 'Hàng năm'}</p>
                         </div>
-                      ) : plan.pricePerMonth > 0 && (
-                        <div className="absolute top-0 right-0 bg-gradient-to-r from-orange-400 to-red-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">
-                          Nổi bật
+                        <div className="text-right">
+                          <p className="font-medium text-gray-800">{(checkoutPlan.billingCycle === 'MONTHLY' ? checkoutPlan.basePrice : checkoutPlan.basePrice * 12).toLocaleString('vi-VN')} đ</p>
                         </div>
-                      )}
-                      <h3 className="text-lg font-bold text-gray-800 mb-1">{plan.name}</h3>
-                      <div className="flex items-baseline gap-1 mb-6 flex-wrap">
-                        {plan.activeDiscountPercentage && plan.activeDiscountPercentage > 0 ? (
-                          <>
-                            <div className="w-full flex items-center gap-2 mb-1">
-                              <span className="text-xl font-medium text-gray-400 line-through">{plan.pricePerMonth.toLocaleString('vi-VN')}đ</span>
-                            </div>
-                            <span className="text-3xl font-extrabold text-red-600">
-                              {(plan.pricePerMonth * (1 - plan.activeDiscountPercentage / 100)).toLocaleString('vi-VN')}đ
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-3xl font-extrabold text-gray-900">{plan.pricePerMonth.toLocaleString('vi-VN')}đ</span>
-                        )}
-                        <span className="text-gray-500 text-sm">/tháng</span>
                       </div>
-                      
-                      <ul className="space-y-3 mb-8 flex-1">
-                        <li className="flex gap-2 text-sm text-gray-600"><CheckCircle2 size={18} className="text-green-500 shrink-0" /> Tối đa {plan.maxUsers} người dùng</li>
-                        {plan.description && plan.description.split('\n').filter(line => line.trim() !== '').map((line, i) => (
-                          <li key={i} className="flex gap-2 text-sm text-gray-600">
-                            <CheckCircle2 size={18} className="text-green-500 shrink-0" /> 
-                            {line}
-                          </li>
-                        ))}
-                      </ul>
-                      
-                      <div className="space-y-2 mt-auto">
+
+                      <div className="mt-6 border-t border-b py-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Mã giảm giá</label>
+                        <div className="flex gap-2">
+                          <Input 
+                            value={promoCode} 
+                            onChange={(e) => setPromoCode(e.target.value)}
+                            placeholder="Nhập mã giảm giá..." 
+                            className="flex-1"
+                          />
+                          <button 
+                            onClick={handleApplyPromo}
+                            disabled={!promoCode || previewSubscribeMutation.isPending}
+                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Áp dụng
+                          </button>
+                        </div>
+                        {promoError && <p className="text-sm text-red-500 mt-2">{promoError}</p>}
+                        
+                        {previewResult && previewResult.discountAmount > 0 && (
+                          <div className="mt-4 p-3 bg-green-50 text-green-800 rounded-lg text-sm flex justify-between items-center border border-green-100">
+                            <div>
+                              <p className="font-medium">Đã áp dụng mã giảm giá {previewResult.appliedPromotionCode}</p>
+                            </div>
+                            <p className="font-bold">- {previewResult.discountAmount.toLocaleString('vi-VN')} đ</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-6">
+                        <div className="flex justify-between items-center mb-6">
+                          <p className="text-lg font-bold text-gray-800">Tổng thanh toán</p>
+                          <p className="text-2xl font-extrabold text-edu-accent">
+                            {previewResult ? previewResult.finalPrice.toLocaleString('vi-VN') : (checkoutPlan.billingCycle === 'MONTHLY' ? checkoutPlan.basePrice : checkoutPlan.basePrice * 12).toLocaleString('vi-VN')} đ
+                          </p>
+                        </div>
+                        
                         <button 
-                          onClick={() => handleSubscribe(plan.id, 'MONTHLY')}
-                          disabled={subscribeMutation.isPending}
-                          className="w-full py-2.5 rounded-lg bg-edu-accent hover:bg-blue-600 text-white font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
+                          onClick={handleConfirmSubscribe}
+                          disabled={subscribeMutation.isPending || previewSubscribeMutation.isPending}
+                          className="w-full py-3.5 rounded-lg bg-edu-accent hover:bg-blue-600 text-white font-bold text-lg transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
                         >
-                          Đăng ký Tháng
-                        </button>
-                        <button 
-                          onClick={() => handleSubscribe(plan.id, 'YEARLY')}
-                          disabled={subscribeMutation.isPending}
-                          className="w-full py-2.5 rounded-lg border border-edu-accent text-edu-accent hover:bg-edu-accentLight font-medium text-sm transition-colors disabled:opacity-50"
-                        >
-                          Đăng ký Năm (Tiết kiệm)
+                          {subscribeMutation.isPending ? 'Đang tạo đơn...' : 'Xác nhận & Thanh toán'}
                         </button>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                ) : isPlansLoading ? (
+                <div className="text-center py-10 text-gray-500">Đang tải danh sách gói cước...</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {plans?.map((plan) => {
+                    const isCurrentPlan = mySubscription && mySubscription.planId === plan.id;
+                    const getRemainingDays = () => {
+                      if (!mySubscription?.subscriptionEnd) return Infinity;
+                      const end = new Date(mySubscription.subscriptionEnd);
+                      const now = new Date();
+                      const diffTime = end.getTime() - now.getTime();
+                      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    };
+                    const remainingDays = getRemainingDays();
+                    const isNearExpiry = remainingDays <= 7;
+
+                    return (
+                      <div key={plan.id} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col h-full">
+                        {plan.activeDiscountPercentage && plan.activeDiscountPercentage > 0 ? (
+                          <div className="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">
+                            Giảm {plan.activeDiscountPercentage}%
+                          </div>
+                        ) : plan.pricePerMonth > 0 && (
+                          <div className="absolute top-0 right-0 bg-gradient-to-r from-orange-400 to-red-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">
+                            Nổi bật
+                          </div>
+                        )}
+                        <h3 className="text-lg font-bold text-gray-800 mb-1">{plan.name}</h3>
+                        <div className="flex items-baseline gap-1 mb-6 flex-wrap">
+                          {plan.activeDiscountPercentage && plan.activeDiscountPercentage > 0 ? (
+                            <>
+                              <div className="w-full flex items-center gap-2 mb-1">
+                                <span className="text-xl font-medium text-gray-400 line-through">{plan.pricePerMonth.toLocaleString('vi-VN')}đ</span>
+                              </div>
+                              <span className="text-3xl font-extrabold text-red-600">
+                                {(plan.pricePerMonth * (1 - plan.activeDiscountPercentage / 100)).toLocaleString('vi-VN')}đ
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-3xl font-extrabold text-gray-900">{plan.pricePerMonth.toLocaleString('vi-VN')}đ</span>
+                          )}
+                          <span className="text-gray-500 text-sm">/tháng</span>
+                        </div>
+                        
+                        <ul className="space-y-3 mb-8 flex-1">
+                          <li className="flex gap-2 text-sm text-gray-600"><CheckCircle2 size={18} className="text-green-500 shrink-0" /> Tối đa {plan.maxUsers} người dùng</li>
+                          {plan.description && plan.description.split('\n').filter(line => line.trim() !== '').map((line, i) => (
+                            <li key={i} className="flex gap-2 text-sm text-gray-600">
+                              <CheckCircle2 size={18} className="text-green-500 shrink-0" /> 
+                              {line}
+                            </li>
+                          ))}
+                        </ul>
+                        
+                        <div className="space-y-2 mt-auto">
+                          {isCurrentPlan ? (
+                            isNearExpiry ? (
+                              <>
+                                <button 
+                                  onClick={() => openCheckout(plan.id, 'MONTHLY', plan.name, plan.pricePerMonth)}
+                                  className="w-full py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-medium text-sm transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                                >
+                                  Gia hạn Gói Tháng
+                                </button>
+                                <button 
+                                  onClick={() => openCheckout(plan.id, 'YEARLY', plan.name, plan.pricePerMonth)}
+                                  className="w-full py-2.5 rounded-lg bg-gradient-to-r from-edu-accent to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium text-sm transition-colors shadow-md flex items-center justify-center gap-1.5"
+                                >
+                                  Nâng cấp / Gia hạn Gói Năm
+                                </button>
+                              </>
+                            ) : (
+                              <div className="w-full py-3 rounded-lg bg-gray-100 text-gray-500 font-semibold text-sm text-center border border-gray-200 flex items-center justify-center gap-1.5 select-none">
+                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                Đang sử dụng
+                              </div>
+                            )
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => openCheckout(plan.id, 'MONTHLY', plan.name, plan.pricePerMonth)}
+                                className="w-full py-2.5 rounded-lg bg-edu-accent hover:bg-blue-600 text-white font-medium text-sm transition-colors shadow-sm"
+                              >
+                                Đăng ký Gói Tháng
+                              </button>
+                              <button 
+                                onClick={() => openCheckout(plan.id, 'YEARLY', plan.name, plan.pricePerMonth)}
+                                className="w-full py-2.5 rounded-lg border border-edu-accent text-edu-accent hover:bg-edu-accentLight font-medium text-sm transition-colors"
+                              >
+                                Đăng ký Gói Năm (Tiết kiệm)
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

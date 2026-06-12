@@ -13,5 +13,11 @@ namespace EduOps.Application.DTOs.Organization.Responses
         public Guid? StatusId { get; set; }
         public string StatusCode { get; set; } = string.Empty;
         public string SubscriptionStatus { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public DateTime? SubscriptionStart { get; set; }
+        public DateTime? SubscriptionEnd { get; set; }
+        public Guid? CurrentPlanId { get; set; }
     }
 }

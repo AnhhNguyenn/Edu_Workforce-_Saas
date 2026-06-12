@@ -5,12 +5,13 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, BookOpen } from 'lucide-react';
+import { ShieldCheck, BookOpen, ArrowLeft, Mail, KeyRound } from 'lucide-react';
 import axios from 'axios';
 import { ENV } from '@/config/env';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { toast } from 'react-hot-toast';
 
 const loginSchema = z.object({
   email: z.string().email('Email không hợp lệ'),
@@ -21,8 +22,19 @@ const otpSchema = z.object({
   otp: z.string().length(6, 'Mã OTP phải có 6 chữ số')
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Email không hợp lệ')
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Vui lòng nhập mã xác nhận'),
+  newPassword: z.string().min(6, 'Mật khẩu mới phải có ít nhất 6 ký tự')
+});
+
 type LoginFormValues = z.infer<typeof loginSchema>;
 type OtpFormValues = z.infer<typeof otpSchema>;
+type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
+type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 
 function LoginContent() {
   const router = useRouter();
@@ -41,10 +53,23 @@ function LoginContent() {
       // Xóa cookie ngay lập tức để không hiện lại nếu người dùng F5
       document.cookie = 'auth_error=; path=/; max-age=0';
     }
-  }, []);
+
+    // Xóa query param error khỏi URL để khi User F5 không bị lặp lại lỗi
+    if (searchParams.has('error')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('error');
+      window.history.replaceState(null, '', url.pathname + url.search);
+    }
+  }, [searchParams]);
 
   const [requires2FA, setRequires2FA] = useState(false);
   const [tempToken, setTempToken] = useState('');
+  
+  // Forgot password states
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState(1); // 1: enter email, 2: enter token & new pass
+  const [forgotEmail, setForgotEmail] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -56,6 +81,14 @@ function LoginContent() {
     resolver: zodResolver(otpSchema)
   });
   
+  const { register: registerForgot, handleSubmit: handleSubmitForgot, formState: { errors: forgotErrors } } = useForm<ForgotPasswordValues>({
+    resolver: zodResolver(forgotPasswordSchema)
+  });
+
+  const { register: registerReset, handleSubmit: handleSubmitReset, formState: { errors: resetErrors } } = useForm<ResetPasswordValues>({
+    resolver: zodResolver(resetPasswordSchema)
+  });
+
   const otpValue = watch('otp') || '';
 
   const onLoginSubmit = async (data: LoginFormValues) => {
@@ -128,26 +161,142 @@ function LoginContent() {
     }
   };
 
+  const onForgotSubmit = async (data: ForgotPasswordValues) => {
+    setLoading(true);
+    setError('');
+    try {
+      await axios.post(`${ENV.API_URL}/auth/forgot-password`, { email: data.email });
+      setForgotEmail(data.email);
+      setForgotStep(2);
+      toast.success('Mã xác nhận đã được gửi đến email của bạn!');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onResetSubmit = async (data: ResetPasswordValues) => {
+    setLoading(true);
+    setError('');
+    try {
+      await axios.post(`${ENV.API_URL}/auth/reset-password`, { 
+        token: data.token,
+        newPassword: data.newPassword 
+      });
+      toast.success('Khôi phục mật khẩu thành công! Vui lòng đăng nhập lại.');
+      setIsForgotPassword(false);
+      setForgotStep(1);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Mã xác nhận không đúng hoặc đã hết hạn.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderForgotPassword = () => {
+    if (forgotStep === 1) {
+      return (
+        <form onSubmit={handleSubmitForgot(onForgotSubmit)} className="space-y-5 animate-in fade-in duration-200">
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 bg-blue-50 rounded-full mx-auto flex items-center justify-center text-edu-accent mb-3">
+              <Mail size={24} />
+            </div>
+            <h2 className="text-xl font-bold text-edu-fg">Quên mật khẩu</h2>
+            <p className="text-edu-muted text-sm mt-1">Nhập email của bạn để nhận mã khôi phục mật khẩu.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Email của bạn</label>
+            <Input 
+              type="email" 
+              placeholder="example@gmail.com" 
+              {...registerForgot('email')}
+              error={forgotErrors.email?.message}
+            />
+          </div>
+          {error && <p className="text-edu-danger text-sm font-medium text-center">{error}</p>}
+          <Button type="submit" className="w-full text-base py-3" disabled={loading}>
+            {loading ? 'Đang xử lý...' : 'Gửi mã xác nhận'}
+          </Button>
+          <button 
+            type="button" 
+            onClick={() => { setIsForgotPassword(false); setError(''); }}
+            className="flex items-center justify-center gap-2 w-full text-sm font-medium text-edu-muted hover:text-edu-accent transition-colors mt-2"
+          >
+            <ArrowLeft size={16} /> Quay lại đăng nhập
+          </button>
+        </form>
+      );
+    }
+
+    return (
+      <form onSubmit={handleSubmitReset(onResetSubmit)} className="space-y-5 animate-in slide-in-from-right duration-200">
+        <div className="text-center mb-6">
+          <div className="w-12 h-12 bg-green-50 rounded-full mx-auto flex items-center justify-center text-edu-success mb-3">
+            <KeyRound size={24} />
+          </div>
+          <h2 className="text-xl font-bold text-edu-fg">Tạo mật khẩu mới</h2>
+          <p className="text-edu-muted text-sm mt-1">Mã xác nhận đã được gửi đến: <span className="font-semibold text-edu-fg">{forgotEmail}</span></p>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Mã xác nhận (Từ Email)</label>
+          <Input 
+            type="text" 
+            placeholder="Nhập mã xác nhận..." 
+            {...registerReset('token')}
+            error={resetErrors.token?.message}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Mật khẩu mới</label>
+          <Input 
+            type="password" 
+            placeholder="Nhập mật khẩu mới..." 
+            {...registerReset('newPassword')}
+            error={resetErrors.newPassword?.message}
+          />
+        </div>
+        {error && <p className="text-edu-danger text-sm font-medium text-center">{error}</p>}
+        <Button type="submit" className="w-full text-base py-3 bg-edu-success hover:bg-edu-success/90" disabled={loading}>
+          {loading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+        </Button>
+        <button 
+          type="button" 
+          onClick={() => { setForgotStep(1); setError(''); }}
+          className="flex items-center justify-center gap-2 w-full text-sm font-medium text-edu-muted hover:text-edu-accent transition-colors mt-2"
+        >
+          <ArrowLeft size={16} /> Trở về nhập lại Email
+        </button>
+      </form>
+    );
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl p-8 shadow-lg border border-edu-border">
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-gradient-to-br from-edu-accent to-[#7BC4FF] rounded-2xl mx-auto flex items-center justify-center text-white mb-4 shadow-sm">
-            <BookOpen size={28} />
+        {!isForgotPassword && (
+          <div className="text-center mb-8">
+            <div className="w-14 h-14 bg-gradient-to-br from-edu-accent to-[#7BC4FF] rounded-2xl mx-auto flex items-center justify-center text-white mb-4 shadow-sm">
+              <BookOpen size={28} />
+            </div>
+            <h1 className="text-2xl font-bold text-edu-fg">Đăng nhập EduOps</h1>
+            <p className="text-edu-muted text-sm mt-2">Hệ thống quản lý trung tâm & giáo viên</p>
           </div>
-          <h1 className="text-2xl font-bold text-edu-fg">Đăng nhập EduOps</h1>
-          <p className="text-edu-muted text-sm mt-2">Hệ thống quản lý trung tâm & giáo viên</p>
-        </div>
+        )}
 
-        {errorMsg && (
+        {errorMsg && !isForgotPassword && (
           <div className="bg-edu-dangerLight text-edu-danger p-3 rounded-lg text-sm mb-4 text-center font-medium">
             {errorMsg === 'access-denied' 
               ? 'Bạn không có quyền truy cập trang này!' 
+              : (errorMsg === 'session_expired' || errorMsg === 'SessionExpired')
+              ? 'Phiên đăng nhập đã hết hạn hoặc tài khoản vừa đăng nhập trên thiết bị khác. Vui lòng đăng nhập lại!'
               : 'Sai email hoặc mật khẩu (hoặc tài khoản đã bị khóa)!'}
           </div>
         )}
 
-        {requires2FA ? (
+        {isForgotPassword ? (
+          renderForgotPassword()
+        ) : requires2FA ? (
           <form method="POST" onSubmit={handleSubmitOtp(onVerifySubmit)} className="space-y-5 animate-in fade-in zoom-in-95 duration-200">
             <div className="text-center mb-2">
               <ShieldCheck className="mx-auto text-edu-success mb-2" size={32} />
@@ -189,7 +338,13 @@ function LoginContent() {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="block text-sm font-semibold text-edu-fgSecondary">Mật khẩu</label>
-                <a href="#" className="text-xs text-edu-accent font-medium hover:underline">Quên mật khẩu?</a>
+                <button 
+                  type="button" 
+                  onClick={() => setIsForgotPassword(true)}
+                  className="text-xs text-edu-accent font-medium hover:underline"
+                >
+                  Quên mật khẩu?
+                </button>
               </div>
               <Input 
                 type="password" 

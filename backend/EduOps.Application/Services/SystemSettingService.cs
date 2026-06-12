@@ -92,11 +92,22 @@ namespace EduOps.Application.Services
 
             var setting = await _unitOfWork.Repository<SystemSetting>().FirstOrDefaultAsync(s => s.SettingKey == key, ignoreQueryFilters: true);
             if (setting == null)
-                throw new NotFoundException("Cấu hình hệ thống", key);
-
-            setting.SettingValue = request.SettingValue;
-
-            _unitOfWork.Repository<SystemSetting>().Update(setting);
+            {
+                setting = new SystemSetting
+                {
+                    SettingKey = key,
+                    SettingValue = request.SettingValue,
+                    Description = "System generated setting",
+                    IsPublic = false // default
+                };
+                await _unitOfWork.Repository<SystemSetting>().AddAsync(setting);
+            }
+            else
+            {
+                setting.SettingValue = request.SettingValue;
+                _unitOfWork.Repository<SystemSetting>().Update(setting);
+            }
+            
             await _unitOfWork.CommitAsync();
 
             // Xóa Cache để cập nhật ngay lập tức

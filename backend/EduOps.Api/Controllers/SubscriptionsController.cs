@@ -99,6 +99,14 @@ namespace EduOps.Api.Controllers
             return Ok(result);
         }
 
+        [HttpPost("preview-subscribe")]
+        [Authorize(Roles = "CENTER_ADMIN")]
+        public async Task<IActionResult> PreviewSubscribe([FromBody] SubscribeRequestDto request)
+        {
+            var result = await _subscriptionService.PreviewSubscribeAsync(request);
+            return Ok(result);
+        }
+
         [HttpGet("my-subscription")]
         [Authorize(Roles = "CENTER_ADMIN")]
         public async Task<IActionResult> GetMySubscription()

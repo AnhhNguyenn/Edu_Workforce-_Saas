@@ -10,5 +10,6 @@ namespace EduOps.Application.DTOs.Billing.Responses
         public decimal AmountPaid { get; set; }
         public DateTime PaymentDate { get; set; }
         public string ReferenceCode { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
     }
 }

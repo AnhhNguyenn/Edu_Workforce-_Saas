@@ -19,10 +19,14 @@ namespace EduOps.Application.Services
     public class StudentService : IStudentService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly INotificationService _notificationService;
 
-        public StudentService(IUnitOfWork unitOfWork)
+        public StudentService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
+            _currentUserService = currentUserService;
+            _notificationService = notificationService;
         }
 
         public async Task<PagedResult<StudentListResponseDto>> GetStudentsAsync(Guid organizationId, GetStudentListQueryDto query)
@@ -86,6 +90,16 @@ namespace EduOps.Application.Services
             await repo.AddAsync(student);
             await _unitOfWork.CommitAsync();
 
+            if (_currentUserService.UserId != Guid.Empty)
+            {
+                await _notificationService.CreateAndSendAsync(
+                    _currentUserService.UserId,
+                    "Hệ thống",
+                    $"Bạn đã tạo thành công học viên mới: {student.FullName}",
+                    "SYSTEM"
+                );
+            }
+
             return student.ToDetailResponseDto();
         }
 
@@ -112,6 +126,16 @@ namespace EduOps.Application.Services
 
             repo.Update(student);
             await _unitOfWork.CommitAsync();
+
+            if (_currentUserService.UserId != Guid.Empty)
+            {
+                await _notificationService.CreateAndSendAsync(
+                    _currentUserService.UserId,
+                    "Hệ thống",
+                    $"Bạn đã cập nhật thành công học viên: {student.FullName}",
+                    "SYSTEM"
+                );
+            }
         }
 
         public async Task DeleteAsync(Guid id, Guid organizationId)
@@ -245,6 +269,16 @@ namespace EduOps.Application.Services
             {
                 await repo.AddRangeAsync(studentsToAdd);
                 await _unitOfWork.CommitAsync();
+
+                if (_currentUserService.UserId != Guid.Empty)
+                {
+                    await _notificationService.CreateAndSendAsync(
+                        _currentUserService.UserId,
+                        "Hệ thống",
+                        $"Import dữ liệu học viên hoàn tất. Thành công: {result.SuccessCount}, Thất bại: {result.FailureCount}.",
+                        "SYSTEM"
+                    );
+                }
             }
 
             return result;

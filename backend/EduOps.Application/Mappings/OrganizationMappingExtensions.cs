@@ -18,7 +18,13 @@ namespace EduOps.Application.Mappings
                 CurrentUsers = currentUsers,
                 StatusId = org.StatusId,
                 StatusCode = org.Status?.Code ?? string.Empty,
-                SubscriptionStatus = org.SubscriptionStatus
+                SubscriptionStatus = org.SubscriptionStatus,
+                Email = org.OrganizationDetail?.Email ?? string.Empty,
+                City = org.OrganizationDetail?.Address ?? string.Empty,
+                Address = org.OrganizationDetail?.Address ?? string.Empty,
+                SubscriptionStart = org.SubscriptionStart,
+                SubscriptionEnd = org.SubscriptionEnd,
+                CurrentPlanId = org.CurrentPlanId
             };
         }
 

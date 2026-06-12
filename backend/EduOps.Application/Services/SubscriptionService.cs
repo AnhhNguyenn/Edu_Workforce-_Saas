@@ -286,7 +286,8 @@ namespace EduOps.Application.Services
             if (promo == null) throw new NotFoundException("Khuyến mãi", promotionId);
 
             var transactions = await _unitOfWork.Repository<BillingTransaction>().FindAsync(
-                t => t.PromotionId == promotionId
+                t => t.PromotionId == promotionId,
+                includeProperties: "Status"
             );
 
             var orgIds = transactions.Where(t => t.OrganizationId != null).Select(t => t.OrganizationId!.Value).Distinct().ToList();
@@ -300,7 +301,8 @@ namespace EduOps.Application.Services
                 PlanName = t.PlanName ?? string.Empty,
                 AmountPaid = t.Amount,
                 PaymentDate = t.PaymentDate,
-                ReferenceCode = t.ReferenceCode ?? string.Empty
+                ReferenceCode = t.ReferenceCode ?? string.Empty,
+                Status = t.Status?.Code ?? "UNKNOWN"
             }).OrderByDescending(x => x.PaymentDate).ToList();
         }
 
@@ -310,7 +312,7 @@ namespace EduOps.Application.Services
             if (orgId == null || _currentUserService.Role != "CENTER_ADMIN")
                 throw new UnauthorizedAccessException("Chỉ Quản trị viên Trung tâm mới được mua gói cước.");
 
-            var plan = await _unitOfWork.Repository<SubscriptionPlan>().GetByIdAsync(request.PlanId);
+            var plan = await _unitOfWork.Repository<SubscriptionPlan>().FirstOrDefaultAsync(p => p.Id == request.PlanId, includeProperties: "Status");
             if (plan == null || plan.Status?.Code != "ACTIVE")
                 throw new BadRequestException("Gói cước không tồn tại hoặc đã ngừng cung cấp.");
 
@@ -336,7 +338,7 @@ namespace EduOps.Application.Services
             {
                 var inputCode = request.PromoCode.Trim().ToUpper();
                 var promo = await _unitOfWork.Repository<Promotion>().FirstOrDefaultAsync(
-                    p => p.Type != null && p.Type.Code == "PROMO_CODE" && p.Code == inputCode && p.Status != null && p.Status.Code == "ACTIVE"
+                    p => p.Type != null && p.Type.Code == "PROMO_CODE" && p.Code != null && p.Code.ToUpper() == inputCode && p.Status != null && p.Status.Code == "ACTIVE"
                 );
 
                 if (promo == null) throw new BadRequestException("Mã khuyến mãi không hợp lệ.");
@@ -434,6 +436,62 @@ namespace EduOps.Application.Services
             };
         }
 
+        public async Task<PreviewSubscribeResponseDto> PreviewSubscribeAsync(SubscribeRequestDto request)
+        {
+            var plan = await _unitOfWork.Repository<SubscriptionPlan>().FirstOrDefaultAsync(p => p.Id == request.PlanId, includeProperties: "Status");
+            if (plan == null || plan.Status?.Code != "ACTIVE")
+                throw new BadRequestException("Gói cước không tồn tại hoặc đã ngừng cung cấp.");
+
+            decimal basePrice = request.BillingCycle == "YEARLY" ? plan.PricePerYear : plan.PricePerMonth;
+            decimal finalPrice = basePrice;
+            decimal discountAmount = 0;
+            string? appliedPromoCode = null;
+
+            var now = DateTime.UtcNow;
+
+            // 1. Kiểm tra Auto Discount đang diễn ra cho gói này
+            var autoPromo = await _unitOfWork.Repository<Promotion>().FirstOrDefaultAsync(
+                p => p.Type != null && p.Type.Code == "AUTO_DISCOUNT" && p.Status != null && p.Status.Code == "ACTIVE" && p.StartDate <= now && p.EndDate >= now && p.SubscriptionPlanId == request.PlanId
+            );
+
+            if (autoPromo != null)
+            {
+                discountAmount = (basePrice * autoPromo.DiscountPercentage / 100);
+                finalPrice = basePrice - discountAmount;
+                appliedPromoCode = autoPromo.Code;
+            }
+            // 2. Nếu không có Auto Discount, kiểm tra Promo Code do người dùng nhập
+            else if (!string.IsNullOrWhiteSpace(request.PromoCode))
+            {
+                var inputCode = request.PromoCode.Trim().ToUpper();
+                var promo = await _unitOfWork.Repository<Promotion>().FirstOrDefaultAsync(
+                    p => p.Type != null && p.Type.Code == "PROMO_CODE" && p.Code != null && p.Code.ToUpper() == inputCode && p.Status != null && p.Status.Code == "ACTIVE"
+                );
+
+                if (promo == null) throw new BadRequestException("Mã khuyến mãi không hợp lệ.");
+                if (now < promo.StartDate || now > promo.EndDate) throw new BadRequestException("Mã khuyến mãi không trong thời gian sử dụng.");
+
+                if (promo.MaxUses.HasValue)
+                {
+                    if (promo.CurrentUses >= promo.MaxUses.Value)
+                        throw new BadRequestException("Mã khuyến mãi đã hết lượt sử dụng.");
+                }
+
+                discountAmount = (basePrice * promo.DiscountPercentage / 100);
+                finalPrice = basePrice - discountAmount;
+                appliedPromoCode = promo.Code;
+            }
+
+            return new PreviewSubscribeResponseDto
+            {
+                OriginalPrice = basePrice,
+                DiscountAmount = discountAmount,
+                FinalPrice = finalPrice,
+                AppliedPromotionCode = appliedPromoCode,
+                PlanName = plan.Name
+            };
+        }
+
         public async Task<MySubscriptionDto> GetMySubscriptionAsync()
         {
             var orgId = _currentUserService.OrganizationId;
@@ -462,7 +520,11 @@ namespace EduOps.Application.Services
             else if (org.CurrentPlanId.HasValue)
             {
                 var plan = await _unitOfWork.Repository<SubscriptionPlan>().GetByIdAsync(org.CurrentPlanId.Value);
-                if (plan != null) maxUsers = plan.MaxUsers;
+                if (plan != null)
+                {
+                    maxUsers = plan.MaxUsers;
+                    planName = plan.Name;
+                }
             }
 
             int currentUsers = await _unitOfWork.Repository<User>().CountAsync(u =>
@@ -472,6 +534,7 @@ namespace EduOps.Application.Services
 
             return new MySubscriptionDto
             {
+                PlanId = org.CurrentPlanId,
                 PlanName = planName,
                 SubscriptionStart = org.SubscriptionStart,
                 SubscriptionEnd = org.SubscriptionEnd,

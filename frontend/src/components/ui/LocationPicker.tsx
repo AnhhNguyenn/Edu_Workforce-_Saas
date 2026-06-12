@@ -65,13 +65,27 @@ export default function LocationPicker({ lat, lng, onChange, onAddressChange, cl
 
     setIsSearching(true);
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
-      const data = await response.json();
+      // Tìm kiếm lần 1 (nguyên văn)
+      let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
+      let data = await response.json();
+      
       if (data && data.length > 0) {
         const result = data[0];
         handleLocationChange(parseFloat(result.lat), parseFloat(result.lon));
       } else {
-        alert("Không tìm thấy địa chỉ này trên bản đồ. Vui lòng nhập chi tiết hơn.");
+        // Tìm kiếm lần 2 (thử cắt bỏ số nhà/ngõ ở đầu chuỗi)
+        const fallbackQuery = searchQuery.replace(/^[\d/A-Za-z-]+\s+/, '').trim();
+        if (fallbackQuery && fallbackQuery !== searchQuery.trim()) {
+          response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}`);
+          data = await response.json();
+          if (data && data.length > 0) {
+             const result = data[0];
+             handleLocationChange(parseFloat(result.lat), parseFloat(result.lon));
+             alert(`OpenStreetMap không có dữ liệu số nhà chính xác này. Bản đồ đã nhảy đến đường/khu vực "${fallbackQuery}".\n\nVui lòng tự dùng chuột KÉO THẢ ghim đến đúng vị trí nhé!`);
+             return;
+          }
+        }
+        alert("Không tìm thấy địa chỉ này trên bản đồ. Vui lòng nhập chi tiết hơn (nhập phường/quận) hoặc thử tìm tên đường lớn.");
       }
     } catch (error) {
       console.error("Geocoding error:", error);
@@ -81,15 +95,15 @@ export default function LocationPicker({ lat, lng, onChange, onAddressChange, cl
   };
 
   return (
-    <div className={`w-full rounded-lg border border-edu-border overflow-hidden relative ${className}`}>
-      <div className="absolute top-2 left-2 right-2 z-[400]">
-        <form onSubmit={handleSearch} className="flex gap-2 bg-white/90 backdrop-blur-md p-1.5 rounded-lg shadow-sm border border-edu-border">
-           <div className="flex-1 flex items-center pl-2">
+    <div className={`w-full rounded-xl border border-edu-border shadow-sm overflow-hidden relative shrink-0 min-h-[300px] ${className}`}>
+      <div className="absolute top-2 left-[52px] right-2 sm:right-auto sm:w-[350px] z-[400]">
+        <form onSubmit={handleSearch} className="flex gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-xl shadow-md border border-gray-100">
+           <div className="flex-1 flex items-center pl-2 min-w-0">
              <Search size={16} className="text-edu-muted" />
              <input 
                type="text" 
-               placeholder="Tìm kiếm địa chỉ trên bản đồ..." 
-               className="flex-1 px-2 py-1 text-sm outline-none bg-transparent"
+               placeholder="Tìm địa chỉ..." 
+               className="flex-1 px-2 py-1.5 text-sm outline-none bg-transparent"
                value={searchQuery}
                onChange={(e) => setSearchQuery(e.target.value)}
              />
@@ -97,7 +111,7 @@ export default function LocationPicker({ lat, lng, onChange, onAddressChange, cl
            <button 
              type="submit" 
              disabled={isSearching || !searchQuery.trim()}
-             className="bg-edu-accent text-white px-4 py-1.5 rounded-md text-sm hover:bg-edu-accent/90 disabled:opacity-50 flex items-center justify-center transition-colors"
+             className="bg-edu-accent text-white px-4 py-1.5 rounded-md text-sm hover:bg-edu-accent/90 disabled:opacity-50 flex items-center justify-center transition-colors shrink-0"
            >
              {isSearching ? <Loader2 size={16} className="animate-spin" /> : 'Tìm'}
            </button>
@@ -119,7 +133,7 @@ export default function LocationPicker({ lat, lng, onChange, onAddressChange, cl
                  alert("Trình duyệt của bạn không hỗ trợ định vị GPS.");
                }
              }}
-             className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-md hover:bg-gray-200 border border-gray-200 transition-colors flex items-center justify-center"
+             className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-md hover:bg-gray-200 border border-gray-200 transition-colors flex items-center justify-center shrink-0"
            >
              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10H22"/><path d="M12 12v10"/><path d="M12 12 2.1 7.1"/><path d="M12 12l9.9-4.9"/></svg>
            </button>

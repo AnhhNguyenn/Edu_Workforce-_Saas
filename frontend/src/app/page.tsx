@@ -12,10 +12,11 @@ export default async function Home() {
   const role = (session.user as any)?.role;
 
   if (role === "SUPER_ADMIN") {
-    redirect("/super-admin/dashboard");
+    // Nếu là Vua hệ thống, đuổi sang cổng 3001
+    redirect("/login?error=access-denied");
   } else if (role === "CENTER_ADMIN") {
-    redirect("/center-admin/dashboard");
+    redirect("/ops/dashboard");
   } else {
-    redirect("/teacher/checkin");
+    redirect("/me/checkin");
   }
 }

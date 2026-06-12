@@ -29,7 +29,7 @@ export function CenterSidebar() {
   return (
     <aside className={cn(
       "w-[260px] bg-white border-r border-edu-border flex flex-col fixed top-0 left-0 bottom-0 z-[100] transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none",
-      sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      sidebarOpen ? "translate-x-0" : "-translate-x-full"
     )}>
       <div className="p-5 flex items-center gap-3 border-b border-edu-border">
         <div className="w-9 h-9 bg-gradient-to-br from-[#81C784] to-[#4CAF50] rounded-lg flex items-center justify-center text-white shadow-sm">
@@ -59,7 +59,7 @@ export function CenterSidebar() {
           return (
             <Link 
               key={idx} 
-              href={`/center-admin${item.path === '/dashboard' ? '' : item.path}`}
+              href={`/ops${item.path === '/dashboard' ? '' : item.path}`}
               className={cn(
                 "flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-edu-fgSecondary text-sm font-medium mb-0.5 transition-colors group",
                 "hover:bg-[#E8F5E9] hover:text-[#2E7D32]",

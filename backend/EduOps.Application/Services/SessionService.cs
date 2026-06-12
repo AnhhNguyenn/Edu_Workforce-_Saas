@@ -18,11 +18,15 @@ namespace EduOps.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICustomLogger _logger;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly INotificationService _notificationService;
 
-        public SessionService(IUnitOfWork unitOfWork, ICustomLogger logger)
+        public SessionService(IUnitOfWork unitOfWork, ICustomLogger logger, ICurrentUserService currentUserService, INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _currentUserService = currentUserService;
+            _notificationService = notificationService;
         }
 
         public async Task<PagedResult<SessionListResponseDto>> GetSessionsAsync(Guid organizationId, GetSessionListQueryDto query)
@@ -120,6 +124,23 @@ namespace EduOps.Application.Services
 
                 await repo.AddAsync(session);
                 await _unitOfWork.CommitAsync();
+
+                await _notificationService.CreateAndSendAsync(
+                    request.TeacherId,
+                    "Lịch dạy đột xuất",
+                    $"Bạn được phân công dạy một buổi mới: {request.LessonTitle} vào ngày {request.SessionDate:dd/MM/yyyy}.",
+                    "SYSTEM"
+                );
+
+                if (request.AssistantId.HasValue)
+                {
+                    await _notificationService.CreateAndSendAsync(
+                        request.AssistantId.Value,
+                        "Lịch trợ giảng đột xuất",
+                        $"Bạn được phân công làm trợ giảng một buổi mới: {request.LessonTitle} vào ngày {request.SessionDate:dd/MM/yyyy}.",
+                        "SYSTEM"
+                    );
+                }
 
                 return session.ToDetailResponseDto();
             }

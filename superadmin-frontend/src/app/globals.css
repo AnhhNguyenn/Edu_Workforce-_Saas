@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 50% 98%; /* #F0F5FA */
+    --foreground: 214 43% 18%; /* #1A2B42 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 214 43% 18%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 214 43% 18%;
+
+    --primary: 211 100% 65%; /* #4DA3FF */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 214 24% 88%; /* #DDE6F0 */
+    --secondary-foreground: 214 43% 18%;
+
+    --muted: 216 28% 63%; /* #8A9BB5 */
+    --muted-foreground: 214 43% 18%;
+
+    --accent: 211 100% 65%; /* #4DA3FF */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%; /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 40% 90%; /* #DDE6F0 */
+    --input: 214 40% 90%;
+    --ring: 211 100% 65%;
+
+    --radius: 1rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Fix cho DatePicker mặc định: Cho phép bấm ở bất kỳ đâu trong ô để mở lịch, thay vì chỉ bấm vào icon */
+  input[type="date"] {
+    position: relative;
+    cursor: pointer;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: auto;
+    color: transparent;
+    background: transparent;
+    cursor: pointer;
+    z-index: 10;
+  }
+
+  /* React DatePicker Custom Styles */
+  .react-datepicker-wrapper {
+    width: 100%;
+  }
+  .react-datepicker {
+    font-family: inherit !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+  }
+  .react-datepicker__header {
+    background-color: white !important;
+    border-bottom: 1px solid var(--border) !important;
+    border-top-left-radius: var(--radius) !important;
+    border-top-right-radius: var(--radius) !important;
+  }
+  .react-datepicker__day--selected, .react-datepicker__day--keyboard-selected {
+    background-color: hsl(var(--primary)) !important;
+    color: white !important;
+  }
+}
+
+/* CUSTOM SCROLLBAR */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(138, 155, 181, 0.3); /* muted with opacity */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(138, 155, 181, 0.6);
+}
+
+/* Hide scrollbar for elements with specific class if needed */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

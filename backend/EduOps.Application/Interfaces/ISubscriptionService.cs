@@ -23,6 +23,7 @@ namespace EduOps.Application.Interfaces
         Task<List<PromotionUsageResponseDto>> GetPromotionUsageHistoryAsync(Guid promotionId);
 
         Task<SubscribeResponseDto> SubscribeAsync(SubscribeRequestDto request);
+        Task<PreviewSubscribeResponseDto> PreviewSubscribeAsync(SubscribeRequestDto request);
         Task<MySubscriptionDto> GetMySubscriptionAsync();
         Task<IEnumerable<BillingTransactionDto>> GetMyTransactionsAsync();
         Task<IEnumerable<BillingTransactionDto>> GetAllTransactionsAsync();

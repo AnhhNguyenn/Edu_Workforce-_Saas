@@ -16,6 +16,7 @@ using Serilog;
 using System;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using System.Security.Claims;
 
 // Load Configuration thủ công trước khi Builder chạy để cấp cho Serilog
 var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
@@ -177,6 +178,45 @@ try
                     context.Token = accessToken;
                 }
                 return System.Threading.Tasks.Task.CompletedTask;
+            },
+            OnTokenValidated = async context =>
+            {
+                var cacheService = context.HttpContext.RequestServices.GetRequiredService<EduOps.Application.Interfaces.ICacheService>();
+                var jti = context.Principal?.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti);
+                var userId = context.Principal?.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+                var tenantId = context.Principal?.FindFirstValue("OrganizationId");
+
+                // Bỏ qua check Redis cho TempToken (2FA) vì nó không có jti và không thuộc loại session thông thường
+                var isTempToken = context.Principal?.FindFirstValue("TempToken");
+                if (isTempToken == "true")
+                {
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(jti) || string.IsNullOrEmpty(userId))
+                {
+                    context.Fail("Invalid token payload.");
+                    return;
+                }
+
+                var orgIdStr = string.IsNullOrEmpty(tenantId) ? "sys" : tenantId;
+                var sessionKey = $"tenant:{orgIdStr}:user:{userId}:session";
+                var sessionJson = await cacheService.GetAsync<string>(sessionKey);
+                
+                if (string.IsNullOrEmpty(sessionJson))
+                {
+                    context.Fail("Session expired or logged out.");
+                    return;
+                }
+
+                using var doc = System.Text.Json.JsonDocument.Parse(sessionJson);
+                if (doc.RootElement.TryGetProperty("currentAccessTokenId", out var jtiProp))
+                {
+                    if (jtiProp.GetString() != jti)
+                    {
+                        context.Fail("Token invalidated by a new login from another device.");
+                    }
+                }
             }
         };
     });
@@ -253,8 +293,16 @@ try
             new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
         );
 
+        // Đăng ký Job hủy giao dịch treo quá 30 phút (Chạy mỗi 10 phút)
+        recurringJobManager.AddOrUpdate<EduOps.Application.BackgroundJobs.SubscriptionJobs>(
+            "Cancel_Expired_Transactions_Job",
+            job => job.CancelExpiredTransactionsAsync(),
+            "*/10 * * * *",
+            new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
+        );
+
         // Tự động Seed Dữ liệu Test (Đã tắt cho môi trường Product)
-        // EduOps.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
+        EduOps.Infrastructure.Data.DataSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
     }
 
     app.Run();

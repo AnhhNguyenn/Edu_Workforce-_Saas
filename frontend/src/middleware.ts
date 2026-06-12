@@ -16,15 +16,13 @@ export default withAuth(
     };
 
     // Route Guard Logic theo Role (Backend trả về chữ Hoa: SUPER_ADMIN, CENTER_ADMIN, TEACHER)
-    if (path.startsWith("/super-admin") && role !== "SUPER_ADMIN") {
-      return redirectWithAccessDenied();
-    }
+    // Lưu ý: Đã tách Super Admin ra một Next.js App riêng, nên ở đây chỉ quản lý Center Admin và Teacher
     
-    if (path.startsWith("/center-admin") && role !== "CENTER_ADMIN" && role !== "SUPER_ADMIN") {
+    if (path.startsWith("/ops") && role !== "CENTER_ADMIN" && role !== "SUPER_ADMIN") {
       return redirectWithAccessDenied();
     }
 
-    if (path.startsWith("/teacher") && role !== "TEACHER" && role !== "ASSISTANT") {
+    if (path.startsWith("/me") && role !== "TEACHER" && role !== "ASSISTANT") {
       // Logic tuỳ biến: Center admin/Super admin có thể không được vào giao diện app giáo viên
       return redirectWithAccessDenied();
     }

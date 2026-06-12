@@ -15,5 +15,6 @@ namespace EduOps.Application.DTOs.User
         public string? Gender { get; set; }
         public DateTime? BirthDate { get; set; }
         public string? Address { get; set; }
+        public Guid? OrganizationId { get; set; }
     }
 }

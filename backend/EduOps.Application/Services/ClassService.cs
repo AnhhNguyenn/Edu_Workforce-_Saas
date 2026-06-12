@@ -17,10 +17,14 @@ namespace EduOps.Application.Services
     public class ClassService : IClassService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly INotificationService _notificationService;
 
-        public ClassService(IUnitOfWork unitOfWork)
+        public ClassService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
+            _currentUserService = currentUserService;
+            _notificationService = notificationService;
         }
 
         public async Task<PagedResult<ClassListResponseDto>> GetClassesAsync(Guid organizationId, GetClassListQueryDto query, Guid? teacherId)
@@ -145,6 +149,16 @@ namespace EduOps.Application.Services
             await _unitOfWork.Repository<Class>().AddAsync(newClass);
             await _unitOfWork.CommitAsync();
 
+            if (_currentUserService.UserId != Guid.Empty)
+            {
+                await _notificationService.CreateAndSendAsync(
+                    _currentUserService.UserId,
+                    "Hệ thống",
+                    $"Bạn đã tạo thành công lớp học mới: {newClass.Name}",
+                    "SYSTEM"
+                );
+            }
+
             return newClass.ToDetailResponseDto();
         }
 
@@ -191,6 +205,16 @@ namespace EduOps.Application.Services
 
             _unitOfWork.Repository<Class>().Update(classEntity);
             await _unitOfWork.CommitAsync();
+
+            if (_currentUserService.UserId != Guid.Empty)
+            {
+                await _notificationService.CreateAndSendAsync(
+                    _currentUserService.UserId,
+                    "Hệ thống",
+                    $"Bạn đã cập nhật thành công lớp học: {classEntity.Name}",
+                    "SYSTEM"
+                );
+            }
         }
 
         public async Task DeleteAsync(Guid id, Guid organizationId)
