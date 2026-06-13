@@ -382,7 +382,7 @@ export default function ClassesPage() {
             <div>
               <h4 className="font-bold text-edu-fg mb-3 flex justify-between items-center">
                 Danh sách học viên
-                <Badge variant="secondary">{classStudents?.length || 0} / {classDetails.maxStudents || 0}</Badge>
+                <Badge variant="muted">{classStudents?.length || 0} / {classDetails.maxStudents || 0}</Badge>
               </h4>
               {isStudentsLoading ? (
                 <div className="py-4 text-center text-sm text-gray-500"><Loader2 className="animate-spin inline mr-2" /> Đang tải...</div>

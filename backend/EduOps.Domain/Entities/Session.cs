@@ -7,7 +7,7 @@ namespace EduOps.Domain.Entities
     {
         public Guid ClassId { get; set; }
         public Guid SchoolId { get; set; }
-        public Guid TeacherId { get; set; }
+        public Guid? TeacherId { get; set; }
         public Guid? AssistantId { get; set; }
 
         // Bổ sung: Liên kết tới lịch định kỳ gốc nếu có

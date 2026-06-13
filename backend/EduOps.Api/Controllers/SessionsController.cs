@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using EduOps.Application.DTOs.Academic;
 using EduOps.Application.DTOs.Academic.Sessions.Requests;
 using EduOps.Application.DTOs.Academic.Sessions.Responses;
 using EduOps.Application.Services;
@@ -60,6 +61,20 @@ namespace EduOps.Api.Controllers
         {
             var result = await _sessionService.CreateSessionAsync(GetOrganizationId(), request);
             return Ok(result);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(Guid id, [FromBody] EduOps.Application.DTOs.Academic.SessionRequestDto request)
+        {
+            var result = await _sessionService.UpdateSessionAsync(id, GetOrganizationId(), request);
+            return Ok(result);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            await _sessionService.DeleteSessionAsync(id, GetOrganizationId());
+            return NoContent();
         }
     }
 }

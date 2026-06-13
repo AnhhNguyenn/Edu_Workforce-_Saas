@@ -15,7 +15,8 @@ namespace EduOps.Domain.Entities
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
 
-        public Guid TeacherId { get; set; }
+        public Guid SchoolId { get; set; }
+        public Guid? TeacherId { get; set; }
         public Guid? AssistantId { get; set; }
 
         public Guid? StatusId { get; set; }

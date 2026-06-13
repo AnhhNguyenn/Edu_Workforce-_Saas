@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs;
+using EduOps.Application.DTOs.Academic;
 using EduOps.Application.DTOs.Academic.Sessions.Requests;
 using EduOps.Application.DTOs.Academic.Sessions.Responses;
 using EduOps.Application.Exceptions;
@@ -38,7 +39,7 @@ namespace EduOps.Application.Services
                 (!query.ClassId.HasValue || s.ClassId == query.ClassId.Value) &&
                 (!query.TeacherId.HasValue || s.TeacherId == query.TeacherId.Value) &&
                 (!query.AssistantId.HasValue || s.AssistantId == query.AssistantId.Value) &&
-                (!query.Date.HasValue || s.SessionDate.Date == query.Date.Value.Date) &&
+                (!query.Date.HasValue || s.SessionDate == query.Date.Value.Date.ToUniversalTime()) &&
                 (string.IsNullOrEmpty(query.SearchKeyword) || s.LessonTitle.ToLower().Contains(query.SearchKeyword.ToLower())),
                 query.PageNumber, query.PageSize, includeProperties: "Status");
 
@@ -62,16 +63,18 @@ namespace EduOps.Application.Services
             return session.ToDetailResponseDto();
         }
 
-        public async Task CheckConflictAsync(Guid organizationId, Guid teacherId, Guid? assistantId, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime)
+        public async Task CheckConflictAsync(Guid organizationId, Guid? teacherId, Guid? assistantId, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime, Guid? excludeSessionId = null)
         {
             var repo = _unitOfWork.Repository<Session>();
+            var targetDate = sessionDate.Date.ToUniversalTime();
 
             // Tối ưu Performance: Tìm các session trùng lặp của Giáo viên hoặc Trợ giảng trong cùng ngày
             var exists = await repo.AnyAsync(s =>
                 s.OrganizationId == organizationId &&
-                s.SessionDate.Date == sessionDate.Date &&
+                (!excludeSessionId.HasValue || s.Id != excludeSessionId.Value) &&
+                s.SessionDate == targetDate &&
                 s.Status != null && s.Status.Code != "CANCELLED" &&
-                (s.TeacherId == teacherId || (assistantId.HasValue && s.AssistantId == assistantId.Value)) &&
+                ((teacherId.HasValue && s.TeacherId == teacherId.Value) || (assistantId.HasValue && s.AssistantId == assistantId.Value)) &&
                 ((startTime >= s.StartTime && startTime < s.EndTime) ||
                  (endTime > s.StartTime && endTime <= s.EndTime) ||
                  (startTime <= s.StartTime && endTime >= s.EndTime))
@@ -89,14 +92,22 @@ namespace EduOps.Application.Services
             try
             {
                 // Validate Foreign Keys để chống lỗi 500
-                if (!await _unitOfWork.Repository<School>().AnyAsync(s => s.Id == request.SchoolId && s.OrganizationId == organizationId))
-                    throw new BadRequestException("Cơ sở không tồn tại hoặc đã bị xóa.");
-                if (!await _unitOfWork.Repository<Class>().AnyAsync(c => c.Id == request.ClassId && c.OrganizationId == organizationId))
+                var classEntity = await _unitOfWork.Repository<Class>().FirstOrDefaultAsync(c => c.Id == request.ClassId && c.OrganizationId == organizationId);
+                if (classEntity == null)
                     throw new BadRequestException("Lớp học không tồn tại hoặc đã bị xóa.");
+                    
+                var schoolId = request.SchoolId != Guid.Empty ? request.SchoolId : classEntity.SchoolId;
+
+                if (!await _unitOfWork.Repository<School>().AnyAsync(s => s.Id == schoolId && s.OrganizationId == organizationId))
+                    throw new BadRequestException("Cơ sở không tồn tại hoặc đã bị xóa.");
+
                 var userRepo = _unitOfWork.Repository<User>();
-                var teacher = await userRepo.FirstOrDefaultAsync(u => u.Id == request.TeacherId, includeProperties: "Role");
-                if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role?.Code != "TEACHER")
-                    throw new BadRequestException("Giáo viên không hợp lệ hoặc không tồn tại.");
+                if (request.TeacherId.HasValue)
+                {
+                    var teacher = await userRepo.FirstOrDefaultAsync(u => u.Id == request.TeacherId.Value, includeProperties: "Role");
+                    if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role?.Code != "TEACHER")
+                        throw new BadRequestException("Giáo viên không hợp lệ hoặc không tồn tại.");
+                }
 
                 if (request.AssistantId.HasValue)
                 {
@@ -112,11 +123,11 @@ namespace EduOps.Application.Services
                 {
                     OrganizationId = organizationId,
                     ClassId = request.ClassId,
-                    SchoolId = request.SchoolId,
+                    SchoolId = schoolId,
                     TeacherId = request.TeacherId,
                     AssistantId = request.AssistantId,
                     LessonTitle = request.LessonTitle,
-                    SessionDate = request.SessionDate.Date,
+                    SessionDate = request.SessionDate.Date.ToUniversalTime(),
                     StartTime = request.StartTime,
                     EndTime = request.EndTime,
                     StatusId = (await _unitOfWork.Repository<EduOps.Domain.Entities.SessionStatus>().FirstOrDefaultAsync(s => s.Code == "SCHEDULED"))?.Id
@@ -125,12 +136,15 @@ namespace EduOps.Application.Services
                 await repo.AddAsync(session);
                 await _unitOfWork.CommitAsync();
 
-                await _notificationService.CreateAndSendAsync(
-                    request.TeacherId,
-                    "Lịch dạy đột xuất",
-                    $"Bạn được phân công dạy một buổi mới: {request.LessonTitle} vào ngày {request.SessionDate:dd/MM/yyyy}.",
-                    "SYSTEM"
-                );
+                if (request.TeacherId.HasValue)
+                {
+                    await _notificationService.CreateAndSendAsync(
+                        request.TeacherId.Value,
+                        "Lịch dạy đột xuất",
+                        $"Bạn được phân công dạy một buổi mới: {request.LessonTitle} vào ngày {request.SessionDate:dd/MM/yyyy}.",
+                        "SYSTEM"
+                    );
+                }
 
                 if (request.AssistantId.HasValue)
                 {
@@ -149,6 +163,44 @@ namespace EduOps.Application.Services
                 _logger.LogError(ex, "Failed to create session with Conflict Detection.");
                 throw;
             }
+        }
+        public async Task<SessionDetailResponseDto> UpdateSessionAsync(Guid id, Guid organizationId, EduOps.Application.DTOs.Academic.SessionRequestDto request)
+        {
+            var repo = _unitOfWork.Repository<Session>();
+            var session = await repo.FirstOrDefaultAsync(s => s.Id == id && s.OrganizationId == organizationId);
+            if (session == null) throw new NotFoundException("Session", id);
+
+            // Ignore conflict check if Teacher/Assistant didn't change and time didn't change
+            bool timeOrStaffChanged = session.TeacherId != request.TeacherId || session.AssistantId != request.AssistantId || 
+                                      session.SessionDate.Date != request.SessionDate.Date || 
+                                      session.StartTime != request.StartTime || session.EndTime != request.EndTime;
+
+            if (timeOrStaffChanged)
+            {
+                await CheckConflictAsync(organizationId, request.TeacherId, request.AssistantId, request.SessionDate, request.StartTime, request.EndTime, id);
+            }
+
+            session.ClassId = request.ClassId;
+            session.TeacherId = request.TeacherId;
+            session.AssistantId = request.AssistantId;
+            session.LessonTitle = request.LessonTitle;
+            session.SessionDate = request.SessionDate.Date.ToUniversalTime();
+            session.StartTime = request.StartTime;
+            session.EndTime = request.EndTime;
+
+            repo.Update(session);
+            await _unitOfWork.CommitAsync();
+            return session.ToDetailResponseDto();
+        }
+
+        public async Task DeleteSessionAsync(Guid id, Guid organizationId)
+        {
+            var repo = _unitOfWork.Repository<Session>();
+            var session = await repo.FirstOrDefaultAsync(s => s.Id == id && s.OrganizationId == organizationId);
+            if (session == null) throw new NotFoundException("Session", id);
+
+            repo.Remove(session);
+            await _unitOfWork.CommitAsync();
         }
     }
 }

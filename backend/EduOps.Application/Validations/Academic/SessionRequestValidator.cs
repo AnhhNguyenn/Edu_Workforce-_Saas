@@ -8,14 +8,9 @@ namespace EduOps.Application.Validations.Academic
     {
         public SessionRequestValidator()
         {
-            RuleFor(x => x.SchoolId)
-                .NotEmpty().WithMessage("Bắt buộc phải chọn Cơ sở (School)");
 
-            RuleFor(x => x.TeacherId)
-                .NotEmpty().WithMessage("Bắt buộc phải chọn Giáo viên phụ trách");
 
             RuleFor(x => x.LessonTitle)
-                .NotEmpty().WithMessage("Tiêu đề bài học không được để trống")
                 .MaximumLength(255).WithMessage("Tiêu đề không được vượt quá 255 ký tự");
 
             RuleFor(x => x.StartTime)

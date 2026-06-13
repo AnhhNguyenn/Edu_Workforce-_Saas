@@ -79,7 +79,7 @@ namespace EduOps.Application.Services
                 StudentCode = request.StudentCode,
                 StudentDetail = new EduOps.Domain.Entities.StudentDetail
                 {
-                    BirthDate = request.BirthDate,
+                    BirthDate = request.BirthDate?.ToUniversalTime(),
                     ParentName = request.ParentName ?? "",
                     ParentPhone = request.ParentPhone ?? "",
                     ParentEmail = request.ParentEmail ?? ""
@@ -117,7 +117,7 @@ namespace EduOps.Application.Services
             student.FullName = request.FullName;
             // StudentCode is immutable, omitted from update
             if (student.StudentDetail == null) student.StudentDetail = new EduOps.Domain.Entities.StudentDetail();
-            student.StudentDetail.BirthDate = request.BirthDate;
+            student.StudentDetail.BirthDate = request.BirthDate?.ToUniversalTime();
             student.StudentDetail.ParentName = request.ParentName ?? "";
             student.StudentDetail.ParentPhone = request.ParentPhone ?? "";
             student.StudentDetail.ParentEmail = request.ParentEmail ?? "";
@@ -237,7 +237,7 @@ namespace EduOps.Application.Services
                     DateTime? birthDate = null;
                     if (DateTime.TryParseExact(birthDateStr, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out var parsedDate))
                     {
-                        birthDate = parsedDate;
+                        birthDate = DateTime.SpecifyKind(parsedDate, DateTimeKind.Utc);
                     }
 
                     var student = new Student

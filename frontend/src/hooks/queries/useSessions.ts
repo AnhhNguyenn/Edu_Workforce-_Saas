@@ -14,6 +14,8 @@ export interface SessionListResponseDto {
   roomName?: string;
   teacherId?: string;
   teacherName?: string;
+  assistantId?: string;
+  assistantName?: string;
 }
 
 export interface PagedResult<T> {
@@ -38,7 +40,7 @@ export const useSessions = (date?: string) => {
 export const useCreateSession = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { classId: string; teacherId: string; lessonTitle: string; sessionDate: string; startTime: string; endTime: string; }) => {
+    mutationFn: async (data: { classId: string; teacherId?: string | null; assistantId?: string | null; lessonTitle?: string | null; sessionDate: string; startTime: string; endTime: string; }) => {
       const response = await apiClient.post('/sessions', data);
       return response.data;
     },

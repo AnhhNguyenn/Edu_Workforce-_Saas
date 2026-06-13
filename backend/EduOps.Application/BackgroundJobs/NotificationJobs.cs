@@ -34,12 +34,15 @@ namespace EduOps.Application.BackgroundJobs
             {
                 var timeStr = session.StartTime.ToString(@"hh\:mm");
                 // Gửi cho Giáo viên
-                await _notificationService.CreateAndSendAsync(
-                    session.TeacherId,
-                    "Nhắc nhở lịch dạy",
-                    $"Bạn có lịch dạy bài '{session.LessonTitle}' vào lúc {timeStr} sáng mai.",
-                    "REMINDER"
-                );
+                if (session.TeacherId.HasValue)
+                {
+                    await _notificationService.CreateAndSendAsync(
+                        session.TeacherId.Value,
+                        "Nhắc nhở lịch dạy",
+                        $"Bạn có lịch dạy bài '{session.LessonTitle}' vào lúc {timeStr} sáng mai.",
+                        "REMINDER"
+                    );
+                }
 
                 // Gửi cho Trợ giảng (nếu có)
                 if (session.AssistantId.HasValue)

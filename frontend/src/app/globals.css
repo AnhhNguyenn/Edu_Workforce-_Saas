@@ -45,12 +45,13 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Fix cho DatePicker mặc định: Cho phép bấm ở bất kỳ đâu trong ô để mở lịch, thay vì chỉ bấm vào icon */
-  input[type="date"] {
+  /* Fix cho DatePicker và TimePicker mặc định: Cho phép bấm ở bất kỳ đâu trong ô để mở, thay vì chỉ bấm vào icon */
+  input[type="date"], input[type="time"] {
     position: relative;
     cursor: pointer;
   }
-  input[type="date"]::-webkit-calendar-picker-indicator {
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
     position: absolute;
     top: 0;
     left: 0;

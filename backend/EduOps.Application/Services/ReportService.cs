@@ -43,7 +43,7 @@ namespace EduOps.Application.Services
                 report = new Report
                 {
                     SessionId = sessionId,
-                    TeacherId = session.TeacherId,
+                    TeacherId = session.TeacherId.GetValueOrDefault(),
                     AssistantId = session.AssistantId,
                     OrganizationId = session.OrganizationId,
                     AttendanceCount = presentCount,

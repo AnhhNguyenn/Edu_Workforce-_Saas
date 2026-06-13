@@ -13,6 +13,8 @@ namespace EduOps.Application.Mappings
             {
                 Id = s.Id,
                 ClassId = s.ClassId,
+                TeacherId = s.TeacherId,
+                AssistantId = s.AssistantId,
                 LessonTitle = s.LessonTitle,
                 SessionDate = s.SessionDate,
                 StartTime = s.StartTime,

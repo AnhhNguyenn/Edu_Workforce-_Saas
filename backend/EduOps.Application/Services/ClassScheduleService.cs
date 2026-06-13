@@ -177,7 +177,7 @@ namespace EduOps.Application.Services
             }
             await _unitOfWork.CommitAsync();
 
-            var uniqueTeachers = schedules.Select(s => s.TeacherId).Distinct();
+            var uniqueTeachers = schedules.Where(s => s.TeacherId.HasValue).Select(s => s.TeacherId.GetValueOrDefault()).Distinct();
             foreach (var tId in uniqueTeachers)
             {
                 await _notificationService.CreateAndSendAsync(

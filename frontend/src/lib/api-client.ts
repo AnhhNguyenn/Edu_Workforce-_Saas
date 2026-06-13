@@ -29,7 +29,8 @@ apiClient.interceptors.request.use(
         const session = await sessionPromise;
         sessionPromise = null;
         if ((session as any)?.error === "RefreshAccessTokenError") {
-          window.location.href = '/login?error=SessionExpired';
+          const { signOut } = await import("next-auth/react");
+          signOut({ callbackUrl: '/login' });
         } else if (session?.user && (session as any).accessToken) {
           cachedToken = (session as any).accessToken;
           config.headers.Authorization = `Bearer ${cachedToken}`;
@@ -60,7 +61,7 @@ apiClient.interceptors.response.use(
         // Bắt lỗi Token Invalidated từ Redis
         if (error.response.headers?.['www-authenticate']?.includes('Token invalidated') || error.response.status === 401) {
             const { signOut } = await import("next-auth/react");
-            await signOut({ callbackUrl: '/login?error=session_expired' });
+            await signOut({ callbackUrl: '/login' });
             return Promise.reject(error);
         }
 
@@ -72,7 +73,7 @@ apiClient.interceptors.response.use(
         
         if ((session as any)?.error === "RefreshAccessTokenError") {
           const { signOut } = await import("next-auth/react");
-          await signOut({ callbackUrl: '/login?error=SessionExpired' });
+          await signOut({ callbackUrl: '/login' });
         } else if (session && (session as any).accessToken) {
           cachedToken = (session as any).accessToken;
           const originalRequest = error.config;
@@ -80,7 +81,7 @@ apiClient.interceptors.response.use(
           return axios(originalRequest);
         } else {
           const { signOut } = await import("next-auth/react");
-          await signOut({ callbackUrl: '/login?error=SessionExpired' });
+          await signOut({ callbackUrl: '/login' });
         }
       }
     }
