@@ -190,6 +190,15 @@ namespace EduOps.Application.Services
 
             var grade = string.IsNullOrEmpty(request.Grade) ? null : await _unitOfWork.Repository<EduOps.Domain.Entities.Grade>().FirstOrDefaultAsync(g => g.Code == request.Grade);
             var subject = string.IsNullOrEmpty(request.Subject) ? null : await _unitOfWork.Repository<EduOps.Domain.Entities.Subject>().FirstOrDefaultAsync(s => s.Code == request.Subject);
+            
+            if (!string.IsNullOrEmpty(request.StatusCode))
+            {
+                var status = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == request.StatusCode);
+                if (status != null)
+                {
+                    classEntity.StatusId = status.Id;
+                }
+            }
 
             classEntity.Name = request.Name;
             classEntity.GradeId = grade?.Id;

@@ -11,9 +11,10 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
+  zIndex?: string; // e.g. "z-[300]"
 }
 
-export function Modal({ isOpen, onClose, title, children, footer, className }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer, className, zIndex = "z-[200]" }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export function Modal({ isOpen, onClose, title, children, footer, className }: M
     <Portal>
       <div
         className={cn(
-          "fixed inset-0 z-[200] flex items-center justify-center",
+          `fixed inset-0 flex items-center justify-center ${zIndex}`,
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none delay-200"
         )}
       >

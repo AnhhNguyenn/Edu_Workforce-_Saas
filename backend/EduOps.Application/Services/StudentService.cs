@@ -37,7 +37,7 @@ namespace EduOps.Application.Services
                 s.OrganizationId == organizationId &&
                 (string.IsNullOrEmpty(query.SearchKeyword) || s.FullName.ToLower().Contains(query.SearchKeyword.ToLower()) || s.StudentCode.ToLower().Contains(query.SearchKeyword.ToLower()) || (s.StudentDetail != null && s.StudentDetail.ParentPhone != null && s.StudentDetail.ParentPhone.ToLower().Contains(query.SearchKeyword.ToLower())));
 
-            var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Status,StudentDetail");
+            var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Status,StudentDetail,Enrollments,Enrollments.Status,Enrollments.Class");
 
             return new PagedResult<StudentListResponseDto>
             {
@@ -50,7 +50,7 @@ namespace EduOps.Application.Services
 
         public async Task<StudentDetailResponseDto> GetByIdAsync(Guid id, Guid organizationId)
         {
-            var student = await _unitOfWork.Repository<Student>().FirstOrDefaultAsync(s => s.Id == id, includeProperties: "Status,StudentDetail");
+            var student = await _unitOfWork.Repository<Student>().FirstOrDefaultAsync(s => s.Id == id, includeProperties: "Status,StudentDetail,Enrollments,Enrollments.Status,Enrollments.Class");
             if (student == null || student.OrganizationId != organizationId)
                 throw new NotFoundException("Student", id);
 
@@ -88,6 +88,26 @@ namespace EduOps.Application.Services
             };
 
             await repo.AddAsync(student);
+            
+            if (request.ClassId.HasValue)
+            {
+                var classRepo = _unitOfWork.Repository<Class>();
+                var classEntity = await classRepo.FirstOrDefaultAsync(c => c.Id == request.ClassId.Value && c.OrganizationId == organizationId);
+                if (classEntity != null)
+                {
+                    var enrolledStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.EnrollmentStatus>().FirstOrDefaultAsync(s => s.Code == "ENROLLED");
+                    var enrollment = new ClassEnrollment
+                    {
+                        OrganizationId = organizationId,
+                        ClassId = classEntity.Id,
+                        StudentId = student.Id,
+                        EnrollmentDate = DateTime.UtcNow,
+                        StatusId = enrolledStatus?.Id
+                    };
+                    await _unitOfWork.Repository<ClassEnrollment>().AddAsync(enrollment);
+                }
+            }
+            
             await _unitOfWork.CommitAsync();
 
             if (_currentUserService.UserId != Guid.Empty)
@@ -125,6 +145,67 @@ namespace EduOps.Application.Services
             // student.Status = request.Status;
 
             repo.Update(student);
+            
+            // Handle Class Enrollment Update
+            var enrollmentRepo = _unitOfWork.Repository<ClassEnrollment>();
+            var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.EnrollmentStatus>().FirstOrDefaultAsync(s => s.Code == "ENROLLED");
+            var inactiveStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.EnrollmentStatus>().FirstOrDefaultAsync(s => s.Code == "DROPPED_OUT");
+            
+            var currentEnrollments = await enrollmentRepo.FindAsync(e => e.StudentId == student.Id && e.OrganizationId == organizationId && e.StatusId == activeStatus.Id);
+            var currentEnrollment = currentEnrollments.FirstOrDefault();
+
+            if (request.ClassId.HasValue)
+            {
+                if (currentEnrollment == null)
+                {
+                    // Create new enrollment
+                    var classRepo = _unitOfWork.Repository<Class>();
+                    var classEntity = await classRepo.FirstOrDefaultAsync(c => c.Id == request.ClassId.Value && c.OrganizationId == organizationId);
+                    if (classEntity != null)
+                    {
+                        var newEnrollment = new ClassEnrollment
+                        {
+                            OrganizationId = organizationId,
+                            ClassId = classEntity.Id,
+                            StudentId = student.Id,
+                            EnrollmentDate = DateTime.UtcNow,
+                            StatusId = activeStatus?.Id
+                        };
+                        await enrollmentRepo.AddAsync(newEnrollment);
+                    }
+                }
+                else if (currentEnrollment.ClassId != request.ClassId.Value)
+                {
+                    // Update existing enrollment to new class
+                    var classRepo = _unitOfWork.Repository<Class>();
+                    var classEntity = await classRepo.FirstOrDefaultAsync(c => c.Id == request.ClassId.Value && c.OrganizationId == organizationId);
+                    if (classEntity != null)
+                    {
+                        currentEnrollment.StatusId = inactiveStatus?.Id; // Deactivate old
+                        enrollmentRepo.Update(currentEnrollment);
+                        
+                        var newEnrollment = new ClassEnrollment
+                        {
+                            OrganizationId = organizationId,
+                            ClassId = classEntity.Id,
+                            StudentId = student.Id,
+                            EnrollmentDate = DateTime.UtcNow,
+                            StatusId = activeStatus?.Id
+                        };
+                        await enrollmentRepo.AddAsync(newEnrollment);
+                    }
+                }
+            }
+            else
+            {
+                // Remove/Deactivate active enrollment if ClassId is null (meaning removed from class)
+                if (currentEnrollment != null)
+                {
+                    currentEnrollment.StatusId = inactiveStatus?.Id;
+                    enrollmentRepo.Update(currentEnrollment);
+                }
+            }
+
             await _unitOfWork.CommitAsync();
 
             if (_currentUserService.UserId != Guid.Empty)
@@ -282,6 +363,72 @@ namespace EduOps.Application.Services
             }
 
             return result;
+        }
+
+        public async Task BulkAssignClassAsync(Guid organizationId, BulkAssignClassRequestDto request)
+        {
+            if (request.StudentIds == null || !request.StudentIds.Any())
+                throw new BadRequestException("Vui lòng chọn ít nhất một học viên.");
+
+            var classRepo = _unitOfWork.Repository<Class>();
+            var classEntity = await classRepo.FirstOrDefaultAsync(c => c.Id == request.ClassId && c.OrganizationId == organizationId);
+            if (classEntity == null)
+                throw new NotFoundException("Class", request.ClassId);
+
+            var enrollmentRepo = _unitOfWork.Repository<ClassEnrollment>();
+            var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.EnrollmentStatus>().FirstOrDefaultAsync(s => s.Code == "ENROLLED");
+            var inactiveStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.EnrollmentStatus>().FirstOrDefaultAsync(s => s.Code == "DROPPED_OUT");
+
+            foreach (var studentId in request.StudentIds)
+            {
+                var student = await _unitOfWork.Repository<Student>().FirstOrDefaultAsync(s => s.Id == studentId && s.OrganizationId == organizationId);
+                if (student == null) continue;
+
+                var currentEnrollments = await enrollmentRepo.FindAsync(e => e.StudentId == student.Id && e.OrganizationId == organizationId && e.StatusId == activeStatus.Id);
+                var currentEnrollment = currentEnrollments.FirstOrDefault();
+
+                if (currentEnrollment == null)
+                {
+                    // Create new enrollment
+                    var newEnrollment = new ClassEnrollment
+                    {
+                        OrganizationId = organizationId,
+                        ClassId = classEntity.Id,
+                        StudentId = student.Id,
+                        EnrollmentDate = DateTime.UtcNow,
+                        StatusId = activeStatus?.Id
+                    };
+                    await enrollmentRepo.AddAsync(newEnrollment);
+                }
+                else if (currentEnrollment.ClassId != request.ClassId)
+                {
+                    // Deactivate old enrollment and create new one
+                    currentEnrollment.StatusId = inactiveStatus?.Id;
+                    enrollmentRepo.Update(currentEnrollment);
+
+                    var newEnrollment = new ClassEnrollment
+                    {
+                        OrganizationId = organizationId,
+                        ClassId = classEntity.Id,
+                        StudentId = student.Id,
+                        EnrollmentDate = DateTime.UtcNow,
+                        StatusId = activeStatus?.Id
+                    };
+                    await enrollmentRepo.AddAsync(newEnrollment);
+                }
+            }
+
+            await _unitOfWork.CommitAsync();
+
+            if (_currentUserService.UserId != Guid.Empty)
+            {
+                await _notificationService.CreateAndSendAsync(
+                    _currentUserService.UserId,
+                    "Hệ thống",
+                    $"Đã xếp {request.StudentIds.Count} học viên vào lớp {classEntity.Name}.",
+                    "SYSTEM"
+                );
+            }
         }
     }
 }

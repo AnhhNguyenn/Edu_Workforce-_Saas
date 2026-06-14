@@ -92,5 +92,13 @@ namespace EduOps.Api.Controllers
             var result = await _studentService.ImportFromExcelAsync(GetOrganizationId(), stream);
             return Ok(result);
         }
+
+        [HttpPost("bulk-assign-class")]
+        [RequirePermission("Students", "Update")]
+        public async Task<IActionResult> BulkAssignClass([FromBody] BulkAssignClassRequestDto request)
+        {
+            await _studentService.BulkAssignClassAsync(GetOrganizationId(), request);
+            return Ok();
+        }
     }
 }

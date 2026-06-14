@@ -9,5 +9,6 @@ namespace EduOps.Domain.Entities
         public DateTime EnrollmentDate { get; set; }
         public Guid? StatusId { get; set; }
         public virtual EnrollmentStatus? Status { get; set; }
+        public virtual Class? Class { get; set; }
     }
 }

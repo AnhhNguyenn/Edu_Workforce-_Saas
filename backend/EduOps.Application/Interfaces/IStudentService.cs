@@ -17,5 +17,6 @@ namespace EduOps.Application.Interfaces
         Task DeleteAsync(Guid id, Guid organizationId);
         Task<byte[]> ExportToExcelAsync(Guid organizationId);
         Task<StudentImportResultDto> ImportFromExcelAsync(Guid organizationId, Stream fileStream);
+        Task BulkAssignClassAsync(Guid organizationId, BulkAssignClassRequestDto request);
     }
 }

@@ -3,219 +3,275 @@
 import { useSessions, useCreateSession, useUpdateSession, useDeleteSession } from "@/hooks/queries/useSessions";
 import { useClasses } from "@/hooks/queries/useClasses";
 import { useUsers } from "@/hooks/queries/useUsers";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { Loader2, Users, GraduationCap, GripVertical, CalendarPlus, Clock, PenBox } from "lucide-react";
+import { Loader2, CalendarPlus, Clock, PenBox, Calendar, Trash2, MoreVertical, User, MapPin, X, ChevronLeft, ChevronRight, SlidersHorizontal, Sun, Moon, Users } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useProfile } from '@/hooks/queries/useProfile';
 import { useConfirm } from '@/providers/ConfirmProvider';
 
-// FullCalendar Imports
-import FullCalendar from '@fullcalendar/react';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import interactionPlugin, { Draggable } from '@fullcalendar/interaction';
-import viLocale from '@fullcalendar/core/locales/vi';
+const COLOR_THEMES = [
+  { text: 'text-blue-600', textLight: 'text-blue-500', border: 'border-blue-300', bg: 'bg-white', iconBg: 'bg-blue-600', hover: 'hover:border-blue-400' },
+  { text: 'text-emerald-600', textLight: 'text-emerald-500', border: 'border-emerald-300', bg: 'bg-white', iconBg: 'bg-emerald-500', hover: 'hover:border-emerald-400' },
+  { text: 'text-purple-600', textLight: 'text-purple-500', border: 'border-purple-300', bg: 'bg-white', iconBg: 'bg-purple-600', hover: 'hover:border-purple-400' },
+  { text: 'text-orange-600', textLight: 'text-orange-500', border: 'border-orange-300', bg: 'bg-white', iconBg: 'bg-orange-500', hover: 'hover:border-orange-400' },
+  { text: 'text-teal-600', textLight: 'text-teal-500', border: 'border-teal-300', bg: 'bg-white', iconBg: 'bg-teal-500', hover: 'hover:border-teal-400' },
+  { text: 'text-rose-600', textLight: 'text-rose-500', border: 'border-rose-300', bg: 'bg-white', iconBg: 'bg-rose-600', hover: 'hover:border-rose-400' },
+];
+
+const SHIFTS = [
+  { id: 'morning', label: 'Sáng', time: '07:00 - 12:00', icon: Sun, defaultStart: '07:00:00', defaultEnd: '09:00:00' },
+  { id: 'afternoon', label: 'Chiều', time: '13:00 - 17:00', icon: Sun, defaultStart: '13:30:00', defaultEnd: '15:30:00' },
+  { id: 'evening', label: 'Tối', time: '18:00 - 22:00', icon: Moon, defaultStart: '18:00:00', defaultEnd: '20:00:00' }
+];
+
+const getErrorMessage = (err: any) => {
+  if (err?.response?.data) {
+    const data = err.response.data;
+    if (typeof data === 'string') return data;
+    if (data.message) return data.message;
+    if (data.Message) return data.Message;
+    if (data.detail) return data.detail;
+    if (data.Detail) return data.Detail;
+    if (data.title && data.title !== 'One or more validation errors occurred.') return data.title;
+    if (data.Title && data.Title !== 'One or more validation errors occurred.') return data.Title;
+    if (data.error) return data.error;
+    if (data.Error) return data.Error;
+    if (data.errors) {
+      const firstError = Object.values(data.errors)[0];
+      if (Array.isArray(firstError)) return firstError[0] as string;
+      return firstError as string;
+    }
+    if (data.Errors) {
+      const firstError = Object.values(data.Errors)[0];
+      if (Array.isArray(firstError)) return firstError[0] as string;
+      return firstError as string;
+    }
+  }
+  return err?.message || 'Lỗi không xác định';
+};
+
+const translateError = (msg: string) => {
+  if (!msg) return 'Lỗi không xác định';
+  if (msg.includes('Teacher or Assistant is already assigned to another session at this time')) {
+    return 'Giáo viên hoặc Trợ giảng đã có lịch dạy trong khoảng thời gian này!';
+  } else if (msg.includes('Room is already assigned')) {
+    return 'Phòng học đã được sử dụng trong khoảng thời gian này!';
+  }
+  return msg;
+};
 
 export default function SchedulesPage() {
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+
   const { data: sessions, isLoading } = useSessions();
   const { data: classes } = useClasses();
   const { data: teachers } = useUsers('TEACHER');
   const { data: assistants } = useUsers('ASSISTANT');
-  
+
   const createSession = useCreateSession();
   const updateSession = useUpdateSession();
   const deleteSession = useDeleteSession();
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  const [activeTab, setActiveTab] = useState<'classes' | 'teachers' | 'assistants'>('classes');
-  
   const { confirm } = useConfirm();
-  
+
   const [editingSessionId, setEditingSessionId] = useState<string>('');
-  const [sessionForm, setSessionForm] = useState({ 
-    classId: '', 
-    teacherId: '', 
-    assistantId: '',
-    lessonTitle: '', 
-    sessionDate: '', 
-    startTime: '', 
-    endTime: '' 
+  const [selectedSessionInfo, setSelectedSessionInfo] = useState<any>(null);
+
+  const [activeTab, setActiveTab] = useState<'class' | 'teacher' | 'assistant'>('class');
+
+  const [sessionForm, setSessionForm] = useState({
+    classId: '', teacherId: '', assistantId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: ''
   });
 
   const { data: profile } = useProfile();
   const isAuthorized = profile?.role === 'SUPER_ADMIN' || profile?.role === 'CENTER_ADMIN';
 
-  // Format events for FullCalendar
-  const calendarEvents = sessions?.items?.map(s => {
-    const className = classes?.items?.find((c: any) => c.id === s.classId)?.name || s.classId?.substring(0, 8);
-    const teacherName = teachers?.items?.find((t: any) => t.id === s.teacherId)?.fullName || 'Chưa PC GV';
-    const assistantName = assistants?.items?.find((a: any) => a.id === s.assistantId)?.fullName || 'Chưa PC TG';
-    const datePart = new Date(s.sessionDate).toLocaleDateString('en-CA');
-    
-    return {
-      id: s.id,
-      title: `${className}`,
-      start: `${datePart}T${s.startTime}`,
-      end: `${datePart}T${s.endTime}`,
-      backgroundColor: s.statusCode === 'COMPLETED' ? '#10B981' : s.statusCode === 'ONGOING' ? '#F59E0B' : '#3B82F6',
-      borderColor: 'transparent',
-      textColor: '#ffffff',
-      extendedProps: { ...s, teacherName, assistantName }
-    };
-  }) || [];
+  const getClassTheme = (classId: string) => {
+    if (!classes?.items) return COLOR_THEMES[0];
+    const index = classes.items.findIndex((c: any) => c.id === classId);
+    return COLOR_THEMES[Math.max(0, index) % COLOR_THEMES.length];
+  };
 
-  // Initialize Draggable items ONLY for Classes
-  useEffect(() => {
-    const containerEl = document.getElementById('external-events');
-    let draggable: Draggable | null = null;
-    
-    if (containerEl && classes?.items) {
-      draggable = new Draggable(containerEl, {
-        itemSelector: '.fc-class-event',
-        eventData: function(eventEl) {
-          return {
-            title: eventEl.getAttribute('data-title'),
-            duration: '02:00'
-          };
-        }
-      });
+  const getShiftIndex = (timeStr: string) => {
+    if (!timeStr) return 1;
+    const hour = parseInt(timeStr.split(':')[0], 10);
+    if (hour < 12) return 1;
+    if (hour < 17) return 2;
+    return 3;
+  };
+
+  const nextWeek = () => {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + 7);
+    setCurrentWeekStart(d);
+  };
+
+  const prevWeek = () => {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() - 7);
+    setCurrentWeekStart(d);
+  };
+
+  const goToday = () => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    setCurrentWeekStart(d);
+  };
+
+  const daysOfWeek = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const getShiftForTime = (startTime: string) => {
+    const hour = parseInt(startTime.split(':')[0], 10);
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
+  };
+
+  // Build sessionsByDate
+  const shiftStats = { morning: 0, afternoon: 0, evening: 0 };
+  const sessionsByDate: Record<string, any[]> = {};
+
+  daysOfWeek.forEach(d => {
+    const dStr = d.toLocaleDateString('en-CA');
+    sessionsByDate[dStr] = [];
+  });
+
+  sessions?.items?.forEach((s: any) => {
+    const dStr = new Date(s.sessionDate).toLocaleDateString('en-CA');
+    if (sessionsByDate[dStr]) {
+      const className = classes?.items?.find((c: any) => c.id === s.classId)?.name || s.classId?.substring(0, 8);
+      const teacherName = teachers?.items?.find((t: any) => t.id === s.teacherId)?.fullName || 'Chưa xếp';
+      const assistantName = assistants?.items?.find((a: any) => a.id === s.assistantId)?.fullName || 'Chưa xếp';
+      const theme = getClassTheme(s.classId);
+
+      sessionsByDate[dStr].push({ ...s, className, teacherName, assistantName, theme });
+
+      const startIdx = getShiftIndex(s.startTime);
+      const endIdx = getShiftIndex(s.endTime);
+
+      if (startIdx <= 1 && endIdx >= 1) shiftStats.morning++;
+      if (startIdx <= 2 && endIdx >= 2) shiftStats.afternoon++;
+      if (startIdx <= 3 && endIdx >= 3) shiftStats.evening++;
     }
-    
-    return () => {
-      if (draggable) draggable.destroy();
-    };
-  }, [classes?.items, activeTab]);
+  });
 
-  // Kéo Lớp thả vào ô trống -> Tạo ngay lập tức (Không mở Modal)
-  const handleExternalDrop = async (info: any) => {
-    const type = info.draggedEl.getAttribute('data-type');
-    const id = info.draggedEl.getAttribute('data-id');
-    const dropDate = info.date;
-    
-    const sessionDate = dropDate.toLocaleDateString('en-CA');
-    const startTime = dropDate.toTimeString().split(' ')[0].substring(0, 5) + ':00';
-    const endDate = new Date(dropDate.getTime() + 2 * 60 * 60 * 1000);
-    const endTime = endDate.toTimeString().split(' ')[0].substring(0, 5) + ':00';
+  const handleDropOnCell = async (e: React.DragEvent, dateStr: string, shiftId: string, targetSession?: any) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('bg-blue-50/50');
+    if (!isAuthorized) return;
 
-    if (type === 'class') {
+    const dragType = e.dataTransfer.getData('type');
+    const dragId = e.dataTransfer.getData('id');
+
+    if (dragType === 'teacher' || dragType === 'assistant') {
+      if (!targetSession) {
+        toast.error('Vui lòng thả vào một ca học cụ thể để phân công!');
+        return;
+      }
+      
+      const payload = {
+        classId: targetSession.classId,
+        sessionDate: dateStr,
+        startTime: targetSession.startTime,
+        endTime: targetSession.endTime,
+        teacherId: dragType === 'teacher' ? dragId : targetSession.teacherId,
+        assistantId: dragType === 'assistant' ? dragId : targetSession.assistantId,
+        lessonTitle: targetSession.lessonTitle
+      };
+
+      try {
+        await updateSession.mutateAsync({
+          id: targetSession.id,
+          data: payload
+        });
+        toast.success(`Đã phân công ${dragType === 'teacher' ? 'giáo viên' : 'trợ giảng'} thành công!`);
+        if (selectedSessionInfo?.id === targetSession.id) {
+           setSelectedSessionInfo(null);
+        }
+      } catch (err: any) {
+        toast.error(translateError(getErrorMessage(err)));
+      }
+      return;
+    }
+
+    if (dragType === 'class') {
+      const shiftData = SHIFTS.find(s => s.id === shiftId);
       try {
         await createSession.mutateAsync({
-          classId: id,
+          classId: dragId,
           teacherId: null,
           assistantId: null,
-          sessionDate,
-          startTime,
-          endTime
+          sessionDate: dateStr,
+          startTime: shiftData?.defaultStart || '07:00:00',
+          endTime: shiftData?.defaultEnd || '09:00:00'
         });
-        toast.success('Đã xếp lịch cho lớp học!');
-      } catch (e: any) {
-        toast.error('Lỗi khi xếp lịch: ' + (e.response?.data?.message || ''));
+        toast.success('Đã tạo lịch học nhanh!');
+      } catch (err: any) {
+        toast.error(translateError(getErrorMessage(err)));
       }
-    }
-  };
+    } else if (dragType === 'session') {
+      const sessionData = JSON.parse(e.dataTransfer.getData('sessionData'));
+      const oldShift = getShiftForTime(sessionData.startTime);
 
-  const handleEventReceive = (info: any) => {
-    // Xóa ngay event tạm do FullCalendar tạo ra để chỉ sử dụng dữ liệu thật từ DB (React Query)
-    info.event.remove();
-  };
+      // If dropped in a different shift, update time to default for that shift.
+      // If same shift, keep exact old time.
+      const shiftObj = SHIFTS.find(s => s.id === shiftId);
+      let newStart = sessionData.startTime;
+      let newEnd = sessionData.endTime;
 
-  // Chọn vùng thời gian trống
-  const handleTimeSelect = (info: any) => {
-    const startDate = info.start;
-    const endDate = info.end;
-    
-    setSessionForm({
-      classId: '',
-      teacherId: '',
-      assistantId: '',
-      lessonTitle: '',
-      sessionDate: startDate.toLocaleDateString('en-CA'),
-      startTime: startDate.toTimeString().split(' ')[0].substring(0, 5),
-      endTime: endDate.toTimeString().split(' ')[0].substring(0, 5)
-    });
-    
-    setModalMode('create');
-    setIsModalOpen(true);
-  };
+      if (oldShift !== shiftId) {
+        // Keep duration but move to new shift
+        const startD = new Date(`2000-01-01T${sessionData.startTime}`);
+        const endD = new Date(`2000-01-01T${sessionData.endTime}`);
+        const durationMs = endD.getTime() - startD.getTime();
 
-  // Nhấp vào buổi học đã có -> Mở form Sửa
-  const handleEventClick = (info: any) => {
-    if (!isAuthorized) return;
-    
-    const session = info.event.extendedProps;
-    const start = info.event.start;
-    const end = info.event.end || new Date(start.getTime() + 2 * 60 * 60 * 1000);
+        newStart = shiftObj?.defaultStart || newStart;
+        const newStartD = new Date(`2000-01-01T${newStart}`);
+        const newEndD = new Date(newStartD.getTime() + durationMs);
+        newEnd = newEndD.toTimeString().split(' ')[0];
+      }
 
-    setEditingSessionId(info.event.id);
-    setSessionForm({
-      classId: session.classId || '',
-      teacherId: session.teacherId || '',
-      assistantId: session.assistantId || '',
-      lessonTitle: session.lessonTitle || '',
-      sessionDate: start.toLocaleDateString('en-CA'),
-      startTime: start.toTimeString().split(' ')[0].substring(0, 5),
-      endTime: end.toTimeString().split(' ')[0].substring(0, 5)
-    });
-    setModalMode('edit');
-    setIsModalOpen(true);
-  };
-
-  // Kéo mép để giãn thời gian (Resize)
-  const handleEventResize = async (info: any) => {
-    if (!isAuthorized) { info.revert(); return; }
-    
-    const session = info.event.extendedProps;
-    const newStart = info.event.start;
-    const newEnd = info.event.end;
-    
-    try {
-      const updateData = {
-        classId: session.classId,
-        teacherId: session.teacherId,
-        assistantId: session.assistantId,
-        lessonTitle: session.lessonTitle,
-        sessionDate: newStart.toLocaleDateString('en-CA'),
-        startTime: newStart.toTimeString().split(' ')[0].substring(0, 5) + ':00',
-        endTime: newEnd.toTimeString().split(' ')[0].substring(0, 5) + ':00'
-      };
-      await updateSession.mutateAsync({ id: info.event.id, data: updateData });
-      toast.success('Đã cập nhật giờ học!');
-    } catch (e: any) {
-      info.revert();
-      toast.error('Lỗi cập nhật giờ: ' + (e.response?.data?.message || ''));
-    }
-  };
-
-  // Nắm nguyên khối ném sang ô khác (Drop / Move)
-  const handleEventDrop = async (info: any) => {
-    if (!isAuthorized) { info.revert(); return; }
-    
-    const session = info.event.extendedProps;
-    const newStart = info.event.start;
-    const newEnd = info.event.end;
-    
-    try {
-      const updateData = {
-        classId: session.classId,
-        teacherId: session.teacherId,
-        assistantId: session.assistantId,
-        lessonTitle: session.lessonTitle,
-        sessionDate: newStart.toLocaleDateString('en-CA'),
-        startTime: newStart.toTimeString().split(' ')[0].substring(0, 5) + ':00',
-        endTime: newEnd ? newEnd.toTimeString().split(' ')[0].substring(0, 5) + ':00' : session.endTime
-      };
-      await updateSession.mutateAsync({ id: info.event.id, data: updateData });
-      toast.success('Đã chuyển lịch học!');
-    } catch (e: any) {
-      info.revert();
-      toast.error('Lỗi chuyển lịch: ' + (e.response?.data?.message || ''));
+      try {
+        await updateSession.mutateAsync({
+          id: sessionData.id,
+          data: {
+            classId: sessionData.classId,
+            teacherId: sessionData.teacherId,
+            assistantId: sessionData.assistantId,
+            lessonTitle: sessionData.lessonTitle,
+            sessionDate: dateStr,
+            startTime: newStart,
+            endTime: newEnd
+          }
+        });
+        toast.success('Đã di chuyển ca học!');
+        if (selectedSessionInfo?.id === sessionData.id) {
+          setSelectedSessionInfo(null);
+        }
+      } catch (err: any) {
+        toast.error(translateError(getErrorMessage(err)));
+      }
     }
   };
 
@@ -239,296 +295,456 @@ export default function SchedulesPage() {
       } else {
         await updateSession.mutateAsync({ id: editingSessionId, data: payload });
         toast.success('Đã cập nhật lịch học');
+        setSelectedSessionInfo(null);
       }
       setIsModalOpen(false);
     } catch (e: any) {
-      toast.error(e.response?.data?.message || 'Lỗi khi lưu lịch học');
+      toast.error(translateError(getErrorMessage(e)) || 'Lỗi khi lưu lịch học');
     }
   };
 
-  // Ném Giáo viên / Trợ giảng ĐÈ lên một Event có sẵn trên Lịch (Native HTML5 Drag and Drop)
-  const handleDropOnEvent = async (e: any, session: any, eventId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!isAuthorized) return;
-
-    const dragType = e.dataTransfer.getData('type');
-    const dragId = e.dataTransfer.getData('id');
-
-    if (!dragType || !dragId) return;
-
-    try {
-      const updateData = {
-        classId: session.classId,
-        teacherId: dragType === 'teacher' ? dragId : session.teacherId,
-        assistantId: dragType === 'assistant' ? dragId : session.assistantId,
-        lessonTitle: session.lessonTitle,
-        sessionDate: session.sessionDate,
-        startTime: session.startTime,
-        endTime: session.endTime
-      };
-      
-      await updateSession.mutateAsync({ id: eventId, data: updateData });
-      toast.success(`Đã phân công ${dragType === 'teacher' ? 'Giáo viên' : 'Trợ giảng'}!`);
-    } catch (err: any) {
-      toast.error('Lỗi khi phân công: ' + (err.response?.data?.message || ''));
-    }
-  };
-
-  const handleDelete = () => {
+  const handleDelete = (id: string) => {
     confirm({
       title: "Xóa Lịch học",
       description: "Bạn có chắc chắn muốn xóa buổi học này không?",
       requireInput: false,
       action: async () => {
         try {
-          await deleteSession.mutateAsync(editingSessionId);
+          await deleteSession.mutateAsync(id);
           toast.success('Đã xóa buổi học');
           setIsModalOpen(false);
+          setSelectedSessionInfo(null);
         } catch (error: any) {
-          toast.error(error.response?.data?.message || 'Lỗi khi xóa buổi học');
+          toast.error(translateError(getErrorMessage(error)) || 'Lỗi khi xóa buổi học');
         }
       }
     });
   };
 
-  // Custom Event Render for better UI & HTML5 Drop Zone
-  const renderEventContent = (eventInfo: any) => {
-    const session = eventInfo.event.extendedProps;
-    const tName = session.teacherName && session.teacherName !== 'Chưa PC GV' ? session.teacherName : 'Chưa phân công';
-    const aName = session.assistantName && session.assistantName !== 'Chưa PC TG' ? session.assistantName : '';
-    
-    return (
-      <div 
-        className="w-full h-full flex flex-col justify-between p-1 overflow-hidden relative group"
-        onDragOver={(e) => {
-          e.preventDefault(); 
-          e.stopPropagation();
-          e.currentTarget.classList.add('bg-white/30', 'scale-105');
-        }}
-        onDragLeave={(e) => {
-          e.currentTarget.classList.remove('bg-white/30', 'scale-105');
-        }}
-        onDrop={(e) => {
-          e.currentTarget.classList.remove('bg-white/30', 'scale-105');
-          handleDropOnEvent(e, session, eventInfo.event.id);
-        }}
-      >
-        <div>
-          <div className="font-bold text-[13px] tracking-tight leading-tight truncate drop-shadow-md">
-            {eventInfo.event.title}
-          </div>
-          {session.lessonTitle && (
-            <div className="text-[11px] text-blue-100 font-semibold truncate mt-0.5 drop-shadow-sm">
-              📚 {session.lessonTitle}
-            </div>
-          )}
-          <div className="text-[11px] opacity-95 flex items-center gap-1 mt-1 font-medium truncate bg-black/10 w-fit px-1 rounded">
-            <Users size={10} /> 
-            <span>{tName} {aName ? `(+ ${aName})` : ''}</span>
-          </div>
-        </div>
-        <div className="text-[10px] opacity-90 flex items-center gap-1 font-bold">
-          <Clock size={10} /> {eventInfo.timeText}
-        </div>
-        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 p-1 rounded backdrop-blur-sm">
-          <PenBox size={12} className="text-white" />
-        </div>
-      </div>
-    );
-  };
+  const weekTitle = `${daysOfWeek[0].getDate()} - ${daysOfWeek[6].getDate()} Thg ${daysOfWeek[6].getMonth() + 1}, ${daysOfWeek[6].getFullYear()}`;
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-7 pb-10">
-      <div className="flex flex-col md:flex-row md:justify-between items-start gap-4">
-        <div>
-          <h2 className="text-3xl font-extrabold mb-2 text-edu-fg bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500">
-            Lịch giảng dạy
-          </h2>
-          <p className="text-edu-muted text-sm font-medium">Kéo Lớp hoặc Giáo viên thả vào lưới. Kéo giãn cạnh dưới để đổi giờ. Nhấp vào lịch để Sửa/Xóa.</p>
+    <div className="max-w-[1800px] mx-auto p-4 md:p-6 flex flex-col h-[calc(100vh-70px)] bg-[#F8FAFC]">
+
+      <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 shrink-0 mb-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-emerald-100 p-2.5 rounded-xl border border-emerald-200">
+            <Calendar className="text-emerald-600 w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-[22px] font-bold text-slate-800 leading-none mb-1.5">
+              Xếp lịch giảng dạy
+            </h2>
+            <p className="text-slate-500 text-[13px] font-medium">Kéo thả để xếp ca học cho lớp</p>
+          </div>
         </div>
-        <Button 
-          onClick={() => {
-            setSessionForm({ classId: '', teacherId: '', assistantId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: '' });
-            setModalMode('create');
-            setIsModalOpen(true);
-          }}
-          className="bg-blue-600 hover:bg-blue-700 shadow-md gap-2 rounded-xl"
-        >
-          <CalendarPlus size={18} /> Xếp lịch thủ công
-        </Button>
+
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm h-10">
+            <SlidersHorizontal size={16} className="mr-2" /> Bộ lọc
+          </Button>
+
+          <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1 shadow-sm h-10">
+            <Button variant="ghost" size="icon" className="h-full w-8 rounded-md hover:bg-slate-100" onClick={prevWeek}>
+              <ChevronLeft size={16} className="text-slate-600" />
+            </Button>
+            <div className="px-4 font-bold text-slate-700 text-[14px] min-w-[150px] text-center cursor-pointer hover:text-blue-600 transition-colors" onClick={goToday}>
+              {weekTitle}
+            </div>
+            <Button variant="ghost" size="icon" className="h-full w-8 rounded-md hover:bg-slate-100" onClick={nextWeek}>
+              <ChevronRight size={16} className="text-slate-600" />
+            </Button>
+          </div>
+
+          <Button
+            onClick={() => {
+              setSessionForm({ classId: '', teacherId: '', assistantId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: '' });
+              setModalMode('create');
+              setIsModalOpen(true);
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-5 h-10 shadow-sm font-semibold"
+          >
+            <CalendarPlus size={16} className="mr-2" /> Thêm ca học
+          </Button>
+        </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-        {/* SIDEBAR: Draggable Resources */}
-        <div className="w-full lg:w-72 flex-shrink-0 z-10">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden lg:sticky lg:top-6" id="external-events">
+      <div className="flex flex-col lg:flex-row gap-6 items-start flex-1 min-h-0">
+
+        {/* Left Sidebar */}
+        <div className="w-full lg:w-[240px] flex-shrink-0 flex flex-col h-full">
+          <div className="flex bg-slate-200/50 p-1 rounded-xl mb-4 shrink-0">
+            <button 
+              onClick={() => setActiveTab('class')}
+              className={`flex-1 py-1.5 text-[12px] font-bold rounded-lg transition-all ${activeTab === 'class' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Lớp
+            </button>
+            <button 
+              onClick={() => setActiveTab('teacher')}
+              className={`flex-1 py-1.5 text-[12px] font-bold rounded-lg transition-all ${activeTab === 'teacher' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Giáo viên
+            </button>
+            <button 
+              onClick={() => setActiveTab('assistant')}
+              className={`flex-1 py-1.5 text-[12px] font-bold rounded-lg transition-all ${activeTab === 'assistant' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Trợ giảng
+            </button>
+          </div>
+
+          <div className="overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex-1 space-y-2.5 pr-1">
+            {activeTab === 'class' && classes?.items?.map((c: any) => {
+              const theme = getClassTheme(c.id);
+              return (
+                <div
+                  key={c.id}
+                  draggable={isAuthorized}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('type', 'class');
+                    e.dataTransfer.setData('id', c.id);
+                  }}
+                  className="flex items-center p-2 bg-white hover:bg-slate-50 border border-slate-100 rounded-xl cursor-grab active:cursor-grabbing transition-all group shadow-sm"
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-[14px] mr-3 shrink-0 ${theme.iconBg} text-white uppercase`}>
+                    {c.name.substring(0, 2)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-[14px] text-slate-800 truncate uppercase leading-tight">{c.name}</div>
+                    <div className="text-[12px] text-slate-500 font-medium truncate mt-0.5">Lý thuyết</div>
+                  </div>
+                  <MoreVertical size={16} className="text-slate-400 group-hover:text-slate-600 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              );
+            })}
             
-            <div className="flex border-b border-slate-100">
-              <button 
-                onClick={() => setActiveTab('classes')}
-                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex justify-center items-center gap-1 ${activeTab === 'classes' ? 'border-blue-500 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+            {activeTab === 'teacher' && teachers?.items?.map((t: any) => (
+              <div
+                key={t.id}
+                draggable={isAuthorized}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('type', 'teacher');
+                  e.dataTransfer.setData('id', t.id);
+                }}
+                className="flex items-center p-2 bg-white hover:bg-slate-50 border border-slate-100 rounded-xl cursor-grab active:cursor-grabbing transition-all group shadow-sm"
               >
-                Lớp học
-              </button>
-              <button 
-                onClick={() => setActiveTab('teachers')}
-                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex justify-center items-center gap-1 ${activeTab === 'teachers' ? 'border-purple-500 text-purple-600 bg-purple-50/50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
-              >
-                Giáo viên
-              </button>
-              <button 
-                onClick={() => setActiveTab('assistants')}
-                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex justify-center items-center gap-1 ${activeTab === 'assistants' ? 'border-teal-500 text-teal-600 bg-teal-50/50' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
-              >
-                Trợ giảng
-              </button>
-            </div>
+                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 mr-3 shrink-0">
+                  <User size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[13px] text-slate-800 truncate">{t.fullName}</div>
+                  <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">{t.email}</div>
+                </div>
+              </div>
+            ))}
 
-            <div className="p-4">
-              <p className="text-xs text-slate-500 mb-4 text-center bg-slate-50 py-2 rounded-lg font-medium border border-slate-100">
-                Nắm và kéo mục dưới đây thả vào lịch
+            {activeTab === 'assistant' && assistants?.items?.map((a: any) => (
+              <div
+                key={a.id}
+                draggable={isAuthorized}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('type', 'assistant');
+                  e.dataTransfer.setData('id', a.id);
+                }}
+                className="flex items-center p-2 bg-white hover:bg-slate-50 border border-slate-100 rounded-xl cursor-grab active:cursor-grabbing transition-all group shadow-sm"
+              >
+                <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center text-teal-600 mr-3 shrink-0">
+                  <Users size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[13px] text-slate-800 truncate">{a.fullName}</div>
+                  <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">{a.email}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 p-3 bg-blue-50/50 border border-blue-100/50 rounded-xl shrink-0">
+            <div className="flex items-start gap-2 text-blue-600 text-[12px]">
+              <div className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center shrink-0 font-bold text-[9px] mt-0.5">i</div>
+              <p className="leading-tight font-medium">
+                {activeTab === 'class' ? 'Mẹo: Kéo lớp từ danh sách sang ca học để tạo lịch nhanh chóng' : 'Mẹo: Kéo thả trực tiếp lên ca học trên bảng để phân công'}
               </p>
-              
-              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                {activeTab === 'classes' && classes?.items?.map((c: any) => (
-                  <div 
-                    key={c.id} 
-                    className="fc-class-event flex items-center p-3 bg-white hover:bg-blue-50 text-slate-700 border border-slate-200 hover:border-blue-300 rounded-xl cursor-grab active:cursor-grabbing transition-all shadow-sm hover:shadow-md group"
-                    data-type="class"
-                    data-id={c.id}
-                    data-title={c.name}
-                  >
-                    <GripVertical size={16} className="text-slate-300 mr-2 group-hover:text-blue-400" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm text-slate-800 truncate">{c.name}</div>
-                    </div>
-                  </div>
-                ))}
-
-                {activeTab === 'teachers' && teachers?.items?.map((t: any) => (
-                  <div 
-                    key={t.id} 
-                    draggable={true}
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('type', 'teacher');
-                      e.dataTransfer.setData('id', t.id);
-                    }}
-                    className="flex items-center p-3 bg-white hover:bg-purple-50 text-slate-700 border border-slate-200 hover:border-purple-300 rounded-xl cursor-grab active:cursor-grabbing transition-all shadow-sm hover:shadow-md group"
-                  >
-                    <GripVertical size={16} className="text-slate-300 mr-2 group-hover:text-purple-400" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm text-slate-800 truncate">{t.fullName}</div>
-                      <div className="text-xs text-slate-500 truncate mt-0.5">{t.email}</div>
-                    </div>
-                  </div>
-                ))}
-
-                {activeTab === 'assistants' && assistants?.items?.map((a: any) => (
-                  <div 
-                    key={a.id} 
-                    draggable={true}
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('type', 'assistant');
-                      e.dataTransfer.setData('id', a.id);
-                    }}
-                    className="flex items-center p-3 bg-white hover:bg-teal-50 text-slate-700 border border-slate-200 hover:border-teal-300 rounded-xl cursor-grab active:cursor-grabbing transition-all shadow-sm hover:shadow-md group"
-                  >
-                    <GripVertical size={16} className="text-slate-300 mr-2 group-hover:text-teal-400" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm text-slate-800 truncate">{a.fullName}</div>
-                      <div className="text-xs text-slate-500 truncate mt-0.5">{a.email}</div>
-                    </div>
-                  </div>
-                ))}
-                
-                {((activeTab === 'classes' && classes?.items?.length === 0) || 
-                  (activeTab === 'teachers' && teachers?.items?.length === 0) ||
-                  (activeTab === 'assistants' && assistants?.items?.length === 0)) && (
-                  <div className="text-center py-8 text-sm text-slate-400">Danh sách trống</div>
-                )}
+            </div>
+            {/* Visual cue icon like in the design */}
+            <div className="mt-3 flex justify-center opacity-60">
+              <div className="w-12 h-6 border-2 border-dashed border-blue-300 rounded-lg"></div>
+              <div className="w-5 h-5 ml-2 text-blue-400">
+                <svg fill="currentColor" viewBox="0 0 24 24"><path d="M9 11.24V7.5C9 6.12 10.12 5 11.5 5C12.88 5 14 6.12 14 7.5v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.84 4.63l-4.54-2.26c-.17-.07-.35-.11-.54-.11H13v-6c0-.83-.67-1.5-1.5-1.5S10 6.67 10 7.5v10.74l-3.43-.72c-.08-.01-.15-.03-.24-.03-.31 0-.59.13-.79.33l-.79.8 4.94 4.94c.27.27.65.44 1.04.44h6.79c.75 0 1.33-.55 1.44-1.28l.75-5.27c.01-.07.02-.14.02-.2 0-.62-.35-1.17-.89-1.42z" /></svg>
               </div>
             </div>
           </div>
         </div>
 
-        {/* MAIN CALENDAR */}
-        <div className="flex-1 w-full bg-white p-2 sm:p-5 rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50 min-w-0">
-          <style dangerouslySetInnerHTML={{__html: `
-            .fc-theme-standard td, .fc-theme-standard th { border-color: #F1F5F9; }
-            .fc-col-header-cell { padding: 12px 0; background: #F8FAFC; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 13px; border-bottom: 2px solid #E2E8F0 !important; }
-            .fc-timegrid-slot { height: 44px; }
-            .fc-timegrid-slot-label { font-size: 12px; font-weight: 600; color: #64748B; }
-            .fc-event { border-radius: 8px !important; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1) !important; border: none !important; transition: transform 0.1s, box-shadow 0.1s; cursor: pointer; }
-            .fc-event:hover { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1) !important; z-index: 50 !important; }
-            .fc-toolbar-title { font-size: 1.5rem !important; font-weight: 800; color: #0F172A; }
-            .fc-button-primary { background-color: #fff !important; color: #475569 !important; border: 1px solid #E2E8F0 !important; text-transform: capitalize; font-weight: 600 !important; border-radius: 8px !important; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05) !important; transition: all 0.2s; }
-            .fc-button-primary:not(:disabled):hover { background-color: #F8FAFC !important; color: #0F172A !important; border-color: #CBD5E1 !important; }
-            .fc-button-active { background-color: #EFF6FF !important; color: #2563EB !important; border-color: #BFDBFE !important; }
-            .fc-today-button { background-color: #F1F5F9 !important; }
-            .fc-timegrid-now-indicator-line { border-color: #EF4444; border-width: 2px; }
-            .fc-timegrid-now-indicator-arrow { border-color: #EF4444; border-width: 6px; margin-top: -5px; }
-            .fc-highlight { background: rgba(59, 130, 246, 0.15); }
-            .fc-timegrid-col.fc-day-today { background-color: rgba(248, 250, 252, 0.5) !important; }
-            @media (max-width: 768px) {
-              .fc-header-toolbar { flex-direction: column; gap: 12px; }
-              .fc-toolbar-title { font-size: 1.25rem !important; }
-              .fc-toolbar-chunk { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; }
-              .fc .fc-button { padding: 4px 8px !important; font-size: 0.8rem !important; }
-            }
-          `}} />
-          {isLoading ? (
-            <div className="py-32 flex flex-col items-center justify-center"><Loader2 className="animate-spin text-blue-500 mb-4 h-10 w-10" /> <span className="text-slate-500 font-medium">Đang tải lịch điều phối...</span></div>
-          ) : (
-            <FullCalendar
-              plugins={[ timeGridPlugin, interactionPlugin, dayGridPlugin ]}
-              initialView="timeGridWeek"
-              locale={viLocale}
-              headerToolbar={{
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
-              }}
-              slotMinTime="06:00:00"
-              slotMaxTime="22:00:00"
-              allDaySlot={false}
-              editable={isAuthorized} // Cho phép kéo giãn (resize) và ném (move)
-              droppable={isAuthorized} // Cho phép nhận event từ bên ngoài
-              selectable={isAuthorized} // Cho phép bôi đen chọn vùng
-              selectMirror={true}
-              nowIndicator={true}
-              height={800}
-              events={calendarEvents}
-              eventReceive={handleEventReceive}
-              drop={handleExternalDrop}
-              select={handleTimeSelect}
-              eventClick={handleEventClick}
-              eventResize={handleEventResize}
-              eventDrop={handleEventDrop}
-              eventContent={renderEventContent}
-              snapDuration="00:15:00" // Snap theo 15 phút
-            />
-          )}
+        {/* Matrix Board */}
+        <div className="flex-1 w-full min-w-0 flex flex-col h-full overflow-x-auto custom-scrollbar bg-white border border-slate-100 rounded-3xl shadow-sm">
+          <div className="min-w-[800px] flex flex-col h-full">
+            {/* Header Row */}
+            <div className="grid grid-cols-[80px_1fr_1fr_1fr] border-b border-slate-100 bg-white shrink-0">
+            <div className="p-3 border-r border-slate-100"></div>
+            {SHIFTS.map(shift => (
+              <div key={shift.id} className="p-3 border-r border-slate-100 last:border-r-0 flex flex-col items-center justify-center">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <shift.icon size={16} className={shift.id === 'evening' ? 'text-indigo-500' : 'text-orange-500 fill-orange-500'} />
+                  <span className="font-bold text-[14px] text-slate-800">{shift.label}</span>
+                  <span className="text-[12px] text-slate-500 font-medium">({shift.time})</span>
+                </div>
+                <div className="text-[11px] font-medium text-slate-400">
+                  {shiftStats[shift.id as keyof typeof shiftStats]} lớp
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {isLoading ? (
+              <div className="flex-1 flex flex-col items-center justify-center h-full"><Loader2 className="animate-spin text-blue-500 mb-4 h-10 w-10" /> <span className="text-slate-500 font-medium">Đang tải lịch điều phối...</span></div>
+            ) : (
+              <div className="flex flex-col">
+                {daysOfWeek.map((day, idx) => {
+                  const dateStr = day.toLocaleDateString('en-CA');
+                  const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
+                  const dayName = idx === 6 ? 'Chủ nhật' : `Thứ ${idx + 2}`;
+
+                  const daySessions = sessionsByDate[dateStr] || [];
+                  const hasSessions = daySessions.length > 0;
+
+                  return (
+                    <div key={dateStr} className="grid grid-cols-[80px_1fr] border-b border-slate-100 last:border-b-0 min-h-[60px]">
+                      {/* Row Header */}
+                      <div className={`border-r border-slate-100 flex flex-col items-center justify-center text-center p-2 ${isToday ? 'bg-blue-50/30' : ''}`}>
+                        <div className={`font-bold text-[13px] ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>{dayName}</div>
+                        <div className={`text-[11px] font-medium ${isToday ? 'text-blue-500' : 'text-slate-400'} mt-0.5`}>
+                          {day.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }).replace('/', '/')}
+                        </div>
+                      </div>
+
+                      {/* Main Content Area */}
+                      <div className="relative grid grid-cols-3">
+                        {/* Interactive Drop Zones (Background) */}
+                        <div className="absolute inset-0 grid grid-cols-3 z-0 pointer-events-auto">
+                          {SHIFTS.map((shift, idx) => {
+                            const shiftSessions = daySessions.filter(s => getShiftIndex(s.startTime) === idx + 1);
+                            return (
+                              <div
+                                key={`bg-${shift.id}`}
+                                className={`border-slate-100 ${idx < 2 ? 'border-r' : ''} transition-colors flex items-center justify-center p-2`}
+                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-blue-50/50'); }}
+                                onDragLeave={(e) => { e.currentTarget.classList.remove('bg-blue-50/50'); }}
+                                onDrop={(e) => { e.currentTarget.classList.remove('bg-blue-50/50'); handleDropOnCell(e, dateStr, shift.id); }}
+                              >
+                                {shiftSessions.length === 0 && (
+                                  <div className="w-full flex items-center justify-center py-2 opacity-0 hover:opacity-100 transition-opacity cursor-pointer text-slate-300 hover:text-blue-500 rounded-lg">
+                                    <span className="text-[12px] font-medium pointer-events-none">+ Kéo lớp vào đây</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Sessions Grid (Foreground) */}
+                        <div className="col-span-3 grid grid-cols-3 grid-flow-dense gap-2 p-2 relative z-10 pointer-events-none">
+                          {[...daySessions].sort((a, b) => a.startTime.localeCompare(b.startTime)).map(session => {
+                            const startCol = getShiftIndex(session.startTime);
+                            const endCol = getShiftIndex(session.endTime);
+                            const span = Math.max(1, endCol - startCol + 1);
+                            const theme = getClassTheme(session.classId);
+
+                            const getColStart = (col: number) => col === 1 ? 'col-start-1' : col === 2 ? 'col-start-2' : 'col-start-3';
+                            const getColSpan = (s: number) => s === 3 ? 'col-span-3' : s === 2 ? 'col-span-2' : 'col-span-1';
+
+                            const colClass = `${getColStart(startCol)} ${getColSpan(span)}`;
+
+                            return (
+                              <div
+                                key={session.id}
+                                draggable={isAuthorized}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('type', 'session');
+                                  e.dataTransfer.setData('sessionData', JSON.stringify(session));
+                                }}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDropOnCell(e, dateStr, getShiftForTime(session.startTime), session);
+                                }}
+                                onClick={() => setSelectedSessionInfo(session)}
+                                className={`${colClass} pointer-events-auto bg-white border rounded-md p-2 shadow-sm cursor-grab active:cursor-grabbing transition-all group ${theme.border} ${theme.hover}`}
+                              >
+                                <div className="flex justify-between items-start mb-1">
+                                  <div className="flex gap-1.5 items-center min-w-0">
+                                    <div className={`font-bold text-[12px] leading-none uppercase ${theme.text}`}>{session.className}</div>
+                                    <div className={`font-semibold text-[11px] leading-none ${theme.textLight}`}>{session.startTime.substring(0, 5)} - {session.endTime.substring(0, 5)}</div>
+                                  </div>
+                                  <MoreVertical size={13} className={`${theme.textLight} opacity-50 group-hover:opacity-100 transition-opacity shrink-0 ml-1`} />
+                                </div>
+                                <div className={`text-[11px] font-medium ${theme.text} mb-1.5 leading-tight truncate`}>{session.lessonTitle || 'Lý thuyết'}</div>
+                                <div className={`flex items-center gap-2.5 text-[10px] font-medium ${theme.textLight}`}>
+                                  <div className="flex items-center gap-1 min-w-0" title={`GV: ${session.teacherName}`}>
+                                    <User size={10} className="shrink-0" /> 
+                                    <span className="truncate">{session.teacherName !== 'Chưa xếp' ? session.teacherName : 'Chưa xếp'}</span>
+                                  </div>
+                                  {session.assistantName && session.assistantName !== 'Chưa xếp' && (
+                                    <div className="flex items-center gap-1 min-w-0" title={`TG: ${session.assistantName}`}>
+                                      <Users size={10} className="shrink-0" /> 
+                                      <span className="truncate">{session.assistantName}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1 shrink-0"><MapPin size={10} /> <span>P.101</span></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Footer Legend Row */}
+            <div className="p-3 border-t border-slate-200 bg-slate-50/50 flex flex-wrap gap-3 items-center justify-center shrink-0">
+              {classes?.items?.map((c: any) => {
+                const theme = getClassTheme(c.id);
+                return (
+                  <div key={`legend-${c.id}`} className="flex items-center gap-1.5">
+                    <div className={`px-1.5 py-0.5 rounded-[4px] text-[11px] font-bold uppercase text-white ${theme.iconBg}`}>
+                      {c.name.substring(0, 2)}
+                    </div>
+                    <span className="text-[12px] font-medium text-slate-600">Lý thuyết</span>
+                  </div>
+                )
+              })}
+            </div>
+            </div>
+          </div>
         </div>
+
+        {/* Right Sidebar Details */}
+        {selectedSessionInfo && (
+          <div className="w-full lg:w-[300px] flex-shrink-0 flex flex-col h-full bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden animate-in slide-in-from-right-4 duration-200">
+            <div className="px-4 py-3 flex justify-between items-center border-b border-slate-100">
+              <h3 className="font-bold text-slate-800 text-[14px]">Chi tiết ca học</h3>
+              <button onClick={() => setSelectedSessionInfo(null)} className="text-slate-400 hover:text-slate-600 transition-colors bg-slate-50 hover:bg-slate-100 rounded-full p-1">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 flex-1 overflow-y-auto space-y-7 custom-scrollbar">
+              <div className="flex items-center gap-4 border border-slate-100 p-3 rounded-2xl bg-slate-50/50">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-extrabold text-[15px] shrink-0 bg-white border ${selectedSessionInfo.theme.border} ${selectedSessionInfo.theme.text} uppercase`}>
+                  {selectedSessionInfo.className}
+                </div>
+                <div className="text-slate-700 font-semibold text-[15px]">
+                  {selectedSessionInfo.lessonTitle || 'Lý thuyết'}
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <div className="text-[12px] font-medium text-slate-400 mb-2.5">Thời gian</div>
+                  <div className="flex items-start gap-3">
+                    <Clock size={16} className="text-slate-400 mt-0.5" />
+                    <div>
+                      <div className="font-bold text-slate-800 text-[15px] leading-tight">
+                        {selectedSessionInfo.startTime.substring(0, 5)} - {selectedSessionInfo.endTime.substring(0, 5)}
+                      </div>
+                      <div className="text-[13px] font-medium text-slate-500 mt-1">
+                        {new Date(selectedSessionInfo.sessionDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[12px] font-medium text-slate-400 mb-2.5">Giáo viên</div>
+                  <div className="flex items-center gap-3">
+                    <User size={16} className="text-blue-500" />
+                    <span className="font-bold text-slate-800 text-[15px]">{selectedSessionInfo.teacherName}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[12px] font-medium text-slate-400 mb-2.5">Trợ giảng</div>
+                  <div className="flex items-center gap-3">
+                    <Users size={16} className="text-teal-500" />
+                    <span className="font-bold text-slate-800 text-[15px]">{selectedSessionInfo.assistantName}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[12px] font-medium text-slate-400 mb-2.5">Phòng học</div>
+                  <div className="flex items-center gap-3">
+                    <MapPin size={16} className="text-blue-500" />
+                    <span className="font-bold text-slate-800 text-[15px]">P.101</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[12px] font-medium text-slate-400 mb-2.5">Sĩ số dự kiến</div>
+                  <div className="flex items-center gap-3">
+                    <Users size={16} className="text-slate-400" />
+                    <span className="font-bold text-slate-800 text-[15px]">20 học viên</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[12px] font-medium text-slate-400 mb-2.5">Ghi chú</div>
+                  <div className="text-[14px] text-slate-800 font-medium">-</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-slate-50 flex flex-col gap-3 shrink-0">
+              <Button
+                onClick={() => {
+                  setSessionForm({
+                    classId: selectedSessionInfo.classId || '',
+                    teacherId: selectedSessionInfo.teacherId || '',
+                    assistantId: selectedSessionInfo.assistantId || '',
+                    lessonTitle: selectedSessionInfo.lessonTitle || '',
+                    sessionDate: new Date(selectedSessionInfo.sessionDate).toLocaleDateString('en-CA'),
+                    startTime: selectedSessionInfo.startTime,
+                    endTime: selectedSessionInfo.endTime
+                  });
+                  setModalMode('edit');
+                  setEditingSessionId(selectedSessionInfo.id);
+                  setIsModalOpen(true);
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 font-bold shadow-sm"
+              >
+                <PenBox size={16} className="mr-2" /> Chỉnh sửa
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  handleDelete(selectedSessionInfo.id);
+                }}
+                className="w-full text-red-600 border-red-100 hover:bg-red-50 hover:border-red-200 rounded-xl h-11 font-bold bg-white"
+              >
+                <Trash2 size={16} className="mr-2" /> Xóa ca học
+              </Button>
+            </div>
+          </div>
+        )}
+
       </div>
 
-      {/* MODAL THÊM / SỬA LỊCH */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         title={modalMode === 'create' ? "Xác nhận Xếp lịch mới" : "Chỉnh sửa Chi tiết Ca học"}
         footer={
-          <div className="flex justify-between w-full">
-            {modalMode === 'edit' && isAuthorized ? (
-              <Button variant="danger" onClick={handleDelete} className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-none">
-                Xóa lịch học
-              </Button>
-            ) : <div></div>}
+          <div className="flex justify-end w-full">
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Hủy</Button>
-              <Button 
-                className="bg-blue-600 hover:bg-blue-700 text-white gap-2 px-6" 
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-2 px-6"
                 onClick={handleSave}
                 disabled={createSession.isPending || updateSession.isPending}
               >
@@ -543,68 +759,68 @@ export default function SchedulesPage() {
           <div className="bg-slate-50 text-slate-700 p-4 rounded-xl text-sm mb-4 border border-slate-200 flex items-start gap-3">
             <Clock className="text-blue-500 mt-0.5" size={18} />
             <div>
-              Ngày: <b className="text-slate-900">{new Date(sessionForm.sessionDate || new Date()).toLocaleDateString('vi-VN')}</b><br/>
+              Ngày: <b className="text-slate-900">{new Date(sessionForm.sessionDate || new Date()).toLocaleDateString('vi-VN')}</b><br />
               Thời gian: <b className="text-blue-700">{sessionForm.startTime}</b> đến <b className="text-blue-700">{sessionForm.endTime}</b>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Lớp học <span className="text-red-500">*</span></label>
-              <Select 
+              <Select
                 options={classes?.items?.map((c: any) => ({ value: c.id, label: c.name })) || []}
                 placeholder="Chọn lớp học..."
                 className="focus:border-blue-500 focus:ring-blue-500/20"
                 value={sessionForm.classId}
-                onChange={(val) => setSessionForm({...sessionForm, classId: val})}
+                onChange={(val) => setSessionForm({ ...sessionForm, classId: val })}
               />
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Giáo viên <span className="text-red-500">*</span></label>
-              <Select 
+              <Select
                 options={teachers?.items?.map((t: any) => ({ value: t.id, label: t.fullName })) || []}
                 placeholder="Chọn giáo viên..."
                 className="focus:border-blue-500 focus:ring-blue-500/20"
                 value={sessionForm.teacherId}
-                onChange={(val) => setSessionForm({...sessionForm, teacherId: val})}
+                onChange={(val) => setSessionForm({ ...sessionForm, teacherId: val })}
               />
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Trợ giảng</label>
-              <Select 
+              <Select
                 options={assistants?.items?.map((a: any) => ({ value: a.id, label: a.fullName })) || []}
                 placeholder="Chọn trợ giảng..."
                 className="focus:border-blue-500 focus:ring-blue-500/20"
                 value={sessionForm.assistantId}
-                onChange={(val) => setSessionForm({...sessionForm, assistantId: val})}
+                onChange={(val) => setSessionForm({ ...sessionForm, assistantId: val })}
               />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Ngày học <span className="text-red-500">*</span></label>
-              <DatePicker 
+              <DatePicker
                 selected={sessionForm.sessionDate ? new Date(sessionForm.sessionDate) : null}
-                onChange={(date) => setSessionForm({...sessionForm, sessionDate: date ? date.toLocaleDateString('en-CA') : ''})}
+                onChange={(date) => setSessionForm({ ...sessionForm, sessionDate: date ? date.toLocaleDateString('en-CA') : '' })}
                 className="w-full h-11"
               />
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Chủ đề (Nội dung bài)</label>
-              <Input 
+              <Input
                 placeholder="VD: Grammar Unit 1..."
-                className="focus:border-blue-500 focus:ring-blue-500/20 h-11" 
+                className="focus:border-blue-500 focus:ring-blue-500/20 h-11"
                 value={sessionForm.lessonTitle}
-                onChange={(e) => setSessionForm({...sessionForm, lessonTitle: e.target.value})}
+                onChange={(e) => setSessionForm({ ...sessionForm, lessonTitle: e.target.value })}
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Giờ bắt đầu</label>
-              <DatePicker 
+              <DatePicker
                 selected={sessionForm.startTime ? new Date(`2000-01-01T${sessionForm.startTime.length === 5 ? sessionForm.startTime + ':00' : sessionForm.startTime}`) : null}
-                onChange={(date) => setSessionForm({...sessionForm, startTime: date ? date.toTimeString().split(' ')[0].substring(0, 5) : ''})}
+                onChange={(date) => setSessionForm({ ...sessionForm, startTime: date ? date.toTimeString().split(' ')[0].substring(0, 5) : '' })}
                 showTimeSelect
                 showTimeSelectOnly
                 timeIntervals={15}
@@ -616,9 +832,9 @@ export default function SchedulesPage() {
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Giờ kết thúc</label>
-              <DatePicker 
+              <DatePicker
                 selected={sessionForm.endTime ? new Date(`2000-01-01T${sessionForm.endTime.length === 5 ? sessionForm.endTime + ':00' : sessionForm.endTime}`) : null}
-                onChange={(date) => setSessionForm({...sessionForm, endTime: date ? date.toTimeString().split(' ')[0].substring(0, 5) : ''})}
+                onChange={(date) => setSessionForm({ ...sessionForm, endTime: date ? date.toTimeString().split(' ')[0].substring(0, 5) : '' })}
                 showTimeSelect
                 showTimeSelectOnly
                 timeIntervals={15}

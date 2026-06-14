@@ -9,6 +9,8 @@ import * as z from 'zod';
 
 import { Modal } from '@/components/ui/modal';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Select } from '@/components/ui/select';
+import { useClasses } from '@/hooks/queries/useClasses';
 
 const studentSchema = z.object({
   studentCode: z.string().min(1, 'Vui lòng nhập Mã học viên'),
@@ -16,7 +18,8 @@ const studentSchema = z.object({
   birthDate: z.string().optional(),
   parentName: z.string().optional(),
   parentPhone: z.string().optional(),
-  parentEmail: z.string().email('Email không hợp lệ').or(z.literal(''))
+  parentEmail: z.string().email('Email không hợp lệ').or(z.literal('')),
+  classId: z.string().optional()
 });
 
 type StudentFormValues = z.infer<typeof studentSchema>;
@@ -27,6 +30,7 @@ interface CreateStudentModalProps {
 
 export default function CreateStudentModal({ onClose }: CreateStudentModalProps) {
   const createMutation = useCreateStudent();
+  const { data: classesData } = useClasses('', '');
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<StudentFormValues>({
     resolver: zodResolver(studentSchema),
@@ -36,7 +40,8 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
       birthDate: '',
       parentName: '',
       parentPhone: '',
-      parentEmail: ''
+      parentEmail: '',
+      classId: ''
     }
   });
 
@@ -106,6 +111,21 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
               )}
             />
             {errors.birthDate?.message && <p className="text-sm text-red-500">{errors.birthDate.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-edu-fgSecondary">Xếp lớp (Tùy chọn)</label>
+            <Controller
+              control={control}
+              name="classId"
+              render={({ field }) => (
+                <Select
+                  options={classesData?.items?.map(c => ({ value: c.id, label: c.name })) || []}
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Chọn lớp học..."
+                />
+              )}
+            />
           </div>
         </div>
 

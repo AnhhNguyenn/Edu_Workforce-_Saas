@@ -9,13 +9,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
 import { Modal } from '@/components/ui/modal';
+import { Select } from '@/components/ui/select';
+import { useClasses } from '@/hooks/queries/useClasses';
+import { Controller } from 'react-hook-form';
 
 const editStudentSchema = z.object({
   fullName: z.string().min(1, 'Vui lòng nhập Họ tên'),
   birthDate: z.string().optional(),
   parentName: z.string().optional(),
   parentPhone: z.string().optional(),
-  parentEmail: z.string().email('Email không hợp lệ').or(z.literal(''))
+  parentEmail: z.string().email('Email không hợp lệ').or(z.literal('')),
+  classId: z.string().optional()
 });
 
 type EditStudentFormValues = z.infer<typeof editStudentSchema>;
@@ -28,15 +32,17 @@ interface EditStudentModalProps {
 export default function EditStudentModal({ studentId, onClose }: EditStudentModalProps) {
   const { data: studentDetail, isLoading } = useStudent(studentId);
   const updateMutation = useUpdateStudent();
+  const { data: classesData } = useClasses('', '');
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<EditStudentFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<EditStudentFormValues>({
     resolver: zodResolver(editStudentSchema),
     defaultValues: {
       fullName: '',
       birthDate: '',
       parentName: '',
       parentPhone: '',
-      parentEmail: ''
+      parentEmail: '',
+      classId: ''
     }
   });
 
@@ -47,7 +53,8 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
         birthDate: studentDetail.birthDate ? studentDetail.birthDate.split('T')[0] : '',
         parentName: studentDetail.parentName || '',
         parentPhone: studentDetail.parentPhone || '',
-        parentEmail: studentDetail.parentEmail || ''
+        parentEmail: studentDetail.parentEmail || '',
+        classId: studentDetail.classId || ''
       });
     }
   }, [studentDetail, reset]);
@@ -107,6 +114,21 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
               type="date" 
               {...register('birthDate')}
               error={errors.birthDate?.message}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-edu-fgSecondary">Xếp lớp</label>
+            <Controller
+              control={control}
+              name="classId"
+              render={({ field }) => (
+                <Select
+                  options={classesData?.items?.map((c: any) => ({ value: c.id, label: c.name })) || []}
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Chọn lớp học..."
+                />
+              )}
             />
           </div>
         </div>

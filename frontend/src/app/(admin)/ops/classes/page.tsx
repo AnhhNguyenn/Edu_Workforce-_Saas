@@ -29,7 +29,7 @@ export default function ClassesPage() {
   const { confirm } = useConfirm();
 
   const [newClass, setNewClass] = useState({ name: '', schoolId: '', description: '' });
-  const [editClass, setEditClass] = useState({ name: '', schoolId: '', description: '' });
+  const [editClass, setEditClass] = useState({ id: '', name: '', schoolId: '', description: '', statusCode: 'ACTIVE' });
 
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 500);
@@ -95,7 +95,8 @@ export default function ClassesPage() {
         data: {
           name: editClass.name,
           schoolId: editClass.schoolId,
-          description: editClass.description || undefined
+          description: editClass.description || undefined,
+          statusCode: editClass.statusCode
         }
       });
       toast.success('Sửa thông tin lớp thành công!');
@@ -109,9 +110,11 @@ export default function ClassesPage() {
   const openEditModal = (cls: any) => {
     setSelectedClass(cls);
     setEditClass({
+      id: cls.id || '',
       name: cls.name || '',
       schoolId: cls.schoolId || '',
-      description: cls.classDetail?.description || ''
+      description: cls.classDetail?.description || '',
+      statusCode: cls.statusCode || 'ACTIVE'
     });
     setIsEditOpen(true);
   };
@@ -188,8 +191,8 @@ export default function ClassesPage() {
                   <TableCell className="text-edu-muted text-sm">{c.schedule || 'Chưa xếp lịch'}</TableCell>
                   <TableCell>{c.studentsCount || 0}</TableCell>
                   <TableCell>
-                    <Badge variant={c.status === 'active' ? 'success' : 'warn'}>
-                      {c.status === 'active' ? 'Đang học' : 'Sắp khai giảng'}
+                    <Badge variant={c.statusCode === 'ACTIVE' ? 'success' : 'warn'}>
+                      {c.statusCode === 'ACTIVE' ? 'Đang học' : 'Sắp khai giảng'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -310,6 +313,19 @@ export default function ClassesPage() {
                 className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
                 value={editClass.description}
                 onChange={(e) => setEditClass({...editClass, description: e.target.value})}
+              />
+            </div>
+            <div className="col-span-1 md:col-span-2">
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Trạng thái lớp học</label>
+              <Select 
+                options={[
+                  { value: 'ACTIVE', label: 'Đang học' },
+                  { value: 'INACTIVE', label: 'Sắp khai giảng / Đã đóng' }
+                ]}
+                placeholder="Chọn trạng thái..."
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
+                value={editClass.statusCode}
+                onChange={(val) => setEditClass({...editClass, statusCode: val})}
               />
             </div>
           </div>

@@ -37,7 +37,7 @@ export default withAuth(
     pages: {
       signIn: '/login',
     },
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: process.env.NEXTAUTH_SECRET || "eduops-secret-key-2024",
   }
 );
 

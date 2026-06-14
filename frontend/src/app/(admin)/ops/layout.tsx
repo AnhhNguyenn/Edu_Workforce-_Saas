@@ -5,9 +5,13 @@ import { CenterSidebar } from '@/components/layout/center-sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/components/ui/stat-card';
+import { usePathname } from 'next/navigation';
 
 export default function CenterAdminLayout({ children }: { children: ReactNode }) {
   const sidebarOpen = useAppStore(state => state.sidebarOpen);
+  const pathname = usePathname();
+  
+  const isSchedulesPage = pathname?.includes('/ops/schedules');
 
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 1024px)');
@@ -25,7 +29,7 @@ export default function CenterAdminLayout({ children }: { children: ReactNode })
   }, []);
 
   return (
-    <div className="flex min-h-screen relative">
+    <div className="flex min-h-screen relative bg-[#F8FAFC]">
       <CenterSidebar />
       {/* Mobile Backdrop Overlay */}
       {sidebarOpen && (
@@ -38,7 +42,8 @@ export default function CenterAdminLayout({ children }: { children: ReactNode })
       <Topbar />
       
       <main className={cn(
-        "flex-1 p-4 md:p-7 transition-all duration-300 ease-in-out mt-16 min-h-[calc(100vh-64px)] w-full max-w-[100vw] overflow-x-hidden",
+        "flex-1 transition-all duration-300 ease-in-out mt-16 min-h-[calc(100vh-64px)] w-full max-w-[100vw] overflow-x-hidden",
+        isSchedulesPage ? "p-0" : "p-4 md:p-7",
         sidebarOpen ? "lg:ml-[260px]" : "ml-0"
       )}>
         {children}

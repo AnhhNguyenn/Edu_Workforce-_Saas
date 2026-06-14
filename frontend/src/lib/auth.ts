@@ -150,5 +150,5 @@ export const authOptions: NextAuthOptions = {
     maxAge: 1 * 24 * 60 * 60, // 1 ngày thay vì 30 ngày để đảm bảo bảo mật và không lưu session quá lâu
   },
   debug: true,
-  secret: process.env.NEXTAUTH_SECRET as string,
+  secret: ENV.NEXTAUTH_SECRET as string,
 };

@@ -14,5 +14,8 @@ namespace EduOps.Application.DTOs.Academic.Students.Responses
         public Guid? StatusId { get; set; }
         public string StatusCode { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
+        
+        public Guid? ClassId { get; set; }
+        public string CurrentClass { get; set; } = string.Empty;
     }
 }

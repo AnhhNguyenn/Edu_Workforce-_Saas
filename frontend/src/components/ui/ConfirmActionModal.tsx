@@ -38,6 +38,7 @@ export function ConfirmActionModal({
     <Modal
       isOpen={isOpen}
       onClose={isPending ? () => {} : onClose}
+      zIndex="z-[999]"
       title={
         <div className="flex items-center gap-2 text-red-600">
           <AlertTriangle size={20} />

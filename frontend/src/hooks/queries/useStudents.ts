@@ -93,3 +93,16 @@ export const useDeleteStudent = () => {
     }
   });
 };
+
+export const useBulkAssignClass = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { studentIds: string[], classId: string }) => {
+      const response = await apiClient.post('/students/bulk-assign-class', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+    }
+  });
+};

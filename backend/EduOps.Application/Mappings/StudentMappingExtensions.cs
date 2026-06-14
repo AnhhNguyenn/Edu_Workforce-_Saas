@@ -9,6 +9,8 @@ namespace EduOps.Application.Mappings
         {
             if (student == null) return null!;
 
+            var activeEnrollment = student.Enrollments?.FirstOrDefault(e => e.Status?.Code == "ENROLLED");
+
             return new StudentListResponseDto
             {
                 Id = student.Id,
@@ -18,13 +20,16 @@ namespace EduOps.Application.Mappings
                 PhoneNumber = student.StudentDetail?.ParentPhone ?? string.Empty,
                 Email = student.StudentDetail?.ParentEmail ?? string.Empty,
                 StatusId = student.StatusId,
-                StatusCode = student.Status?.Code ?? string.Empty
+                StatusCode = student.Status?.Code ?? string.Empty,
+                CurrentClass = activeEnrollment?.Class?.Name ?? string.Empty
             };
         }
 
         public static StudentDetailResponseDto ToDetailResponseDto(this Student student)
         {
             if (student == null) return null!;
+
+            var activeEnrollment = student.Enrollments?.FirstOrDefault(e => e.Status?.Code == "ENROLLED");
 
             return new StudentDetailResponseDto
             {
@@ -37,7 +42,9 @@ namespace EduOps.Application.Mappings
                 ParentEmail = student.StudentDetail?.ParentEmail ?? string.Empty,
                 StatusId = student.StatusId,
                 StatusCode = student.Status?.Code ?? string.Empty,
-                CreatedAt = student.CreatedAt
+                CreatedAt = student.CreatedAt,
+                ClassId = activeEnrollment?.ClassId,
+                CurrentClass = activeEnrollment?.Class?.Name ?? string.Empty
             };
         }
     }

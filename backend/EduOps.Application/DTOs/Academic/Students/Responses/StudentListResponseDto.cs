@@ -12,5 +12,6 @@ namespace EduOps.Application.DTOs.Academic.Students.Responses
         public string Email { get; set; } = string.Empty;
         public Guid? StatusId { get; set; }
         public string StatusCode { get; set; } = string.Empty;
+        public string CurrentClass { get; set; } = string.Empty;
     }
 }
