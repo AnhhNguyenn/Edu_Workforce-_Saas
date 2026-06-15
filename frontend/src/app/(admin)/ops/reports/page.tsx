@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, Filter, Download } from "lucide-react";
+import { Search, Filter, Download, ClipboardX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -58,14 +58,14 @@ export default function ReportsPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-7">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Báo cáo điểm danh</h2>
           <p className="text-edu-muted text-sm">Theo dõi tiến độ nộp báo cáo điểm danh của giáo viên</p>
         </div>
         {isAuthorized && (
-          <Button className="gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white" onClick={handleExport}>
-            <Download size={18} />
+          <Button variant="outline" className="w-full sm:w-auto flex justify-center items-center gap-2 text-edu-fg font-semibold hover:border-edu-accent hover:text-edu-accent transition-colors" onClick={handleExport}>
+            <Download size={16} />
             Xuất file Excel
           </Button>
         )}
@@ -105,19 +105,28 @@ export default function ReportsPage() {
           </div>
         </div>
         
-        <div className="overflow-x-auto w-full">
-          <Table className="w-full whitespace-nowrap">
-            <TableHeader>
-            <TableRow>
-              <TableHead>Mã Buổi Học</TableHead>
-              <TableHead>Sĩ số hiện diện</TableHead>
-              <TableHead>Số học viên vắng</TableHead>
-              <TableHead>Ngày nộp</TableHead>
-              <TableHead>Trạng thái báo cáo</TableHead>
-              <TableHead>Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        {!isLoading && filteredReports.length === 0 ? (
+          <EmptyState 
+            icon={<ClipboardX size={32} />}
+            title="Chưa có báo cáo"
+            hasFilter={!!searchTerm || statusFilter !== 'all'}
+            onClearFilter={() => { setSearchTerm(''); setStatusFilter('all'); }}
+            description="Không tìm thấy báo cáo điểm danh nào phù hợp."
+          />
+        ) : (
+          <div className="overflow-x-auto w-full">
+            <Table className="w-full whitespace-nowrap">
+              <TableHeader>
+              <TableRow>
+                <TableHead>Mã Buổi Học</TableHead>
+                <TableHead>Sĩ số hiện diện</TableHead>
+                <TableHead>Số học viên vắng</TableHead>
+                <TableHead>Ngày nộp</TableHead>
+                <TableHead>Trạng thái báo cáo</TableHead>
+                <TableHead>Thao tác</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
             {filteredReports.map(r => (
               <TableRow key={r.sessionId} className="hover:bg-slate-50/50 transition-colors">
                 <TableCell className="font-medium text-edu-fg">{r.sessionId.substring(0, 8)}...</TableCell>
@@ -141,20 +150,10 @@ export default function ReportsPage() {
                 </TableCell>
               </TableRow>
             )}
-            {!isLoading && filteredReports.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="p-0">
-                  <EmptyState 
-                    hasFilter={!!searchTerm || statusFilter !== 'all'}
-                    onClearFilter={() => { setSearchTerm(''); setStatusFilter('all'); }}
-                    description="Không tìm thấy báo cáo phù hợp."
-                  />
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
         </div>
+        )}
       </div>
     </div>
   );

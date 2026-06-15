@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, CalendarDays, MapPin, User, LogOut } from 'lucide-react';
+import { Home, CalendarDays, MapPin, User, LogOut, BookOpen } from 'lucide-react';
 import { cn } from '@/components/ui/stat-card';
 import { useAppStore } from '@/store/useAppStore';
 import { signOut } from 'next-auth/react';
@@ -26,7 +26,8 @@ export function TeacherSidebar() {
     await signOut({ callbackUrl: '/login' });
   };
 
-  const avatarInitials = profile?.fullName ? profile.fullName.split(' ').map(n => n[0]).slice(-2).join('') : 'U';
+  const appName = profile?.customAppName || 'EduOps';
+  const logoUrl = profile?.customLogoUrl;
 
   return (
     <aside className={cn(
@@ -34,12 +35,16 @@ export function TeacherSidebar() {
       sidebarOpen ? "translate-x-0" : "-translate-x-full"
     )}>
       <div className="p-5 flex items-center gap-3 border-b border-edu-border">
-        <div className="w-9 h-9 bg-gradient-to-br from-[#81C784] to-[#4CAF50] rounded-lg flex items-center justify-center text-white shadow-sm font-bold text-xs">
-          {avatarInitials}
-        </div>
+        {logoUrl ? (
+          <img src={logoUrl} alt="Logo" className="w-9 h-9 object-contain rounded-md" />
+        ) : (
+          <div className="w-9 h-9 bg-gradient-to-br from-edu-accent to-[#7BC4FF] rounded-lg flex items-center justify-center text-white shadow-sm">
+            <BookOpen size={20} />
+          </div>
+        )}
         <div>
-          <h1 className="text-[1.05rem] font-bold text-edu-fg leading-tight">{profile?.fullName || 'Giáo viên'}</h1>
-          <small className="text-[0.7rem] text-edu-muted block">{profile?.role === 'TEACHER' ? 'Teacher' : 'Teaching Assistant'}</small>
+          <h1 className="text-[1.05rem] font-bold text-edu-fg leading-tight truncate max-w-[170px]" title={appName}>{appName}</h1>
+          <small className="text-[0.7rem] text-edu-muted block">Teacher Portal</small>
         </div>
       </div>
 
@@ -64,11 +69,11 @@ export function TeacherSidebar() {
               href={`/me${item.path === '/dashboard' ? '' : item.path}`}
               className={cn(
                 "flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-edu-fgSecondary text-sm font-medium mb-0.5 transition-colors group",
-                "hover:bg-[#E8F5E9] hover:text-[#2E7D32]",
-                isActive && "bg-[#E8F5E9] text-[#2E7D32] font-semibold"
+                "hover:bg-edu-accentLight hover:text-edu-accent",
+                isActive && "bg-edu-accentLight text-edu-accent font-semibold"
               )}
             >
-              <div className={cn("text-edu-muted group-hover:text-[#2E7D32] transition-colors", isActive && "text-[#2E7D32]")}>
+              <div className={cn("text-edu-muted group-hover:text-edu-accent transition-colors", isActive && "text-edu-accent")}>
                 <IconComponent size={18} />
               </div>
               <span>{item.label}</span>

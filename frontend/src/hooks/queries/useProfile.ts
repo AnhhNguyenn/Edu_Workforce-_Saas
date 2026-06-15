@@ -14,6 +14,8 @@ export interface UserProfileDto {
     totalSessions: number;
     attendanceRate: number;
   };
+  customAppName?: string;
+  customLogoUrl?: string;
 }
 
 export const useProfile = () => {

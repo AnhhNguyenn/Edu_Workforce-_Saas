@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { School as SchoolIcon, MapPin, Users, Target, X, Loader2, Search, Filter } from "lucide-react";
+import { School as SchoolIcon, MapPin, Users, Target, X, Loader2, Search, Filter, Building } from "lucide-react";
 import { useSchools, useCreateSchool, useUpdateSchool, useDeleteSchool } from "@/hooks/queries/useSchools";
 import LocationPicker from '@/components/ui/LocationPicker';
 import { Input } from '@/components/ui/input';
@@ -130,31 +130,33 @@ export default function SchoolsPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-7">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Cơ sở / Trường học</h2>
           <p className="text-edu-muted text-sm">Quản lý điểm dạy và tọa độ GPS Check-in</p>
         </div>
         {isAuthorized && (
-          <CreateButton onClick={openCreateModal} label="Thêm cơ sở" />
+          <div className="w-full sm:w-auto">
+            <CreateButton onClick={openCreateModal} label="Thêm cơ sở" className="w-full sm:w-auto" />
+          </div>
         )}
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-edu-border p-5 mb-5 flex flex-col md:flex-row gap-4 justify-between md:items-center">
+      <div className="bg-white rounded-2xl shadow-sm border border-edu-border p-4 md:p-5 mb-5 flex flex-col md:flex-row gap-4 justify-between md:items-center">
         <h3 className="text-base font-semibold text-edu-fg flex items-center gap-2">
           Danh sách Cơ sở
         </h3>
-        <div className="flex gap-3 flex-1 max-w-md">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row gap-3 flex-1 md:max-w-md w-full">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={16} />
             <Input 
               placeholder="Tìm tên cơ sở..." 
-              className="pl-9 h-9 text-sm focus:border-edu-accent focus:ring-edu-accent/30" 
+              className="pl-9 h-10 sm:h-9 text-sm focus:border-edu-accent focus:ring-edu-accent/30 w-full" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="w-[160px]">
+          <div className="w-full sm:w-[160px]">
             <Select 
               options={[
                 { value: 'ALL', label: 'Tất cả trạng thái' },
@@ -163,7 +165,7 @@ export default function SchoolsPage() {
               ]}
               value={gpsFilter}
               onChange={(val) => setGpsFilter(val)}
-              className="h-9 focus:border-edu-accent focus:ring-edu-accent/30"
+              className="h-10 sm:h-9 focus:border-edu-accent focus:ring-edu-accent/30 w-full"
               placeholder="Lọc GPS"
             />
           </div>
@@ -174,9 +176,11 @@ export default function SchoolsPage() {
         <div className="text-center py-10 text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải...</div>
       ) : filteredSchools?.length === 0 ? (
         <EmptyState 
+          icon={<Building size={32} />}
+          title="Chưa có cơ sở nào"
           hasFilter={!!searchTerm || gpsFilter !== 'ALL'}
           onClearFilter={() => { setSearchTerm(''); setGpsFilter('ALL'); }}
-          description="Không tìm thấy cơ sở nào. Hãy thử đổi từ khóa hoặc bộ lọc."
+          description="Không tìm thấy cơ sở nào phù hợp. Hãy thử đổi từ khóa hoặc bộ lọc."
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

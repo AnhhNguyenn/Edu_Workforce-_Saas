@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, Clock, HelpCircle, MapPin, Download } from "lucide-react";
+import { CheckCircle2, Clock, HelpCircle, MapPin, Download, CalendarOff } from "lucide-react";
 import { useSessions } from "@/hooks/queries/useSessions";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,11 +24,11 @@ export default function AttendancePage() {
   return (
     <div className="max-w-7xl mx-auto space-y-7">
       <div className="mb-7">
-        <h2 className="text-2xl font-bold mb-1 text-edu-fg">Attendance</h2>
-        <p className="text-edu-muted text-sm">Giám sát điểm danh real-time hôm nay</p>
+        <h2 className="text-2xl font-bold mb-1 text-edu-fg">Điểm danh</h2>
+        <p className="text-edu-muted text-sm">Giám sát điểm danh tức thời hôm nay</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-7">
         <StatCard icon={<CheckCircle2 size={20} />} label="Ca học hôm nay" value={todaySessions.length.toString()} type="success" />
         <StatCard icon={<Clock size={20} />} label="Đã hoàn thành" value={todaySessions.filter(s => s.statusCode === 'COMPLETED').length.toString()} type="accent" />
         <StatCard icon={<HelpCircle size={20} />} label="Chưa bắt đầu" value={todaySessions.filter(s => s.statusCode === 'SCHEDULED').length.toString()} type="warn" />
@@ -36,13 +36,15 @@ export default function AttendancePage() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
-        <div className="p-5 flex justify-between items-center border-b border-edu-border">
+        <div className="p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-edu-border">
           <h3 className="font-semibold text-edu-fg">Chi tiết điểm danh giảng dạy</h3>
           {isAuthorized && (
-            <Button variant="outline" className="flex items-center gap-2 text-edu-fg font-semibold hover:border-edu-accent hover:text-edu-accent transition-colors">
-              <Download size={16} />
-              Export Excel
-            </Button>
+            <div className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto flex justify-center items-center gap-2 text-edu-fg font-semibold hover:border-edu-accent hover:text-edu-accent transition-colors">
+                <Download size={16} />
+                Xuất file Excel
+              </Button>
+            </div>
           )}
         </div>
 
@@ -51,6 +53,8 @@ export default function AttendancePage() {
             <div className="text-center py-10 text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu điểm danh...</div>
           ) : todaySessions.length === 0 ? (
             <EmptyState 
+              icon={<CalendarOff size={32} />}
+              title="Trống lịch học"
               description="Không có ca học nào được xếp lịch trong hôm nay."
             />
           ) : (
@@ -114,12 +118,12 @@ function StatCard({ icon, label, value, type }: { icon: React.ReactNode, label: 
   const c = colors[type];
 
   return (
-    <div className={`bg-white rounded-2xl p-5 shadow-sm border border-edu-border hover:-translate-y-0.5 hover:shadow-md transition-all relative overflow-hidden after:content-[''] after:absolute after:-top-5 after:-right-5 after:w-20 after:h-20 after:rounded-full after:opacity-10 ${c.circle}`}>
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${c.bg} ${c.text}`}>
+    <div className={`bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-edu-border hover:-translate-y-0.5 hover:shadow-md transition-all relative overflow-hidden after:content-[''] after:absolute after:-top-5 after:-right-5 after:w-20 after:h-20 after:rounded-full after:opacity-10 ${c.circle}`}>
+      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center mb-2 sm:mb-3 ${c.bg} ${c.text}`}>
         {icon}
       </div>
-      <div className="text-3xl font-bold leading-tight text-edu-fg">{value}</div>
-      <div className="text-xs text-edu-muted mt-1">{label}</div>
+      <div className="text-2xl sm:text-3xl font-bold leading-tight text-edu-fg">{value}</div>
+      <div className="text-[11px] sm:text-xs text-edu-muted mt-1 truncate">{label}</div>
     </div>
   );
 }

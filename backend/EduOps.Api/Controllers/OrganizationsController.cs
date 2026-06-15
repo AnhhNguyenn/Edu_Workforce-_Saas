@@ -114,5 +114,15 @@ namespace EduOps.Api.Controllers
                 AttendanceRate = attendanceRate
             });
         }
+
+        [HttpGet("branding")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetBrandingByDomain([FromQuery] string domain)
+        {
+            if (string.IsNullOrEmpty(domain)) return BadRequest("Domain is required");
+            var result = await _orgService.GetBrandingByDomainAsync(domain);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
     }
 }

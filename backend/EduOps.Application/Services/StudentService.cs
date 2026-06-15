@@ -88,7 +88,7 @@ namespace EduOps.Application.Services
             };
 
             await repo.AddAsync(student);
-            
+
             if (request.ClassId.HasValue)
             {
                 var classRepo = _unitOfWork.Repository<Class>();
@@ -107,7 +107,7 @@ namespace EduOps.Application.Services
                     await _unitOfWork.Repository<ClassEnrollment>().AddAsync(enrollment);
                 }
             }
-            
+
             await _unitOfWork.CommitAsync();
 
             if (_currentUserService.UserId != Guid.Empty)
@@ -145,13 +145,14 @@ namespace EduOps.Application.Services
             // student.Status = request.Status;
 
             repo.Update(student);
-            
+
             // Handle Class Enrollment Update
             var enrollmentRepo = _unitOfWork.Repository<ClassEnrollment>();
             var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.EnrollmentStatus>().FirstOrDefaultAsync(s => s.Code == "ENROLLED");
             var inactiveStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.EnrollmentStatus>().FirstOrDefaultAsync(s => s.Code == "DROPPED_OUT");
-            
-            var currentEnrollments = await enrollmentRepo.FindAsync(e => e.StudentId == student.Id && e.OrganizationId == organizationId && e.StatusId == activeStatus.Id);
+
+            var activeStatusId = activeStatus?.Id;
+            var currentEnrollments = await enrollmentRepo.FindAsync(e => e.StudentId == student.Id && e.OrganizationId == organizationId && e.StatusId == activeStatusId);
             var currentEnrollment = currentEnrollments.FirstOrDefault();
 
             if (request.ClassId.HasValue)
@@ -183,7 +184,7 @@ namespace EduOps.Application.Services
                     {
                         currentEnrollment.StatusId = inactiveStatus?.Id; // Deactivate old
                         enrollmentRepo.Update(currentEnrollment);
-                        
+
                         var newEnrollment = new ClassEnrollment
                         {
                             OrganizationId = organizationId,
@@ -298,7 +299,7 @@ namespace EduOps.Application.Services
                 {
                     var studentCode = worksheet.Cell(row, 1).GetString().Trim();
                     var fullName = worksheet.Cell(row, 2).GetString().Trim();
-                    
+
                     if (string.IsNullOrEmpty(studentCode) || string.IsNullOrEmpty(fullName))
                     {
                         result.FailureCount++;
@@ -378,13 +379,14 @@ namespace EduOps.Application.Services
             var enrollmentRepo = _unitOfWork.Repository<ClassEnrollment>();
             var activeStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.EnrollmentStatus>().FirstOrDefaultAsync(s => s.Code == "ENROLLED");
             var inactiveStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.EnrollmentStatus>().FirstOrDefaultAsync(s => s.Code == "DROPPED_OUT");
+            var activeStatusId = activeStatus?.Id;
 
             foreach (var studentId in request.StudentIds)
             {
                 var student = await _unitOfWork.Repository<Student>().FirstOrDefaultAsync(s => s.Id == studentId && s.OrganizationId == organizationId);
                 if (student == null) continue;
 
-                var currentEnrollments = await enrollmentRepo.FindAsync(e => e.StudentId == student.Id && e.OrganizationId == organizationId && e.StatusId == activeStatus.Id);
+                var currentEnrollments = await enrollmentRepo.FindAsync(e => e.StudentId == student.Id && e.OrganizationId == organizationId && e.StatusId == activeStatusId);
                 var currentEnrollment = currentEnrollments.FirstOrDefault();
 
                 if (currentEnrollment == null)

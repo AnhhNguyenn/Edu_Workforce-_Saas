@@ -14,6 +14,9 @@ export interface OrganizationDto {
   email?: string;
   address?: string;
   statusCode?: string;
+  customAppName?: string;
+  customLogoUrl?: string;
+  customDomain?: string;
 }
 
 export interface CreateOrganizationDto {
@@ -136,6 +139,22 @@ export const useToggleOrgStatus = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
+    }
+  });
+};
+
+export const useUploadImage = () => {
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await apiClient.post<{ url: string }>('/uploads/image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
     }
   });
 };

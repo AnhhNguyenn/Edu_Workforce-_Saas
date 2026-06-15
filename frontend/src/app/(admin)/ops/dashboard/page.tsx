@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, Users, Calendar, Clock } from "lucide-react";
+import { Building2, Users, Calendar, Clock, CalendarOff } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { useClasses } from "@/hooks/queries/useClasses";
 import { useUsers } from "@/hooks/queries/useUsers";
@@ -8,6 +8,7 @@ import { useReports } from "@/hooks/queries/useReports";
 import { useSessions } from "@/hooks/queries/useSessions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function CenterAdminDashboard() {
   const { data: classes } = useClasses();
@@ -27,7 +28,7 @@ export default function CenterAdminDashboard() {
       </div>
 
       {/* STATS GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-7">
         <StatCard icon={<Users size={20} />} label="Giáo viên trực thuộc" value={teachers?.totalCount || 0} type="accent" />
         <StatCard icon={<Building2 size={20} />} label="Lớp đang mở" value={classes?.totalCount || 0} type="success" />
         <StatCard icon={<Calendar size={20} />} label="Ca học hôm nay" value={todaySessions.length} type="warn" />
@@ -67,8 +68,8 @@ export default function CenterAdminDashboard() {
           </Table>
           </div>
         ) : (
-          <div className="text-sm text-edu-muted text-center py-10 border border-dashed border-edu-border rounded-xl bg-gray-50/50">
-            Không có ca học nào được xếp lịch trong hôm nay.
+          <div className="py-4">
+            <EmptyState icon={<CalendarOff size={32} />} title="Trống lịch học" description="Không có ca học nào được xếp lịch trong hôm nay." />
           </div>
         )}
       </div>

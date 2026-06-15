@@ -29,16 +29,16 @@ export function StatCard({ icon, label, value, change, type = 'accent', classNam
 
   return (
     <div className={cn(
-      "bg-white rounded-2xl p-5 shadow-sm border border-edu-border hover:-translate-y-0.5 hover:shadow-md transition-all relative overflow-hidden",
+      "bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-edu-border hover:-translate-y-0.5 hover:shadow-md transition-all relative overflow-hidden",
       "after:content-[''] after:absolute after:-top-5 after:-right-5 after:w-20 after:h-20 after:rounded-full after:opacity-10",
       c.circle,
       className
     )}>
-      <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center mb-3", c.bg, c.text)}>
+      <div className={cn("w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center mb-2 sm:mb-3", c.bg, c.text)}>
         {icon}
       </div>
-      <div className="text-3xl font-bold leading-tight text-edu-fg">{value}</div>
-      <div className="text-xs text-edu-muted mt-1">{label}</div>
+      <div className="text-2xl sm:text-3xl font-bold leading-tight text-edu-fg">{value}</div>
+      <div className="text-[11px] sm:text-xs text-edu-muted mt-1 truncate">{label}</div>
       {change && (
         <div className={cn(
           "text-[0.75rem] mt-1.5 font-semibold",

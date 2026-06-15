@@ -9,6 +9,8 @@ export interface OrganizationDto {
   status: string;
   teachersCount?: number;
   studentsCount?: number;
+  customAppName?: string;
+  customLogoUrl?: string;
   createdAt: string;
 }
 

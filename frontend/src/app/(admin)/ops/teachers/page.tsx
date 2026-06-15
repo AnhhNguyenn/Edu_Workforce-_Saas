@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from "react";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateButton } from '@/components/ui/create-button';
 import { ActionButtons } from '@/components/ui/action-buttons';
@@ -102,18 +102,20 @@ export default function TeachersPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-7">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Giáo viên & Trợ giảng</h2>
           <p className="text-edu-muted text-sm">Quản lý nhân sự giảng dạy trực thuộc trung tâm</p>
         </div>
         {isAuthorized && (
-          <CreateButton onClick={() => setIsCreateOpen(true)} label="Thêm nhân sự" />
+          <div className="w-full sm:w-auto">
+            <CreateButton onClick={() => setIsCreateOpen(true)} label="Thêm nhân sự" className="w-full sm:w-auto" />
+          </div>
         )}
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
-        <div className="p-5 flex flex-col md:flex-row justify-between md:items-center border-b border-edu-border gap-4">
+        <div className="p-4 md:p-5 flex flex-col md:flex-row justify-between md:items-center border-b border-edu-border gap-4">
           <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
             <h3 className="text-base font-semibold text-edu-fg flex items-center gap-2">
               Danh sách nhân sự
@@ -138,34 +140,43 @@ export default function TeachersPage() {
             </Button>
             </div>
           </div>
-          <div className="flex flex-1 max-w-md gap-2">
-            <div className="relative flex-1">
+          <div className="flex flex-1 w-full md:max-w-md gap-2">
+            <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={16} />
               <Input 
                 placeholder="Tìm tên nhân sự..." 
-                className="pl-9 h-9 text-sm focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                className="pl-9 h-10 sm:h-9 text-sm focus:border-[#4CAF50] focus:ring-[#4CAF50]/30 w-full" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant="secondary" size="icon" className="h-9 w-9">
+            <Button variant="secondary" size="icon" className="h-10 w-10 sm:h-9 sm:w-9 shrink-0">
               <Filter size={16} />
             </Button>
           </div>
         </div>
         
-        <div className="overflow-x-auto w-full">
-          <Table className="w-full whitespace-nowrap">
-            <TableHeader>
-            <TableRow>
-              <TableHead>Họ và Tên</TableHead>
-              <TableHead>Vai trò</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead>Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        {(!users?.items || users.items.length === 0) && !isLoading ? (
+          <EmptyState 
+            icon={<UserX size={32} />}
+            title={searchTerm ? "Không tìm thấy kết quả" : "Chưa có nhân sự"}
+            hasFilter={!!searchTerm}
+            onClearFilter={() => { setSearchTerm(''); }}
+            description={searchTerm ? "Không có giáo viên/trợ giảng nào phù hợp với từ khóa." : "Chưa có giáo viên hoặc trợ giảng nào trong hệ thống."}
+          />
+        ) : (
+          <div className="overflow-x-auto w-full">
+            <Table className="w-full whitespace-nowrap">
+              <TableHeader>
+              <TableRow>
+                <TableHead>Họ và Tên</TableHead>
+                <TableHead>Vai trò</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Trạng thái</TableHead>
+                <TableHead>Thao tác</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
             {users?.items?.map((t) => (
               <TableRow key={t.id} className="hover:bg-slate-50/50 transition-colors">
                 <TableCell>
@@ -198,17 +209,6 @@ export default function TeachersPage() {
                   </TableCell>
               </TableRow>
             ))}
-            {(!users?.items || users.items.length === 0) && !isLoading && (
-              <TableRow>
-                <TableCell colSpan={5} className="h-48 text-center p-0">
-                  <EmptyState 
-                    hasFilter={!!searchTerm || !!roleFilter}
-                    onClearFilter={() => { setSearchTerm(''); setRoleFilter(undefined); }}
-                    description="Không tìm thấy nhân sự nào."
-                  />
-                </TableCell>
-              </TableRow>
-            )}
             {isLoading && (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center text-edu-muted">
@@ -219,6 +219,7 @@ export default function TeachersPage() {
           </TableBody>
         </Table>
         </div>
+        )}
       </div>
 
       <Modal 

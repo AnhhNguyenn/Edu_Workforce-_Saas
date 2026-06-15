@@ -29,7 +29,20 @@ namespace EduOps.Application.Services
             if (user == null || user.DeletedAt != null) throw new NotFoundException("User", userId);
             user.UserDetail = await _unitOfWork.Repository<UserDetail>().FirstOrDefaultAsync(d => d.UserId == userId);
 
-            return user.ToDetailResponseDto();
+            var dto = user.ToDetailResponseDto();
+
+            if (user.OrganizationId.HasValue)
+            {
+                var org = await _unitOfWork.Repository<Organization>().GetByIdAsync(user.OrganizationId.Value);
+                if (org != null)
+                {
+                    dto.OrganizationName = org.Name;
+                    dto.CustomAppName = org.CustomAppName;
+                    dto.CustomLogoUrl = org.CustomLogoUrl;
+                }
+            }
+
+            return dto;
         }
 
         public async Task<string> UploadAvatarAsync(Guid userId, Stream fileStream, string fileName, string contentType)

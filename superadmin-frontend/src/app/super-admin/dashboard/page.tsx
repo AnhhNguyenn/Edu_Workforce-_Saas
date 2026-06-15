@@ -3,7 +3,7 @@
 import { Building2, Users, Calendar, UserCheck, MapPin, Clock, CreditCard } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { useSystemOverview, useSystemCharts } from "@/hooks/queries/useAnalytics";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
 
 export default function SuperAdminDashboard() {
   const { data: stats, isLoading } = useSystemOverview();
@@ -40,17 +40,51 @@ export default function SuperAdminDashboard() {
               <div className="w-full h-full flex justify-center items-center text-edu-muted">Đang tải biểu đồ...</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={charts?.revenueChart || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={charts?.revenueChart || []} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} tickFormatter={(val) => `${val/1000000}M`} />
-                  <Tooltip formatter={(value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)} />
-                  <Area type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 12, fill: '#94A3B8', fontWeight: 600 }} 
+                    dy={10} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 12, fill: '#94A3B8', fontWeight: 600 }} 
+                    dx={-10} 
+                    tickFormatter={(val) => `${val/1000000}M`} 
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => [new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value), "Doanh thu"]}
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      fontWeight: 600,
+                      color: '#1E293B',
+                      padding: '12px'
+                    }}
+                    itemStyle={{ color: '#2563EB', fontWeight: 700 }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#2563EB" 
+                    strokeWidth={4} 
+                    fillOpacity={1} 
+                    fill="url(#colorValue)" 
+                    activeDot={{ r: 6, fill: '#2563EB', stroke: '#fff', strokeWidth: 2 }}
+                    animationDuration={1500}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -65,11 +99,48 @@ export default function SuperAdminDashboard() {
                <div className="w-full h-full flex justify-center items-center text-edu-muted">Đang tải biểu đồ...</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={charts?.tenantChart || []} margin={{ top: 10, right: 0, left: -30, bottom: 0 }}>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                  <Tooltip />
-                  <Bar dataKey="tenants" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <BarChart data={charts?.tenantChart || []} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="colorTenants" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#34D399" stopOpacity={1}/>
+                      <stop offset="100%" stopColor="#059669" stopOpacity={0.9}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 12, fill: '#94A3B8', fontWeight: 600 }} 
+                    dy={10} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 12, fill: '#94A3B8', fontWeight: 600 }} 
+                    dx={-10} 
+                    allowDecimals={false}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: '#F1F5F9', radius: 6 }}
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      fontWeight: 600,
+                      color: '#1E293B',
+                      padding: '12px'
+                    }}
+                    itemStyle={{ color: '#059669', fontWeight: 700 }}
+                  />
+                  <Bar 
+                    dataKey="tenants" 
+                    name="Tenant Mới"
+                    fill="url(#colorTenants)" 
+                    radius={[6, 6, 0, 0]} 
+                    barSize={28} 
+                    animationDuration={1500}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             )}

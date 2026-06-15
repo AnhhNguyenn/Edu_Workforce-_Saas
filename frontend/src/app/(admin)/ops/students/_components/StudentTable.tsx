@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-import { Loader2 } from 'lucide-react';
+import { Loader2, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActionButtons } from '@/components/ui/action-buttons';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -22,8 +22,11 @@ export function StudentTable({ students, isLoading, onEdit, onDelete, isAuthoriz
 
   return (
     <div className="bg-white rounded-2xl border border-edu-border overflow-hidden shadow-sm">
-      <div className="overflow-x-auto w-full">
-        <Table className="w-full whitespace-nowrap">
+      {!isLoading && students.length === 0 ? (
+        <EmptyState icon={<UserX size={32} />} title="Trống danh sách" description="Không tìm thấy học viên nào." />
+      ) : (
+        <div className="overflow-x-auto w-full">
+          <Table className="w-full whitespace-nowrap">
         <TableHeader className="bg-gray-50/50">
           <TableRow>
             <TableHead className="w-12 text-center">
@@ -47,12 +50,6 @@ export function StudentTable({ students, isLoading, onEdit, onDelete, isAuthoriz
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={8} className="text-center py-10 text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu...</TableCell>
-            </TableRow>
-          ) : students.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={8} className="p-0">
-                <EmptyState description="Không tìm thấy học viên nào." />
-              </TableCell>
             </TableRow>
           ) : students.map((std: any, i: number) => {
             const isSelected = selectedIds.includes(std.id);
@@ -100,6 +97,7 @@ export function StudentTable({ students, isLoading, onEdit, onDelete, isAuthoriz
         </TableBody>
       </Table>
       </div>
+      )}
     </div>
   );
 }

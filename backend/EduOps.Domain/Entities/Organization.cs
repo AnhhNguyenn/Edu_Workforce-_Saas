@@ -9,6 +9,11 @@ namespace EduOps.Domain.Entities
     {
         public string Name { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
+        
+        public string? CustomAppName { get; set; }
+        public string? CustomLogoUrl { get; set; }
+        public string? CustomDomain { get; set; }
+
         public virtual OrganizationDetail? OrganizationDetail { get; set; }
 
         public Guid? CurrentPlanId { get; set; }

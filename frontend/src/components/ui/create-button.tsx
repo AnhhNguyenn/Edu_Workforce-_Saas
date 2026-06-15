@@ -10,7 +10,7 @@ interface CreateButtonProps extends ButtonProps {
 export function CreateButton({ label, className, ...props }: CreateButtonProps) {
   return (
     <Button 
-      className={cn("gap-2 bg-[#4CAF50] hover:bg-[#388E3C] text-white shadow-sm hover:shadow-md transition-all", className)} 
+      className={cn("gap-2 bg-white text-[#2563EB] border border-gray-200 hover:border-[#2563EB] hover:bg-blue-50/50 active:scale-95 shadow-sm transition-all", className)} 
       {...props}
     >
       <Plus size={18} />

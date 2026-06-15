@@ -27,9 +27,9 @@ export function StudentToolbar({ onExport, isExporting, onImport, isImporting, o
     }
   };
   return (
-    <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-      <div className="flex items-center gap-2 w-full md:w-auto">
-        <div className="relative flex-1 md:w-80">
+    <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto">
+        <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={18} />
           <Input 
             placeholder="Tìm kiếm tên, mã HV, SĐT..." 
@@ -38,24 +38,26 @@ export function StudentToolbar({ onExport, isExporting, onImport, isImporting, o
             onChange={(e) => onSearch(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="gap-2 bg-white border-edu-border" onClick={onOpenFilter}>
+        <Button variant="outline" className="gap-2 bg-white border-edu-border w-full sm:w-auto" onClick={onOpenFilter}>
           <Filter size={18} />
           Lọc
         </Button>
       </div>
 
       {isAuthorized && (
-        <div className="flex gap-2 w-full md:w-auto">
-          <Button variant="secondary" className="gap-2 bg-white hover:bg-gray-50 border-edu-border border" onClick={onExport} disabled={isExporting || isImporting}>
-            <DownloadCloud size={18} className="text-edu-muted" />
-            {isExporting ? 'Đang xuất...' : 'Xuất File'}
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end">
+          <Button variant="secondary" className="flex-1 sm:flex-none gap-2 bg-white hover:bg-gray-50 border-edu-border border" onClick={onExport} disabled={isExporting || isImporting}>
+            <DownloadCloud size={16} className="text-edu-muted shrink-0" />
+            <span className="text-sm">{isExporting ? 'Đang xuất...' : 'Xuất File'}</span>
           </Button>
           <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx" onChange={handleFileChange} />
-          <Button variant="secondary" className="gap-2 bg-white hover:bg-gray-50 border-edu-border border" onClick={() => fileInputRef.current?.click()} disabled={isExporting || isImporting}>
-            <UploadCloud size={18} className="text-edu-muted" />
-            {isImporting ? 'Đang nhập...' : 'Nhập File'}
+          <Button variant="secondary" className="flex-1 sm:flex-none gap-2 bg-white hover:bg-gray-50 border-edu-border border" onClick={() => fileInputRef.current?.click()} disabled={isExporting || isImporting}>
+            <UploadCloud size={16} className="text-edu-muted shrink-0" />
+            <span className="text-sm">{isImporting ? 'Đang nhập...' : 'Nhập File'}</span>
           </Button>
-          <CreateButton onClick={onOpenCreate} label="Thêm Học Viên" className="shadow-sm" />
+          <div className="w-full sm:w-auto">
+            <CreateButton onClick={onOpenCreate} label="Thêm học viên" className="shadow-sm w-full" />
+          </div>
         </div>
       )}
     </div>

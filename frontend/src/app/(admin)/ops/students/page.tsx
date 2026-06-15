@@ -158,7 +158,7 @@ export default function StudentsPage() {
       {selectedStudentIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white px-6 py-4 rounded-full shadow-2xl border border-edu-border flex items-center space-x-6 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
           <div className="flex items-center text-sm font-semibold text-edu-fg">
-            <div className="w-6 h-6 bg-edu-accentLighter text-edu-accent rounded-full flex items-center justify-center mr-2">
+            <div className="w-6 h-6 bg-[#EFF6FF] text-[#1D4ED8] rounded-full flex items-center justify-center mr-2">
               {selectedStudentIds.length}
             </div>
             học viên được chọn
@@ -166,7 +166,7 @@ export default function StudentsPage() {
           <div className="h-6 w-px bg-gray-200"></div>
           <Button 
             onClick={() => setShowBulkAssign(true)} 
-            className="bg-edu-accent hover:bg-edu-accentDark text-white shadow-md transition-transform active:scale-95"
+            className="bg-white text-[#2563EB] border border-gray-200 hover:border-[#2563EB] hover:bg-blue-50 active:scale-95 transition-all shadow-md"
           >
             <Users className="w-4 h-4 mr-2" /> Xếp lớp hàng loạt
           </Button>
@@ -192,7 +192,7 @@ export default function StudentsPage() {
             <Button 
               onClick={handleBulkAssign} 
               disabled={bulkAssignMutation.isPending || !selectedClassId}
-              className="bg-edu-accent hover:bg-edu-accentDark text-white"
+              className="bg-white text-[#2563EB] border border-gray-200 hover:border-[#2563EB] hover:bg-blue-50 active:scale-95 transition-all"
             >
               {bulkAssignMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang lưu...</> : 'Xác nhận xếp lớp'}
             </Button>
@@ -200,7 +200,7 @@ export default function StudentsPage() {
         }
       >
         <div className="space-y-4 py-2">
-          <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm mb-4 border border-blue-100 flex items-start">
+          <div className="bg-[#EFF6FF] text-[#1E40AF] p-3 rounded-lg text-sm mb-4 border border-[#DBEAFE] flex items-start">
             <Users className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
             <p>Bạn đang chọn xếp lớp cho <strong>{selectedStudentIds.length}</strong> học viên. Các học viên này sẽ được cập nhật trạng thái Lớp học mới nhất.</p>
           </div>
@@ -224,7 +224,7 @@ export default function StudentsPage() {
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsFilterOpen(false)}>Bỏ lọc</Button>
-            <Button className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" onClick={() => setIsFilterOpen(false)}>Áp dụng</Button>
+            <Button className="bg-white text-[#2563EB] border border-gray-200 hover:border-[#2563EB] hover:bg-blue-50 active:scale-95 transition-all" onClick={() => setIsFilterOpen(false)}>Áp dụng</Button>
           </>
         }
       >
@@ -238,7 +238,7 @@ export default function StudentsPage() {
                 { value: 'INACTIVE', label: 'Bảo lưu / Đã nghỉ' }
               ]}
               placeholder="Chọn trạng thái..."
-              className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
+              className="focus:border-[#2563EB] focus:ring-[#2563EB]/30"
             />
           </div>
         </div>

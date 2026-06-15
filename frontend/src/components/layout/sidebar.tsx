@@ -7,6 +7,8 @@ import { LayoutDashboard, Building2, Users, CreditCard, LineChart, Activity, Set
 import { cn } from '@/components/ui/stat-card';
 import { useAppStore } from '@/store/useAppStore';
 
+import { useProfile } from '@/hooks/queries/useProfile';
+
 const SUPER_ADMIN_NAV = [
   { section: 'QUẢN TRỊ' },
   { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/super-admin/dashboard' },
@@ -25,6 +27,10 @@ const SUPER_ADMIN_NAV = [
 export function Sidebar() {
   const pathname = usePathname();
   const sidebarOpen = useAppStore(state => state.sidebarOpen);
+  const { data: profile } = useProfile();
+
+  const appName = profile?.customAppName || 'EduOps';
+  const logoUrl = profile?.customLogoUrl;
 
   return (
     <aside className={cn(
@@ -32,11 +38,15 @@ export function Sidebar() {
       !sidebarOpen && "-translate-x-full"
     )}>
       <div className="p-5 flex items-center gap-3 border-b border-edu-border">
-        <div className="w-9 h-9 bg-gradient-to-br from-edu-accent to-[#7BC4FF] rounded-lg flex items-center justify-center text-white shadow-sm">
-          <BookOpen size={20} />
-        </div>
+        {logoUrl ? (
+          <img src={logoUrl} alt="Logo" className="w-9 h-9 object-contain rounded-md" />
+        ) : (
+          <div className="w-9 h-9 bg-gradient-to-br from-edu-accent to-[#7BC4FF] rounded-lg flex items-center justify-center text-white shadow-sm">
+            <BookOpen size={20} />
+          </div>
+        )}
         <div>
-          <h1 className="text-[1.05rem] font-bold text-edu-fg leading-tight">EduOps</h1>
+          <h1 className="text-[1.05rem] font-bold text-edu-fg leading-tight truncate max-w-[170px]" title={appName}>{appName}</h1>
           <small className="text-[0.7rem] text-edu-muted block">Workforce Platform</small>
         </div>
       </div>

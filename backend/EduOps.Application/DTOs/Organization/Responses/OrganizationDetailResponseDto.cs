@@ -19,5 +19,8 @@ namespace EduOps.Application.DTOs.Organization.Responses
         public DateTime? SubscriptionStart { get; set; }
         public DateTime? SubscriptionEnd { get; set; }
         public int? CustomTrialMaxUsers { get; set; }
+        public string? CustomAppName { get; set; }
+        public string? CustomLogoUrl { get; set; }
+        public string? CustomDomain { get; set; }
     }
 }

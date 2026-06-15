@@ -17,5 +17,6 @@ namespace EduOps.Application.Interfaces
         Task SuspendAsync(Guid id);
         Task ActivateAsync(Guid id);
         Task DeleteAsync(Guid id);
+        Task<OrganizationBrandingDto> GetBrandingByDomainAsync(string domain);
     }
 }

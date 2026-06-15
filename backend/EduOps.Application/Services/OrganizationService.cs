@@ -239,6 +239,9 @@ namespace EduOps.Application.Services
             if (_currentUserService.Role == "SUPER_ADMIN")
             {
                 org.CustomTrialMaxUsers = request.CustomTrialMaxUsers;
+                org.CustomAppName = request.CustomAppName;
+                org.CustomLogoUrl = request.CustomLogoUrl;
+                org.CustomDomain = request.CustomDomain;
             }
 
             repo.Update(org);
@@ -331,6 +334,22 @@ namespace EduOps.Application.Services
 
             await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogWarning($"Soft Deleted Organization: {org.Code}");
+        }
+
+        public async Task<OrganizationBrandingDto> GetBrandingByDomainAsync(string domain)
+        {
+            var org = await _unitOfWork.Repository<Organization>()
+                .FirstOrDefaultAsync(o => o.CustomDomain == domain && o.DeletedAt == null);
+
+            if (org == null) return null!;
+
+            return new OrganizationBrandingDto
+            {
+                OrganizationId = org.Id,
+                OrganizationName = org.Name,
+                CustomAppName = org.CustomAppName,
+                CustomLogoUrl = org.CustomLogoUrl
+            };
         }
     }
 }

@@ -62,6 +62,23 @@ function LoginContent() {
     }
   }, [searchParams]);
 
+  const [branding, setBranding] = useState<{ organizationName?: string, customAppName?: string, customLogoUrl?: string } | null>(null);
+
+  useEffect(() => {
+    const fetchBranding = async () => {
+      try {
+        const domain = window.location.hostname;
+        // Chỉ fetch nếu domain khác localhost (trừ khi đang test local bằng IP)
+        // Nhưng cứ để fetch luôn, backend sẽ trả về 404 nếu không tìm thấy
+        const res = await axios.get(`${ENV.API_URL}/organizations/branding?domain=${domain}`);
+        setBranding(res.data);
+      } catch (err) {
+        // Bỏ qua lỗi
+      }
+    };
+    fetchBranding();
+  }, []);
+
   const [requires2FA, setRequires2FA] = useState(false);
   const [tempToken, setTempToken] = useState('');
   
@@ -276,10 +293,14 @@ function LoginContent() {
       <div className="w-full max-w-md bg-white rounded-2xl p-8 shadow-lg border border-edu-border">
         {!isForgotPassword && (
           <div className="text-center mb-8">
-            <div className="w-14 h-14 bg-gradient-to-br from-edu-accent to-[#7BC4FF] rounded-2xl mx-auto flex items-center justify-center text-white mb-4 shadow-sm">
-              <BookOpen size={28} />
-            </div>
-            <h1 className="text-2xl font-bold text-edu-fg">Đăng nhập EduOps</h1>
+            {branding?.customLogoUrl ? (
+              <img src={branding.customLogoUrl} alt="Logo" className="h-16 w-auto max-w-[200px] object-contain mx-auto mb-4" />
+            ) : (
+              <div className="w-14 h-14 bg-gradient-to-br from-edu-accent to-[#7BC4FF] rounded-2xl mx-auto flex items-center justify-center text-white mb-4 shadow-sm">
+                <BookOpen size={28} />
+              </div>
+            )}
+            <h1 className="text-2xl font-bold text-edu-fg">Đăng nhập {branding?.customAppName || branding?.organizationName || 'EduOps'}</h1>
             <p className="text-edu-muted text-sm mt-2">Hệ thống quản lý trung tâm & giáo viên</p>
           </div>
         )}

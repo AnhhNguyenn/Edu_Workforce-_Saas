@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from "react";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateButton } from '@/components/ui/create-button';
 import { ActionButtons } from '@/components/ui/action-buttons';
@@ -126,33 +126,35 @@ export default function ClassesPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-7">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Quản lý lớp học</h2>
           <p className="text-edu-muted text-sm">Danh sách các lớp học đang vận hành tại trung tâm</p>
         </div>
         {isAuthorized && (
-          <CreateButton onClick={() => setIsCreateOpen(true)} label="Mở lớp mới" />
+          <div className="w-full sm:w-auto">
+            <CreateButton onClick={() => setIsCreateOpen(true)} label="Mở lớp mới" className="w-full sm:w-auto" />
+          </div>
         )}
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
-        <div className="p-5 flex justify-between items-center border-b border-edu-border gap-4">
+        <div className="p-4 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-edu-border gap-4">
           <h3 className="text-base font-semibold text-edu-fg flex items-center gap-2">
             Danh sách Lớp
             <Badge className="bg-[#E8F5E9] text-[#2E7D32]">{classes?.totalCount || 0}</Badge>
           </h3>
-          <div className="flex flex-1 max-w-md gap-2">
-            <div className="relative flex-1">
+          <div className="flex flex-1 w-full md:max-w-md gap-2">
+            <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted" size={16} />
               <Input 
                 placeholder="Tìm mã lớp, tên lớp..." 
-                className="pl-9 h-9 text-sm focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                className="pl-9 h-10 sm:h-9 text-sm focus:border-[#4CAF50] focus:ring-[#4CAF50]/30 w-full" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant={filterSchoolId ? "primary" : "secondary"} size="icon" className="h-9 w-9" onClick={() => setIsFilterOpen(true)}>
+            <Button variant={filterSchoolId ? "primary" : "secondary"} size="icon" className="h-10 w-10 sm:h-9 sm:w-9 shrink-0" onClick={() => setIsFilterOpen(true)}>
               <Filter size={16} />
             </Button>
           </div>
@@ -164,9 +166,11 @@ export default function ClassesPage() {
            <div className="p-10 text-center text-edu-danger">Lỗi kết nối API.</div>
         ) : !classes?.items || classes.items.length === 0 ? (
            <EmptyState 
+             icon={<BookOpen size={32} />}
+             title="Chưa có lớp học"
              hasFilter={!!searchTerm || !!filterSchoolId}
              onClearFilter={() => { setSearchTerm(''); setFilterSchoolId(''); }}
-             description="Không có lớp học nào."
+             description="Không có lớp học nào phù hợp với tìm kiếm."
            />
         ) : (
           <div className="overflow-x-auto w-full">

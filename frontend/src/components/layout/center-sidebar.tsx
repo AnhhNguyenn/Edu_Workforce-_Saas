@@ -6,6 +6,8 @@ import { LayoutDashboard, Users, Calendar, ClipboardCheck, BookOpen, Settings, G
 import { cn } from '@/components/ui/stat-card';
 import { useAppStore } from '@/store/useAppStore';
 
+import { useProfile } from '@/hooks/queries/useProfile';
+
 // Path chuẩn cho Center Admin
 const NAV = [
   { section: 'VẬN HÀNH TRUNG TÂM' },
@@ -25,6 +27,11 @@ const NAV = [
 export function CenterSidebar() {
   const pathname = usePathname();
   const sidebarOpen = useAppStore(state => state.sidebarOpen);
+  const { data: profile } = useProfile();
+
+  const appName = profile?.customAppName || 'EduOps';
+  const displayTitle = profile?.organizationName || 'Center Management';
+  const logoUrl = profile?.customLogoUrl;
 
   return (
     <aside className={cn(
@@ -32,12 +39,16 @@ export function CenterSidebar() {
       sidebarOpen ? "translate-x-0" : "-translate-x-full"
     )}>
       <div className="p-5 flex items-center gap-3 border-b border-edu-border">
-        <div className="w-9 h-9 bg-gradient-to-br from-[#81C784] to-[#4CAF50] rounded-lg flex items-center justify-center text-white shadow-sm">
-          <BookOpen size={20} />
-        </div>
+        {logoUrl ? (
+          <img src={logoUrl} alt="Logo" className="h-10 w-auto max-w-[200px] object-contain" />
+        ) : (
+          <div className="w-9 h-9 bg-gradient-to-br from-edu-accent to-[#7BC4FF] rounded-lg flex items-center justify-center text-white shadow-sm">
+            <BookOpen size={20} />
+          </div>
+        )}
         <div>
-          <h1 className="text-[1.05rem] font-bold text-edu-fg leading-tight">EduOps</h1>
-          <small className="text-[0.7rem] text-edu-muted block">Center Management</small>
+          <h1 className="text-[1.05rem] font-bold text-edu-fg leading-tight truncate max-w-[170px]" title={displayTitle}>{displayTitle}</h1>
+          <small className="text-[0.7rem] text-edu-muted block">Workforce Platform</small>
         </div>
       </div>
 
@@ -62,11 +73,11 @@ export function CenterSidebar() {
               href={`/ops${item.path === '/dashboard' ? '' : item.path}`}
               className={cn(
                 "flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-edu-fgSecondary text-sm font-medium mb-0.5 transition-colors group",
-                "hover:bg-[#E8F5E9] hover:text-[#2E7D32]",
-                isActive && "bg-[#E8F5E9] text-[#2E7D32] font-semibold"
+                "hover:bg-edu-accentLight hover:text-edu-accent",
+                isActive && "bg-edu-accentLight text-edu-accent font-semibold"
               )}
             >
-              <div className={cn("text-edu-muted group-hover:text-[#2E7D32] transition-colors", isActive && "text-[#2E7D32]")}>
+              <div className={cn("text-edu-muted group-hover:text-edu-accent transition-colors", isActive && "text-edu-accent")}>
                 <IconComponent size={18} />
               </div>
               <span>{item.label}</span>
@@ -75,15 +86,6 @@ export function CenterSidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-edu-border flex items-center gap-2.5 hover:bg-gray-50 transition-colors cursor-pointer">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#81C784] to-[#4CAF50] flex items-center justify-center text-white font-bold text-xs shadow-sm">
-          CA
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <div className="text-[0.85rem] font-bold text-edu-fg truncate">Center Admin</div>
-          <div className="text-[0.7rem] text-edu-muted truncate">EduCenter Sài Gòn</div>
-        </div>
-      </div>
     </aside>
   );
 }

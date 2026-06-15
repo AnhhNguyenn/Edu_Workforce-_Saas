@@ -8,7 +8,8 @@ export interface ClassDto {
   schedule: string;
   studentsCount: number;
   maxStudents?: number;
-  status: string;
+  status?: string;
+  statusCode?: string;
 }
 
 export interface PagedResult<T> {
@@ -18,14 +19,16 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export const useClasses = (searchKeyword?: string, schoolId?: string) => {
+export const useClasses = (searchKeyword?: string, schoolId?: string, pageNumber: number = 1, pageSize: number = 20) => {
   return useQuery({
-    queryKey: ['classes', searchKeyword, schoolId],
+    queryKey: ['classes', searchKeyword, schoolId, pageNumber, pageSize],
     queryFn: async () => {
       const response = await apiClient.get<PagedResult<ClassDto>>('/classes', {
         params: { 
           searchKeyword: searchKeyword || undefined,
-          schoolId: schoolId || undefined
+          schoolId: schoolId || undefined,
+          pageNumber,
+          pageSize
         }
       });
       return response.data; // Trả về toàn bộ PagedResult

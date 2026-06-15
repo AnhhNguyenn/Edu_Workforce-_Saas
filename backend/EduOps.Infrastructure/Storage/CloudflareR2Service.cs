@@ -37,7 +37,8 @@ namespace EduOps.Infrastructure.Storage
                 Key = uniqueFileName,
                 BucketName = _bucketName,
                 ContentType = contentType,
-                CannedACL = S3CannedACL.PublicRead
+                CannedACL = S3CannedACL.PublicRead,
+                DisablePayloadSigning = true
             };
 
             await fileTransferUtility.UploadAsync(uploadRequest);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from "react";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, UploadCloud, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateButton } from "@/components/ui/create-button";
 import { ActionButtons } from "@/components/ui/action-buttons";
@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select } from "@/components/ui/select";
 import { getAvatarInitials } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
-import { useOrganizations, useCreateOrganization, useUpdateOrganization, useDeleteOrganization, useToggleOrgStatus, useOrganizationStats, useUpdateOrgSubscription } from "@/hooks/queries/useOrganizations";
+import { useOrganizations, useCreateOrganization, useUpdateOrganization, useDeleteOrganization, useToggleOrgStatus, useOrganizationStats, useUpdateOrgSubscription, useUploadImage } from "@/hooks/queries/useOrganizations";
 import { usePlans } from "@/hooks/queries/useSubscriptions";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
@@ -27,7 +27,15 @@ export default function OrganizationsPage() {
   const [selectedOrg, setSelectedOrg] = useState<any>(null);
   const { confirm } = useConfirm();
   const [formData, setFormData] = useState({ name: '', email: '', address: '', planId: '' });
-  const [editFormData, setEditFormData] = useState({ name: '', email: '', address: '' });
+  const [editFormData, setEditFormData] = useState({ 
+    name: '', 
+    email: '', 
+    address: '', 
+    customTrialMaxUsers: 0,
+    customAppName: '',
+    customLogoUrl: '',
+    customDomain: ''
+  });
   const [errors, setErrors] = useState<{name?: string, email?: string, address?: string, planId?: string}>({});
   const [subscriptionFormData, setSubscriptionFormData] = useState({ planId: '', subscriptionStatus: 'TRIAL', subscriptionEnd: '' });
 
@@ -48,6 +56,7 @@ export default function OrganizationsPage() {
   const deleteMutation = useDeleteOrganization();
   const toggleStatusMutation = useToggleOrgStatus();
   const updateSubscriptionMutation = useUpdateOrgSubscription();
+  const uploadImageMutation = useUploadImage();
   const { data: plansData } = usePlans();
 
   const handleCreate = async () => {
@@ -215,7 +224,15 @@ export default function OrganizationsPage() {
                    <ActionButtons
                      onEdit={() => {
                        setSelectedOrg(org); 
-                       setEditFormData({ name: org.name || '', email: org.email || '', address: org.address || '' }); 
+                       setEditFormData({ 
+                        name: org.name || '', 
+                        email: org.email || '', 
+                        address: org.address || '', 
+                        customTrialMaxUsers: org.customTrialMaxUsers || 0,
+                        customAppName: org.customAppName || '',
+                        customLogoUrl: org.customLogoUrl || '',
+                        customDomain: org.customDomain || ''
+                       }); 
                        setIsEditOpen(true); 
                      }}
                      onDelete={() => handleDeleteClick(org)}
@@ -355,6 +372,75 @@ export default function OrganizationsPage() {
                 value={editFormData.address}
                 onChange={e => setEditFormData({ ...editFormData, address: e.target.value })}
               />
+            </div>
+          </div>
+
+          <div className="space-y-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100 mt-4">
+            <h4 className="font-semibold text-blue-800 flex items-center gap-2">
+              Cấu hình White-label (Gói VIP)
+            </h4>
+            <p className="text-xs text-blue-600 mb-2">Đè lên thương hiệu mặc định của hệ thống khi trung tâm này đăng nhập.</p>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Tên App tùy chỉnh (VD: Apollo English)</label>
+              <Input 
+                placeholder="Để trống nếu dùng mặc định"
+                value={editFormData.customAppName} 
+                onChange={(e) => setEditFormData({...editFormData, customAppName: e.target.value})} 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Tên miền tùy chỉnh (VD: quanly.apollo.edu.vn)</label>
+              <Input 
+                placeholder="Ví dụ: quanly.apollo.edu.vn"
+                value={editFormData.customDomain} 
+                onChange={(e) => setEditFormData({...editFormData, customDomain: e.target.value})} 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Logo tùy chỉnh</label>
+              {editFormData.customLogoUrl ? (
+                <div className="relative inline-block border border-blue-200 rounded-xl p-3 bg-white shadow-sm">
+                  <img src={editFormData.customLogoUrl} alt="Logo" className="h-14 min-w-[3.5rem] object-contain rounded" />
+                  <button 
+                    type="button" 
+                    onClick={() => setEditFormData({...editFormData, customLogoUrl: ''})} 
+                    className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 shadow-sm hover:bg-red-200 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-blue-300 rounded-xl cursor-pointer bg-white hover:bg-blue-50/50 transition-all">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    {uploadImageMutation.isPending ? (
+                      <Loader2 className="animate-spin text-blue-500 mb-2" size={24} />
+                    ) : (
+                      <UploadCloud className="text-blue-500 mb-2" size={24} />
+                    )}
+                    <p className="text-xs text-blue-600 font-medium">
+                      {uploadImageMutation.isPending ? "Đang tải ảnh lên..." : "Click để chọn ảnh Logo (Tối đa 5MB)"}
+                    </p>
+                  </div>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    disabled={uploadImageMutation.isPending}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        try {
+                          const res = await uploadImageMutation.mutateAsync(file);
+                          setEditFormData({...editFormData, customLogoUrl: res.url});
+                          toast.success("Đã tải ảnh lên thành công!");
+                        } catch (err: any) {
+                          toast.error(err?.response?.data?.message || "Lỗi tải ảnh!");
+                        }
+                      }
+                    }} 
+                  />
+                </label>
+              )}
             </div>
           </div>
         </div>

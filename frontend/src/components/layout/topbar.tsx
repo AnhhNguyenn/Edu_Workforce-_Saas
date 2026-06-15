@@ -137,10 +137,14 @@ export function Topbar() {
           
           <div ref={menuRef} className="relative">
             <div 
-              className="w-9 h-9 rounded-full bg-gradient-to-br from-edu-accent to-[#5AB8FF] flex items-center justify-center text-white font-bold text-xs cursor-pointer shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 ml-1 border-2 border-white"
+              className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] flex items-center justify-center text-white font-bold text-xs cursor-pointer shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 ml-1 border-2 border-white overflow-hidden"
               onClick={() => setMenuOpen(!menuOpen)}
             >
-              {initials}
+              {session?.user?.image ? (
+                <img src={session.user.image} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <User size={18} />
+              )}
             </div>
             
             {/* Dropdown Menu */}
@@ -159,9 +163,9 @@ export function Topbar() {
                 {userRole === 'CENTER_ADMIN' && (
                   <button 
                     onClick={() => { setMenuOpen(false); setShowUpgradeModal(true); setSubscribeResult(null); setCheckoutPlan(null); }}
-                    className="w-full text-left px-4 py-2 text-sm text-edu-accent hover:bg-edu-accentLight flex items-center gap-2 font-medium"
+                    className="w-full text-left px-4 py-2 text-sm text-[#2563EB] hover:bg-[#EFF6FF] flex items-center gap-2 font-medium"
                   >
-                    <Zap size={16} className="text-edu-accent" />
+                    <Zap size={16} className="text-[#2563EB]" />
                     Gói đăng ký / Nâng cấp
                   </button>
                 )}
@@ -189,7 +193,7 @@ export function Topbar() {
                 <h2 className="text-xl font-bold text-gray-800">Nâng cấp gói dịch vụ</h2>
                 {mySubscription && (
                   <p className="text-sm text-gray-500 mt-1">
-                    Gói hiện tại: <span className="font-semibold text-edu-accent">{mySubscription.planName}</span> 
+                    Gói hiện tại: <span className="font-semibold text-[#2563EB]">{mySubscription.planName}</span> 
                     {mySubscription.subscriptionEnd && ` • Hết hạn: ${new Date(mySubscription.subscriptionEnd).toLocaleDateString('vi-VN')}`}
                   </p>
                 )}
@@ -286,7 +290,7 @@ export function Topbar() {
                       <div className="mt-6">
                         <div className="flex justify-between items-center mb-6">
                           <p className="text-lg font-bold text-gray-800">Tổng thanh toán</p>
-                          <p className="text-2xl font-extrabold text-edu-accent">
+                          <p className="text-2xl font-extrabold text-[#2563EB]">
                             {previewResult ? previewResult.finalPrice.toLocaleString('vi-VN') : (checkoutPlan.billingCycle === 'MONTHLY' ? checkoutPlan.basePrice : checkoutPlan.basePrice * 12).toLocaleString('vi-VN')} đ
                           </p>
                         </div>
@@ -294,7 +298,7 @@ export function Topbar() {
                         <button 
                           onClick={handleConfirmSubscribe}
                           disabled={subscribeMutation.isPending || previewSubscribeMutation.isPending}
-                          className="w-full py-3.5 rounded-lg bg-edu-accent hover:bg-blue-600 text-white font-bold text-lg transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                          className="w-full py-3.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-lg transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                           {subscribeMutation.isPending ? 'Đang tạo đơn...' : 'Xác nhận & Thanh toán'}
                         </button>
@@ -367,7 +371,7 @@ export function Topbar() {
                                 </button>
                                 <button 
                                   onClick={() => openCheckout(plan.id, 'YEARLY', plan.name, plan.pricePerMonth)}
-                                  className="w-full py-2.5 rounded-lg bg-gradient-to-r from-edu-accent to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium text-sm transition-colors shadow-md flex items-center justify-center gap-1.5"
+                                  className="w-full py-2.5 rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] text-white font-medium text-sm transition-colors shadow-md flex items-center justify-center gap-1.5"
                                 >
                                   Nâng cấp / Gia hạn Gói Năm
                                 </button>
@@ -382,13 +386,13 @@ export function Topbar() {
                             <>
                               <button 
                                 onClick={() => openCheckout(plan.id, 'MONTHLY', plan.name, plan.pricePerMonth)}
-                                className="w-full py-2.5 rounded-lg bg-edu-accent hover:bg-blue-600 text-white font-medium text-sm transition-colors shadow-sm"
+                                className="w-full py-2.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-medium text-sm transition-colors shadow-sm"
                               >
                                 Đăng ký Gói Tháng
                               </button>
                               <button 
                                 onClick={() => openCheckout(plan.id, 'YEARLY', plan.name, plan.pricePerMonth)}
-                                className="w-full py-2.5 rounded-lg border border-edu-accent text-edu-accent hover:bg-edu-accentLight font-medium text-sm transition-colors"
+                                className="w-full py-2.5 rounded-lg border border-[#2563EB] text-[#2563EB] hover:bg-[#EFF6FF] font-medium text-sm transition-colors"
                               >
                                 Đăng ký Gói Năm (Tiết kiệm)
                               </button>

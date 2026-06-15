@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { Loader2, CalendarPlus, Clock, PenBox, Calendar, Trash2, MoreVertical, User, MapPin, X, ChevronLeft, ChevronRight, SlidersHorizontal, Sun, Moon, Users } from "lucide-react";
+import { Loader2, CalendarPlus, Clock, PenBox, Calendar, Trash2, MoreVertical, User, MapPin, X, ChevronLeft, ChevronRight, SlidersHorizontal, Sun, Moon, Users, Search } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useProfile } from '@/hooks/queries/useProfile';
 import { useConfirm } from '@/providers/ConfirmProvider';
@@ -75,10 +75,48 @@ export default function SchedulesPage() {
     return d;
   });
 
+  const [activeTab, setActiveTab] = useState<'class' | 'teacher' | 'assistant'>('class');
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  const [classPage, setClassPage] = useState(1);
+  const [teacherPage, setTeacherPage] = useState(1);
+  const [assistantPage, setAssistantPage] = useState(1);
+  const PAGE_SIZE = 20;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchKeyword), 300);
+    return () => clearTimeout(timer);
+  }, [searchKeyword]);
+
+  const handleTabChange = (tab: 'class' | 'teacher' | 'assistant') => {
+    setActiveTab(tab);
+    setSearchKeyword('');
+    setDebouncedSearch('');
+  };
+
   const { data: sessions, isLoading } = useSessions();
-  const { data: classes } = useClasses();
-  const { data: teachers } = useUsers('TEACHER');
-  const { data: assistants } = useUsers('ASSISTANT');
+  const { data: classes } = useClasses(activeTab === 'class' ? debouncedSearch : '', undefined, classPage, PAGE_SIZE);
+  const { data: teachers } = useUsers('TEACHER', activeTab === 'teacher' ? debouncedSearch : '', teacherPage, PAGE_SIZE);
+  const { data: assistants } = useUsers('ASSISTANT', activeTab === 'assistant' ? debouncedSearch : '', assistantPage, PAGE_SIZE);
+
+  const getCurrentPage = () => {
+    if (activeTab === 'class') return classPage;
+    if (activeTab === 'teacher') return teacherPage;
+    return assistantPage;
+  };
+
+  const getTotalPages = () => {
+    if (activeTab === 'class') return Math.ceil((classes?.totalCount || 0) / PAGE_SIZE);
+    if (activeTab === 'teacher') return Math.ceil((teachers?.totalCount || 0) / PAGE_SIZE);
+    return Math.ceil((assistants?.totalCount || 0) / PAGE_SIZE);
+  };
+
+  const handlePageChange = (delta: number) => {
+    if (activeTab === 'class') setClassPage(p => p + delta);
+    if (activeTab === 'teacher') setTeacherPage(p => p + delta);
+    if (activeTab === 'assistant') setAssistantPage(p => p + delta);
+  };
 
   const createSession = useCreateSession();
   const updateSession = useUpdateSession();
@@ -91,7 +129,7 @@ export default function SchedulesPage() {
   const [editingSessionId, setEditingSessionId] = useState<string>('');
   const [selectedSessionInfo, setSelectedSessionInfo] = useState<any>(null);
 
-  const [activeTab, setActiveTab] = useState<'class' | 'teacher' | 'assistant'>('class');
+
 
   const [sessionForm, setSessionForm] = useState({
     classId: '', teacherId: '', assistantId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: ''
@@ -324,77 +362,110 @@ export default function SchedulesPage() {
   const weekTitle = `${daysOfWeek[0].getDate()} - ${daysOfWeek[6].getDate()} Thg ${daysOfWeek[6].getMonth() + 1}, ${daysOfWeek[6].getFullYear()}`;
 
   return (
-    <div className="max-w-[1800px] mx-auto p-4 md:p-6 flex flex-col h-[calc(100vh-70px)] bg-[#F8FAFC]">
+    <div className="max-w-[1800px] mx-auto p-2 md:p-6 flex flex-col min-h-[calc(100vh-70px)] xl:h-[calc(100vh-70px)] bg-[#F8FAFC] xl:overflow-hidden">
 
-      <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 shrink-0 mb-4">
+      <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-3 shrink-0 mb-3 w-full">
         <div className="flex items-center gap-3">
-          <div className="bg-emerald-100 p-2.5 rounded-xl border border-emerald-200">
-            <Calendar className="text-emerald-600 w-6 h-6" />
+          <div className="bg-emerald-100 p-2 md:p-2.5 rounded-xl border border-emerald-200 shrink-0">
+            <Calendar className="text-emerald-600 w-5 h-5 md:w-6 md:h-6" />
           </div>
           <div>
-            <h2 className="text-[22px] font-bold text-slate-800 leading-none mb-1.5">
+            <h2 className="text-[18px] md:text-[22px] font-bold text-slate-800 leading-none mb-1">
               Xếp lịch giảng dạy
             </h2>
-            <p className="text-slate-500 text-[13px] font-medium">Kéo thả để xếp ca học cho lớp</p>
+            <p className="text-slate-500 text-[12px] md:text-[13px] font-medium">Kéo thả để xếp ca học</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm h-10">
-            <SlidersHorizontal size={16} className="mr-2" /> Bộ lọc
-          </Button>
-
-          <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1 shadow-sm h-10">
-            <Button variant="ghost" size="icon" className="h-full w-8 rounded-md hover:bg-slate-100" onClick={prevWeek}>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1 shadow-sm h-10 w-full sm:w-auto justify-between">
+            <Button variant="ghost" size="icon" className="h-full w-8 rounded-md hover:bg-slate-100 shrink-0" onClick={prevWeek}>
               <ChevronLeft size={16} className="text-slate-600" />
             </Button>
-            <div className="px-4 font-bold text-slate-700 text-[14px] min-w-[150px] text-center cursor-pointer hover:text-blue-600 transition-colors" onClick={goToday}>
+            <div className="px-2 md:px-4 font-bold text-slate-700 text-[13px] md:text-[14px] text-center cursor-pointer hover:text-[#2563EB] transition-colors truncate" onClick={goToday}>
               {weekTitle}
             </div>
-            <Button variant="ghost" size="icon" className="h-full w-8 rounded-md hover:bg-slate-100" onClick={nextWeek}>
+            <Button variant="ghost" size="icon" className="h-full w-8 rounded-md hover:bg-slate-100 shrink-0" onClick={nextWeek}>
               <ChevronRight size={16} className="text-slate-600" />
             </Button>
           </div>
 
-          <Button
-            onClick={() => {
-              setSessionForm({ classId: '', teacherId: '', assistantId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: '' });
-              setModalMode('create');
-              setIsModalOpen(true);
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-5 h-10 shadow-sm font-semibold"
-          >
-            <CalendarPlus size={16} className="mr-2" /> Thêm ca học
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" className="flex-1 sm:flex-none bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm h-10 px-3">
+              <SlidersHorizontal size={14} className="mr-1.5 md:mr-2" /> <span className="text-[13px] md:text-[14px]">Bộ lọc</span>
+            </Button>
+
+            <Button
+              onClick={() => {
+                setSessionForm({ classId: '', teacherId: '', assistantId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: '' });
+                setModalMode('create');
+                setIsModalOpen(true);
+              }}
+              className="flex-1 sm:flex-none bg-white text-[#2563EB] border border-gray-200 hover:border-[#2563EB] hover:bg-blue-50 active:scale-95 transition-all rounded-lg px-3 h-10 shadow-sm font-semibold"
+            >
+              <CalendarPlus size={14} className="mr-1.5 md:mr-2" /> <span className="text-[13px] md:text-[14px]">Thêm ca học</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 items-start flex-1 min-h-0">
+      <div className="flex flex-col xl:flex-row gap-3 md:gap-6 items-start flex-1 min-h-0">
 
         {/* Left Sidebar */}
-        <div className="w-full lg:w-[240px] flex-shrink-0 flex flex-col h-full">
-          <div className="flex bg-slate-200/50 p-1 rounded-xl mb-4 shrink-0">
+        <div className="w-full xl:w-[240px] flex-shrink-0 flex flex-col h-[220px] md:h-[260px] xl:h-full bg-white xl:bg-transparent rounded-3xl xl:rounded-none border border-slate-100 xl:border-none p-3 xl:p-0 shadow-sm xl:shadow-none">
+          <div className="flex bg-slate-100/80 p-1 rounded-xl mb-3 shrink-0">
             <button 
-              onClick={() => setActiveTab('class')}
-              className={`flex-1 py-1.5 text-[12px] font-bold rounded-lg transition-all ${activeTab === 'class' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              onClick={() => handleTabChange('class')}
+              className={`flex-1 py-1.5 text-[12px] font-bold rounded-lg transition-all ${activeTab === 'class' ? 'bg-white shadow-sm text-[#2563EB]' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Lớp
             </button>
             <button 
-              onClick={() => setActiveTab('teacher')}
-              className={`flex-1 py-1.5 text-[12px] font-bold rounded-lg transition-all ${activeTab === 'teacher' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              onClick={() => handleTabChange('teacher')}
+              className={`flex-1 py-1.5 text-[12px] font-bold rounded-lg transition-all ${activeTab === 'teacher' ? 'bg-white shadow-sm text-[#2563EB]' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Giáo viên
             </button>
             <button 
-              onClick={() => setActiveTab('assistant')}
-              className={`flex-1 py-1.5 text-[12px] font-bold rounded-lg transition-all ${activeTab === 'assistant' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              onClick={() => handleTabChange('assistant')}
+              className={`flex-1 py-1.5 text-[12px] font-bold rounded-lg transition-all ${activeTab === 'assistant' ? 'bg-white shadow-sm text-[#2563EB]' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Trợ giảng
             </button>
           </div>
 
-          <div className="overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex-1 space-y-2.5 pr-1">
+          <div className="mb-3 shrink-0 flex gap-2 items-center">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+              <input
+                type="text"
+                placeholder={`Tìm ${activeTab === 'class' ? 'lớp' : activeTab === 'teacher' ? 'giáo viên' : 'trợ giảng'}...`}
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                className="w-full bg-slate-50/50 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-[13px] font-medium focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors shadow-sm"
+              />
+            </div>
+            <div className="flex bg-white border border-slate-200 rounded-lg shadow-sm shrink-0 overflow-hidden">
+              <button 
+                disabled={getCurrentPage() <= 1}
+                onClick={() => handlePageChange(-1)}
+                className="p-1.5 text-slate-600 hover:bg-slate-50 border-r border-slate-200 disabled:opacity-30 transition-colors"
+                title="Trang trước"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button 
+                disabled={getCurrentPage() >= (getTotalPages() || 1)}
+                onClick={() => handlePageChange(1)}
+                className="p-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition-colors"
+                title="Trang sau"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-y-auto custom-scrollbar flex-1 space-y-2 pr-1">
             {activeTab === 'class' && classes?.items?.map((c: any) => {
               const theme = getClassTheme(c.id);
               return (
@@ -460,26 +531,21 @@ export default function SchedulesPage() {
             ))}
           </div>
 
-          <div className="mt-3 p-3 bg-blue-50/50 border border-blue-100/50 rounded-xl shrink-0">
-            <div className="flex items-start gap-2 text-blue-600 text-[12px]">
-              <div className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center shrink-0 font-bold text-[9px] mt-0.5">i</div>
+
+
+          <div className="mt-2 p-2 bg-[#EFF6FF] border border-[#DBEAFE] rounded-xl shrink-0">
+            <div className="flex items-start gap-1.5 text-[#1E40AF] text-[11px]">
+              <div className="w-3.5 h-3.5 rounded-full bg-[#DBEAFE] flex items-center justify-center shrink-0 font-bold text-[8px] mt-0.5">i</div>
               <p className="leading-tight font-medium">
-                {activeTab === 'class' ? 'Mẹo: Kéo lớp từ danh sách sang ca học để tạo lịch nhanh chóng' : 'Mẹo: Kéo thả trực tiếp lên ca học trên bảng để phân công'}
+                {activeTab === 'class' ? 'Kéo lớp sang ca học để xếp lịch' : 'Kéo thả lên ca học để phân công'}
               </p>
-            </div>
-            {/* Visual cue icon like in the design */}
-            <div className="mt-3 flex justify-center opacity-60">
-              <div className="w-12 h-6 border-2 border-dashed border-blue-300 rounded-lg"></div>
-              <div className="w-5 h-5 ml-2 text-blue-400">
-                <svg fill="currentColor" viewBox="0 0 24 24"><path d="M9 11.24V7.5C9 6.12 10.12 5 11.5 5C12.88 5 14 6.12 14 7.5v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.84 4.63l-4.54-2.26c-.17-.07-.35-.11-.54-.11H13v-6c0-.83-.67-1.5-1.5-1.5S10 6.67 10 7.5v10.74l-3.43-.72c-.08-.01-.15-.03-.24-.03-.31 0-.59.13-.79.33l-.79.8 4.94 4.94c.27.27.65.44 1.04.44h6.79c.75 0 1.33-.55 1.44-1.28l.75-5.27c.01-.07.02-.14.02-.2 0-.62-.35-1.17-.89-1.42z" /></svg>
-              </div>
             </div>
           </div>
         </div>
 
         {/* Matrix Board */}
-        <div className="flex-1 w-full min-w-0 flex flex-col h-full overflow-x-auto custom-scrollbar bg-white border border-slate-100 rounded-3xl shadow-sm">
-          <div className="min-w-[800px] flex flex-col h-full">
+        <div className="flex-1 w-full min-w-0 flex flex-col xl:h-full overflow-x-auto custom-scrollbar bg-white border border-slate-100 rounded-3xl shadow-sm">
+          <div className="min-w-[800px] flex flex-col min-h-full">
             {/* Header Row */}
             <div className="grid grid-cols-[80px_1fr_1fr_1fr] border-b border-slate-100 bg-white shrink-0">
             <div className="p-3 border-r border-slate-100"></div>
@@ -497,11 +563,11 @@ export default function SchedulesPage() {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
             {isLoading ? (
-              <div className="flex-1 flex flex-col items-center justify-center h-full"><Loader2 className="animate-spin text-blue-500 mb-4 h-10 w-10" /> <span className="text-slate-500 font-medium">Đang tải lịch điều phối...</span></div>
+              <div className="flex-1 flex flex-col items-center justify-center h-full"><Loader2 className="animate-spin text-[#2563EB] mb-4 h-10 w-10" /> <span className="text-slate-500 font-medium">Đang tải lịch điều phối...</span></div>
             ) : (
-              <div className="flex flex-col">
+              <div className="flex flex-col min-h-full">
                 {daysOfWeek.map((day, idx) => {
                   const dateStr = day.toLocaleDateString('en-CA');
                   const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
@@ -511,11 +577,11 @@ export default function SchedulesPage() {
                   const hasSessions = daySessions.length > 0;
 
                   return (
-                    <div key={dateStr} className="grid grid-cols-[80px_1fr] border-b border-slate-100 last:border-b-0 min-h-[60px]">
+                    <div key={dateStr} className="grid grid-cols-[80px_1fr] border-b border-slate-100 last:border-b-0 flex-1 min-h-[80px]">
                       {/* Row Header */}
-                      <div className={`border-r border-slate-100 flex flex-col items-center justify-center text-center p-2 ${isToday ? 'bg-blue-50/30' : ''}`}>
-                        <div className={`font-bold text-[13px] ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>{dayName}</div>
-                        <div className={`text-[11px] font-medium ${isToday ? 'text-blue-500' : 'text-slate-400'} mt-0.5`}>
+                      <div className={`border-r border-slate-100 flex flex-col items-center justify-center text-center p-2 ${isToday ? 'bg-[#EFF6FF]' : ''}`}>
+                        <div className={`font-bold text-[13px] ${isToday ? 'text-[#2563EB]' : 'text-slate-700'}`}>{dayName}</div>
+                        <div className={`text-[11px] font-medium ${isToday ? 'text-[#1D4ED8]' : 'text-slate-400'} mt-0.5`}>
                           {day.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }).replace('/', '/')}
                         </div>
                       </div>
@@ -535,7 +601,7 @@ export default function SchedulesPage() {
                                 onDrop={(e) => { e.currentTarget.classList.remove('bg-blue-50/50'); handleDropOnCell(e, dateStr, shift.id); }}
                               >
                                 {shiftSessions.length === 0 && (
-                                  <div className="w-full flex items-center justify-center py-2 opacity-0 hover:opacity-100 transition-opacity cursor-pointer text-slate-300 hover:text-blue-500 rounded-lg">
+                                  <div className="w-full flex items-center justify-center py-2 opacity-0 hover:opacity-100 transition-opacity cursor-pointer text-slate-300 hover:text-[#2563EB] rounded-lg">
                                     <span className="text-[12px] font-medium pointer-events-none">+ Kéo lớp vào đây</span>
                                   </div>
                                 )}
@@ -626,7 +692,7 @@ export default function SchedulesPage() {
 
         {/* Right Sidebar Details */}
         {selectedSessionInfo && (
-          <div className="w-full lg:w-[300px] flex-shrink-0 flex flex-col h-full bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden animate-in slide-in-from-right-4 duration-200">
+          <div className="w-full xl:w-[300px] flex-shrink-0 flex flex-col h-full bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden animate-in slide-in-from-right-4 duration-200">
             <div className="px-4 py-3 flex justify-between items-center border-b border-slate-100">
               <h3 className="font-bold text-slate-800 text-[14px]">Chi tiết ca học</h3>
               <button onClick={() => setSelectedSessionInfo(null)} className="text-slate-400 hover:text-slate-600 transition-colors bg-slate-50 hover:bg-slate-100 rounded-full p-1">
@@ -715,7 +781,7 @@ export default function SchedulesPage() {
                   setEditingSessionId(selectedSessionInfo.id);
                   setIsModalOpen(true);
                 }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 font-bold shadow-sm"
+                className="w-full bg-white text-[#2563EB] border border-gray-200 hover:border-[#2563EB] hover:bg-blue-50 active:scale-95 transition-all rounded-xl h-11 font-bold shadow-sm"
               >
                 <PenBox size={16} className="mr-2" /> Chỉnh sửa
               </Button>

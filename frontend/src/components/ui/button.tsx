@@ -7,12 +7,12 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const buttonVariants = {
-  primary: 'bg-edu-accent text-white hover:bg-edu-accentHover hover:-translate-y-[1px] hover:shadow-[0_4px_12px_rgba(77,163,255,0.3)]',
-  secondary: 'bg-white text-edu-fg border border-edu-border hover:border-edu-accent hover:text-edu-accent',
-  outline: 'bg-white text-edu-fg border border-edu-border hover:border-edu-accent hover:text-edu-accent',
+  primary: 'bg-white text-[#2563EB] border border-gray-200 hover:border-[#2563EB] hover:text-[#2563EB] hover:bg-blue-50/50 active:scale-95 shadow-sm',
+  secondary: 'bg-white text-edu-fg border border-edu-border hover:border-[#2563EB] hover:text-[#2563EB] active:scale-95',
+  outline: 'bg-white text-edu-fg border border-edu-border hover:border-[#2563EB] hover:text-[#2563EB] active:scale-95',
   danger: 'bg-edu-dangerLight text-edu-danger hover:bg-edu-danger hover:text-white',
-  ghost: 'bg-transparent text-edu-fg hover:bg-edu-accentLighter',
-  icon: 'bg-transparent text-edu-muted hover:bg-edu-accentLight hover:text-edu-accent p-0',
+  ghost: 'bg-transparent text-edu-fg hover:bg-blue-50 active:scale-95',
+  icon: 'bg-transparent text-edu-muted hover:bg-blue-50 hover:text-[#2563EB] p-0 active:scale-95',
 };
 
 const sizeVariants = {

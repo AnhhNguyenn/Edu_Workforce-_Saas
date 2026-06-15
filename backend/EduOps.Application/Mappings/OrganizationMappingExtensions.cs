@@ -24,7 +24,10 @@ namespace EduOps.Application.Mappings
                 Address = org.OrganizationDetail?.Address ?? string.Empty,
                 SubscriptionStart = org.SubscriptionStart,
                 SubscriptionEnd = org.SubscriptionEnd,
-                CurrentPlanId = org.CurrentPlanId
+                CurrentPlanId = org.CurrentPlanId,
+                CustomAppName = org.CustomAppName,
+                CustomLogoUrl = org.CustomLogoUrl,
+                CustomDomain = org.CustomDomain
             };
         }
 
@@ -47,7 +50,10 @@ namespace EduOps.Application.Mappings
                 SubscriptionStatus = org.SubscriptionStatus,
                 SubscriptionStart = org.SubscriptionStart,
                 SubscriptionEnd = org.SubscriptionEnd,
-                CustomTrialMaxUsers = org.CustomTrialMaxUsers
+                CustomTrialMaxUsers = org.CustomTrialMaxUsers,
+                CustomAppName = org.CustomAppName,
+                CustomLogoUrl = org.CustomLogoUrl,
+                CustomDomain = org.CustomDomain
             };
         }
     }
