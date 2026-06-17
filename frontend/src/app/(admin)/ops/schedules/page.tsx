@@ -24,10 +24,43 @@ const COLOR_THEMES = [
 ];
 
 const SHIFTS = [
-  { id: 'morning', label: 'Sáng', time: '07:00 - 12:00', icon: Sun, defaultStart: '07:00:00', defaultEnd: '09:00:00' },
-  { id: 'afternoon', label: 'Chiều', time: '13:00 - 17:00', icon: Sun, defaultStart: '13:30:00', defaultEnd: '15:30:00' },
-  { id: 'evening', label: 'Tối', time: '18:00 - 22:00', icon: Moon, defaultStart: '18:00:00', defaultEnd: '20:00:00' }
+  { id: 'morning',   label: 'Sáng',  time: '07:00 - 12:00', icon: Sun,  defaultStart: '07:00:00', defaultEnd: '09:00:00', slotCount: 10 },
+  { id: 'afternoon', label: 'Chiều', time: '13:00 - 17:00', icon: Sun,  defaultStart: '13:30:00', defaultEnd: '15:30:00', slotCount: 8  },
+  { id: 'evening',   label: 'Tối',   time: '18:00 - 22:00', icon: Moon, defaultStart: '18:00:00', defaultEnd: '20:00:00', slotCount: 8  },
 ];
+
+// 26 visible half-hour slots (12:00-13:00 and 17:00-18:00 breaks are skipped)
+const TIME_SLOTS = [
+  { time: '07:00', shiftId: 'morning'   }, { time: '07:30', shiftId: 'morning'   },
+  { time: '08:00', shiftId: 'morning'   }, { time: '08:30', shiftId: 'morning'   },
+  { time: '09:00', shiftId: 'morning'   }, { time: '09:30', shiftId: 'morning'   },
+  { time: '10:00', shiftId: 'morning'   }, { time: '10:30', shiftId: 'morning'   },
+  { time: '11:00', shiftId: 'morning'   }, { time: '11:30', shiftId: 'morning'   },
+  { time: '13:00', shiftId: 'afternoon' }, { time: '13:30', shiftId: 'afternoon' },
+  { time: '14:00', shiftId: 'afternoon' }, { time: '14:30', shiftId: 'afternoon' },
+  { time: '15:00', shiftId: 'afternoon' }, { time: '15:30', shiftId: 'afternoon' },
+  { time: '16:00', shiftId: 'afternoon' }, { time: '16:30', shiftId: 'afternoon' },
+  { time: '18:00', shiftId: 'evening'   }, { time: '18:30', shiftId: 'evening'   },
+  { time: '19:00', shiftId: 'evening'   }, { time: '19:30', shiftId: 'evening'   },
+  { time: '20:00', shiftId: 'evening'   }, { time: '20:30', shiftId: 'evening'   },
+  { time: '21:00', shiftId: 'evening'   }, { time: '21:30', shiftId: 'evening'   },
+];
+
+const timeToMins = (t: string) => { const [h, m] = t.substring(0,5).split(':').map(Number); return h * 60 + (m || 0); };
+const getSlotIndex = (time: string): number => {
+  const mins = timeToMins(time);
+  let idx = 0;
+  for (let i = 0; i < TIME_SLOTS.length; i++) { if (timeToMins(TIME_SLOTS[i].time) <= mins) idx = i; else break; }
+  return idx;
+};
+const getDurationSlots = (startTime: string, endTime: string): number => {
+  const s = timeToMins(startTime), e = timeToMins(endTime);
+  let brk = 0;
+  if (s < 720 && e > 780) brk += 60;   // skip 12:00-13:00
+  if (s < 1020 && e > 1080) brk += 60; // skip 17:00-18:00
+  return Math.max(1, Math.round((e - s - brk) / 30));
+};
+const minsToTimeStr = (m: number) => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}:00`;
 
 const getErrorMessage = (err: any) => {
   if (err?.response?.data) {
@@ -214,7 +247,7 @@ export default function SchedulesPage() {
     }
   });
 
-  const handleDropOnCell = async (e: React.DragEvent, dateStr: string, shiftId: string, targetSession?: any) => {
+  const handleDropOnCell = async (e: React.DragEvent, dateStr: string, shiftId: string, targetSession?: any, slotTime?: string) => {
     e.preventDefault();
     e.currentTarget.classList.remove('bg-blue-50/50');
     if (!isAuthorized) return;
@@ -255,15 +288,15 @@ export default function SchedulesPage() {
 
     if (dragType === 'class') {
       const shiftData = SHIFTS.find(s => s.id === shiftId);
+      let startTime = shiftData?.defaultStart || '07:00:00';
+      let endTime   = shiftData?.defaultEnd   || '09:00:00';
+      if (slotTime) {
+        const startMins = timeToMins(slotTime);
+        startTime = minsToTimeStr(startMins);
+        endTime   = minsToTimeStr(startMins + 120);
+      }
       try {
-        await createSession.mutateAsync({
-          classId: dragId,
-          teacherId: null,
-          assistantId: null,
-          sessionDate: dateStr,
-          startTime: shiftData?.defaultStart || '07:00:00',
-          endTime: shiftData?.defaultEnd || '09:00:00'
-        });
+        await createSession.mutateAsync({ classId: dragId, teacherId: null, assistantId: null, sessionDate: dateStr, startTime, endTime });
         toast.success('Đã tạo lịch học nhanh!');
       } catch (err: any) {
         toast.error(translateError(getErrorMessage(err)));
@@ -564,154 +597,122 @@ export default function SchedulesPage() {
         </div>
 
         {/* Matrix Board */}
-        <div className="flex-1 w-full min-w-0 flex flex-col xl:h-full overflow-x-auto custom-scrollbar bg-white border border-slate-100 rounded-3xl shadow-sm">
-          <div className="min-w-[800px] flex flex-col min-h-full">
-            {/* Header Row */}
-            <div className="grid grid-cols-[80px_1fr_1fr_1fr] border-b border-slate-100 bg-white shrink-0">
-            <div className="p-3 border-r border-slate-100"></div>
-            {SHIFTS.map(shift => (
-              <div key={shift.id} className="p-3 border-r border-slate-100 last:border-r-0 flex flex-col items-center justify-center">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <shift.icon size={16} className={shift.id === 'evening' ? 'text-indigo-500' : 'text-orange-500 fill-orange-500'} />
-                  <span className="font-bold text-[14px] text-slate-800">{shift.label}</span>
-                  <span className="text-[12px] text-slate-500 font-medium">({shift.time})</span>
+        <div className="flex-1 w-full min-w-0 flex flex-col min-h-0 overflow-hidden bg-white border border-slate-100 rounded-3xl shadow-sm">
+          <div className="flex flex-col flex-1 min-h-0 overflow-x-auto custom-scrollbar" style={{minWidth: '1300px'}}>
+
+            {/* Header Row 1: Shift group labels */}
+            <div className="grid shrink-0 border-b border-slate-200 bg-white" style={{gridTemplateColumns: '80px repeat(10, minmax(44px, 1fr)) repeat(8, minmax(44px, 1fr)) repeat(8, minmax(44px, 1fr))'}}>
+              <div className="border-r border-slate-100" />
+              {SHIFTS.map((shift) => (
+                <div key={shift.id} className="flex flex-col items-center justify-center py-2 border-r border-slate-200 last:border-r-0" style={{gridColumn: `span ${shift.slotCount}`}}>
+                  <div className="flex items-center gap-1.5">
+                    <shift.icon size={13} className={shift.id === 'evening' ? 'text-indigo-500' : 'text-orange-400 fill-orange-400'} />
+                    <span className="font-bold text-[13px] text-slate-800">{shift.label}</span>
+                    <span className="text-[11px] text-slate-400">({shift.time})</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{shiftStats[shift.id as keyof typeof shiftStats]} lớp</div>
                 </div>
-                <div className="text-[11px] font-medium text-slate-400">
-                  {shiftStats[shift.id as keyof typeof shiftStats]} lớp
+              ))}
+            </div>
+
+            {/* Header Row 2: 30-min time labels */}
+            <div className="grid shrink-0 border-b border-slate-100 bg-slate-50/60" style={{gridTemplateColumns: '80px repeat(26, minmax(44px, 1fr))'}}>
+              <div className="border-r border-slate-100" />
+              {TIME_SLOTS.map((slot, i) => (
+                <div key={slot.time} className={`text-center py-0.5 text-[10px] font-medium text-slate-400 border-r border-slate-100 last:border-r-0 ${i === 9 || i === 17 ? 'border-r-slate-300 border-r-2' : ''}`}>
+                  {slot.time}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {isLoading ? (
-              <div className="flex-1 flex flex-col items-center justify-center h-full"><Loader2 className="animate-spin text-[#2563EB] mb-4 h-10 w-10" /> <span className="text-slate-500 font-medium">Đang tải lịch điều phối...</span></div>
-            ) : (
-              <div className="flex flex-col min-h-full">
-                {daysOfWeek.map((day, idx) => {
-                  const dateStr = day.toLocaleDateString('en-CA');
-                  const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
-                  const dayName = idx === 6 ? 'Chủ nhật' : `Thứ ${idx + 2}`;
-
-                  const daySessions = sessionsByDate[dateStr] || [];
-                  const hasSessions = daySessions.length > 0;
-
-                  return (
-                    <div key={dateStr} className="grid grid-cols-[80px_1fr] border-b border-slate-100 last:border-b-0 flex-1 min-h-[80px]">
-                      {/* Row Header */}
-                      <div className={`border-r border-slate-100 flex flex-col items-center justify-center text-center p-2 ${isToday ? 'bg-[#EFF6FF]' : ''}`}>
-                        <div className={`font-bold text-[13px] ${isToday ? 'text-[#2563EB]' : 'text-slate-700'}`}>{dayName}</div>
-                        <div className={`text-[11px] font-medium ${isToday ? 'text-[#1D4ED8]' : 'text-slate-400'} mt-0.5`}>
-                          {day.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }).replace('/', '/')}
-                        </div>
-                      </div>
-
-                      {/* Main Content Area */}
-                      <div className="relative grid grid-cols-3">
-                        {/* Interactive Drop Zones (Background) */}
-                        <div className="absolute inset-0 grid grid-cols-3 z-0 pointer-events-auto">
-                          {SHIFTS.map((shift, idx) => {
-                            const shiftSessions = daySessions.filter(s => getShiftIndex(s.startTime) === idx + 1);
-                            return (
-                              <div
-                                key={`bg-${shift.id}`}
-                                className={`border-slate-100 ${idx < 2 ? 'border-r' : ''} transition-colors flex items-center justify-center p-2`}
-                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-blue-50/50'); }}
-                                onDragLeave={(e) => { e.currentTarget.classList.remove('bg-blue-50/50'); }}
-                                onDrop={(e) => { e.currentTarget.classList.remove('bg-blue-50/50'); handleDropOnCell(e, dateStr, shift.id); }}
-                              >
-                                {shiftSessions.length === 0 && (
-                                  <div className="w-full flex items-center justify-center py-2 opacity-0 hover:opacity-100 transition-opacity cursor-pointer text-slate-300 hover:text-[#2563EB] rounded-lg">
-                                    <span className="text-[12px] font-medium pointer-events-none">+ Kéo lớp vào đây</span>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+            {/* Day rows */}
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col">
+              {isLoading ? (
+                <div className="flex-1 flex flex-col items-center justify-center"><Loader2 className="animate-spin text-[#2563EB] mb-4 h-10 w-10" /><span className="text-slate-500 font-medium">Đang tải lịch điều phối...</span></div>
+              ) : (
+                <div className="flex flex-col flex-1 min-h-0">
+                  {daysOfWeek.map((day, idx) => {
+                    const dateStr = day.toLocaleDateString('en-CA');
+                    const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
+                    const dayName = idx === 6 ? 'CN' : `T${idx + 2}`;
+                    const daySessions = sessionsByDate[dateStr] || [];
+                    return (
+                      <div key={dateStr} className="flex border-b border-slate-100 last:border-b-0 flex-1" style={{minHeight: '72px'}}>
+                        {/* Day label */}
+                        <div className={`w-[80px] shrink-0 border-r border-slate-100 flex flex-col items-center justify-center text-center ${isToday ? 'bg-[#EFF6FF]' : ''}`}>
+                          <div className={`font-bold text-[13px] ${isToday ? 'text-[#2563EB]' : 'text-slate-700'}`}>{dayName}</div>
+                          <div className={`text-[11px] font-medium mt-0.5 ${isToday ? 'text-[#1D4ED8]' : 'text-slate-400'}`}>{day.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</div>
                         </div>
 
-                        {/* Sessions Grid (Foreground) */}
-                        <div className="col-span-3 grid grid-cols-3 grid-flow-dense gap-2 p-2 relative z-10 pointer-events-none">
-                          {[...daySessions].sort((a, b) => a.startTime.localeCompare(b.startTime)).map(session => {
-                            const startCol = getShiftIndex(session.startTime);
-                            const endCol = getShiftIndex(session.endTime);
-                            const span = Math.max(1, endCol - startCol + 1);
-                            const theme = getClassTheme(session.classId);
-
-                            const getColStart = (col: number) => col === 1 ? 'col-start-1' : col === 2 ? 'col-start-2' : 'col-start-3';
-                            const getColSpan = (s: number) => s === 3 ? 'col-span-3' : s === 2 ? 'col-span-2' : 'col-span-1';
-
-                            const colClass = `${getColStart(startCol)} ${getColSpan(span)}`;
-
-                            return (
+                        {/* Timeline area with 2 layers */}
+                        <div className="flex-1 relative">
+                          {/* Layer 1 – drop zones */}
+                          <div className="absolute inset-0 grid" style={{gridTemplateColumns: 'repeat(26, minmax(44px, 1fr))'}}>
+                            {TIME_SLOTS.map((slot, si) => (
                               <div
-                                key={session.id}
-                                draggable={isAuthorized}
-                                onDragStart={(e) => {
-                                  e.dataTransfer.setData('type', 'session');
-                                  e.dataTransfer.setData('sessionData', JSON.stringify(session));
-                                  e.dataTransfer.setData('application/x-eduops-session', 'true');
-                                }}
-                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDropOnCell(e, dateStr, getShiftForTime(session.startTime), session);
-                                }}
-                                onClick={() => setSelectedSessionInfo(session)}
-                                className={`${colClass} pointer-events-auto bg-white border rounded-md p-2 shadow-sm cursor-grab active:cursor-grabbing transition-all group ${theme.border} ${theme.hover}`}
-                              >
-                                <div className="flex justify-between items-start mb-1">
-                                  <div className="flex gap-1.5 items-center min-w-0">
-                                    <div className={`font-bold text-[12px] leading-none uppercase ${theme.text}`}>{session.className}</div>
-                                    <div className={`font-semibold text-[11px] leading-none ${theme.textLight}`}>{session.startTime.substring(0, 5)} - {session.endTime.substring(0, 5)}</div>
-                                  </div>
-                                  <MoreVertical size={13} className={`${theme.textLight} opacity-50 group-hover:opacity-100 transition-opacity shrink-0 ml-1`} />
-                                </div>
-                                <div className={`flex items-center gap-2 mb-1.5 ${theme.text}`}>
-                                  <div className="text-[11px] font-medium leading-tight truncate">{session.lessonTitle || 'Lý thuyết'}</div>
-                                  <div className="flex items-center gap-1 shrink-0 text-[10px] font-medium opacity-80"><MapPin size={10} className="shrink-0" /> <span className="truncate">{session.roomName || 'Chưa xếp'}</span></div>
-                                </div>
-                                <div className={`flex flex-col gap-1.5 text-[10px] font-medium ${theme.textLight}`}>
-                                  <div className="flex items-center gap-1.5 min-w-0" title={`GV: ${session.teacherName}`}>
-                                    <User size={11} className="shrink-0" /> 
-                                    <span className="truncate">{session.teacherName !== 'Chưa xếp' ? session.teacherName : 'Chưa xếp'}</span>
-                                  </div>
-                                  {session.assistantName && session.assistantName !== 'Chưa xếp' && (
-                                    <div className="flex items-center gap-1.5 min-w-0" title={`TG: ${session.assistantName}`}>
-                                      <Users size={11} className="shrink-0" /> 
-                                      <span className="truncate">{session.assistantName}</span>
+                                key={slot.time}
+                                className={`h-full transition-colors border-r border-slate-100 last:border-r-0 hover:bg-blue-50/40 cursor-crosshair ${si === 9 || si === 17 ? 'border-r-2 border-slate-300' : ''}`}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('bg-blue-100/60'); }}
+                                onDragLeave={(e) => { e.currentTarget.classList.remove('bg-blue-100/60'); }}
+                                onDrop={(e) => { e.stopPropagation(); e.currentTarget.classList.remove('bg-blue-100/60'); handleDropOnCell(e, dateStr, slot.shiftId, undefined, slot.time); }}
+                              />
+                            ))}
+                          </div>
+
+                          {/* Layer 2 – session cards */}
+                          <div className="absolute inset-0 grid pointer-events-none p-[3px]" style={{gridTemplateColumns: 'repeat(26, minmax(44px, 1fr))', gap: '2px', alignContent: 'start'}}>
+                            {[...daySessions].sort((a, b) => a.startTime.localeCompare(b.startTime)).map(session => {
+                              const theme = getClassTheme(session.classId);
+                              const startSlot = getSlotIndex(session.startTime);
+                              const span = getDurationSlots(session.startTime, session.endTime);
+                              return (
+                                <div
+                                  key={session.id}
+                                  style={{ gridColumn: `${startSlot + 1} / span ${Math.min(span, 26 - startSlot)}` }}
+                                  className="pointer-events-auto min-w-0 h-full"
+                                  draggable={isAuthorized}
+                                  onDragStart={(e) => { e.dataTransfer.setData('type', 'session'); e.dataTransfer.setData('sessionData', JSON.stringify(session)); e.dataTransfer.setData('application/x-eduops-session', 'true'); }}
+                                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                  onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDropOnCell(e, dateStr, getShiftForTime(session.startTime), session); }}
+                                  onClick={() => setSelectedSessionInfo(session)}
+                                >
+                                  <div className={`h-full bg-white border rounded-md px-1.5 py-1 shadow-sm cursor-grab active:cursor-grabbing transition-all group overflow-hidden ${theme.border} ${theme.hover}`}>
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <span className={`font-bold text-[11px] uppercase shrink-0 ${theme.text}`}>{session.className}</span>
+                                      <span className={`text-[10px] truncate ${theme.textLight}`}>{session.startTime.substring(0,5)}-{session.endTime.substring(0,5)}</span>
+                                      <MoreVertical size={10} className={`${theme.textLight} opacity-0 group-hover:opacity-100 shrink-0 ml-auto`} />
                                     </div>
-                                  )}
+                                    <div className={`text-[10px] truncate ${theme.textLight}`}>{session.lessonTitle || 'Lý thuyết'}</div>
+                                    <div className={`flex items-center gap-1 text-[10px] ${theme.textLight}`}><User size={9} className="shrink-0" /><span className="truncate">{session.teacherName !== 'Chưa xếp' ? session.teacherName : 'Chưa xếp'}</span></div>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Footer Legend */}
+              <div className="p-3 border-t border-slate-200 bg-slate-50/50 flex flex-wrap gap-3 items-center justify-center shrink-0">
+                {classes?.items?.map((c: any) => {
+                  const theme = getClassTheme(c.id);
+                  return (
+                    <div key={`legend-${c.id}`} className="flex items-center gap-1.5">
+                      <div className={`px-1.5 py-0.5 rounded text-[11px] font-bold uppercase text-white ${theme.iconBg}`}>{c.name.substring(0, 3)}</div>
+                      <span className="text-[11px] font-medium text-slate-600">{c.name}</span>
                     </div>
                   );
                 })}
               </div>
-            )}
-
-            {/* Footer Legend Row */}
-            <div className="p-3 border-t border-slate-200 bg-slate-50/50 flex flex-wrap gap-3 items-center justify-center shrink-0">
-              {classes?.items?.map((c: any) => {
-                const theme = getClassTheme(c.id);
-                return (
-                  <div key={`legend-${c.id}`} className="flex items-center gap-1.5">
-                    <div className={`px-1.5 py-0.5 rounded-[4px] text-[11px] font-bold uppercase text-white ${theme.iconBg}`}>
-                      {c.name.substring(0, 2)}
-                    </div>
-                    <span className="text-[12px] font-medium text-slate-600">Lý thuyết</span>
-                  </div>
-                )
-              })}
-            </div>
             </div>
           </div>
         </div>
+
+
 
         {/* Right Sidebar Details */}
         {selectedSessionInfo && (
