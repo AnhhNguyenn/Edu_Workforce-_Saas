@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { getAvatarInitials } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import { useUsers, useCreateUser, useUpdateUser, useLockUser, useUnlockUser, UserDto } from "@/hooks/queries/useUsers";
+import { useUsers, useCreateUser, useUpdateUser, useLockUser, useUnlockUser, useDeleteUser, UserDto } from "@/hooks/queries/useUsers";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { useDebounce } from '@/hooks/useDebounce';
@@ -26,7 +26,7 @@ export default function TeachersPage() {
   const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
   const { confirm } = useConfirm();
 
-  const [newUser, setNewUser] = useState({ fullName: '', email: '', roleCode: 'TEACHER' });
+  const [newUser, setNewUser] = useState({ fullName: '', email: '', password: '', phone: '', roleCode: 'TEACHER' });
   const [editUser, setEditUser] = useState({ fullName: '', roleCode: 'TEACHER', email: '', phone: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,13 +41,21 @@ export default function TeachersPage() {
   const updateUser = useUpdateUser();
   const lockUser = useLockUser();
   const unlockUser = useUnlockUser();
+  const deleteUser = useDeleteUser();
 
   const handleCreate = async () => {
-    if (!newUser.fullName || !newUser.email || !newUser.roleCode) return;
+    if (!newUser.fullName || !newUser.email || !newUser.password || !newUser.roleCode) return;
     try {
-      await createUser.mutateAsync(newUser);
+      const payload = {
+        fullName: newUser.fullName,
+        email: newUser.email,
+        password: newUser.password,
+        role: newUser.roleCode,
+        phone: newUser.phone
+      };
+      await createUser.mutateAsync(payload);
       setIsCreateOpen(false);
-      setNewUser({ fullName: '', email: '', roleCode: 'TEACHER' });
+      setNewUser({ fullName: '', email: '', password: '', phone: '', roleCode: 'TEACHER' });
       toast.success("Tạo nhân sự thành công!");
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Lỗi tạo nhân sự");
@@ -57,7 +65,13 @@ export default function TeachersPage() {
   const handleEdit = async () => {
     if (!selectedUser) return;
     try {
-      await updateUser.mutateAsync({ id: selectedUser.id, data: editUser });
+      const payload = {
+        fullName: editUser.fullName,
+        email: selectedUser.email,
+        phone: editUser.phone,
+        role: editUser.roleCode
+      };
+      await updateUser.mutateAsync({ id: selectedUser.id, data: payload });
       setIsEditOpen(false);
       toast.success("Cập nhật thông tin thành công!");
     } catch (error: any) {
@@ -95,6 +109,22 @@ export default function TeachersPage() {
           }
         } catch (error: any) {
           toast.error(error.response?.data?.message || "Lỗi thao tác");
+        }
+      }
+    });
+  };
+
+  const handleDeleteClick = (user: UserDto) => {
+    confirm({
+      title: "Xóa nhân sự",
+      description: `Bạn có chắc chắn muốn xóa nhân sự ${user.fullName}?`,
+      requireInput: false,
+      action: async () => {
+        try {
+          await deleteUser.mutateAsync(user.id);
+          toast.success("Đã xóa nhân sự thành công!");
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || "Lỗi xóa nhân sự");
         }
       }
     });
@@ -184,7 +214,7 @@ export default function TeachersPage() {
                     <div className="w-9 h-9 rounded-full bg-[#E8F5E9] flex items-center justify-center text-[#2E7D32] font-bold text-xs shrink-0">
                       {getAvatarInitials(t.fullName ?? 'U')}
                     </div>
-                    <div className="font-semibold text-edu-fg truncate max-w-[150px]" title={t.fullName}>{t.fullName ?? 'Chưa cập nhật'}</div>
+                    <div className="font-semibold text-edu-fg" title={t.fullName}>{t.fullName ?? 'Chưa cập nhật'}</div>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -192,7 +222,7 @@ export default function TeachersPage() {
                     {t.roleCode === 'TEACHER' ? 'Giáo viên' : 'Trợ giảng'}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm text-edu-muted truncate max-w-[180px]" title={t.email}>{t.email ?? 'Chưa cập nhật'}</TableCell>
+                <TableCell className="text-sm text-edu-muted" title={t.email}>{t.email ?? 'Chưa cập nhật'}</TableCell>
                 <TableCell>
                   <Badge variant={(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE') ? 'success' : (t.statusCode === 'INACTIVE' || t.status === 'INACTIVE') ? 'danger' : 'warn'}>
                     {(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE') ? 'Đang làm' : 'Đã nghỉ'}
@@ -203,6 +233,7 @@ export default function TeachersPage() {
                       <ActionButtons
                         onEdit={() => openEditModal(t)}
                         onToggleStatus={() => handleToggleStatusClick(t)}
+                        onDelete={() => handleDeleteClick(t)}
                         isLocked={!(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE')}
                       />
                     )}
@@ -259,6 +290,27 @@ export default function TeachersPage() {
                 className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
                 value={newUser.email}
                 onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Mật khẩu khởi tạo</label>
+              <Input 
+                type="password"
+                placeholder="••••••••" 
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                value={newUser.password}
+                onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Số điện thoại</label>
+              <Input 
+                placeholder="09xxxx" 
+                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
+                value={newUser.phone}
+                onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
               />
             </div>
           </div>

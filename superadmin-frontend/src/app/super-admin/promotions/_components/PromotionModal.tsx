@@ -13,7 +13,7 @@ import * as z from 'zod';
 
 const promotionSchema = z.object({
   type: z.enum(['PROMO_CODE', 'AUTO_DISCOUNT']),
-  code: z.string().optional(),
+  code: z.string().max(50, 'Mã giảm giá không được vượt quá 50 ký tự').optional(),
   discountPercentage: z.number({ message: "Vui lòng nhập số hợp lệ" }).min(0, 'Giảm giá phải từ 0-100').max(100, 'Tối đa 100%'),
   startDate: z.string().min(1, 'Vui lòng chọn từ ngày'),
   endDate: z.string().min(1, 'Vui lòng chọn đến ngày'),

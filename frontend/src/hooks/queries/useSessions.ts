@@ -6,12 +6,12 @@ export interface SessionListResponseDto {
   classId: string;
   className?: string;
   lessonTitle?: string;
+  roomName?: string;
   sessionDate: string;
   startTime: string;
   endTime: string;
   status?: string;
   statusCode?: string;
-  roomName?: string;
   teacherId?: string;
   teacherName?: string;
   assistantId?: string;
@@ -40,7 +40,7 @@ export const useSessions = (date?: string) => {
 export const useCreateSession = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { classId: string; teacherId?: string | null; assistantId?: string | null; lessonTitle?: string | null; sessionDate: string; startTime: string; endTime: string; }) => {
+    mutationFn: async (data: { classId: string; teacherId?: string | null; assistantId?: string | null; lessonTitle?: string | null; roomName?: string | null; sessionDate: string; startTime: string; endTime: string; }) => {
       const response = await apiClient.post('/sessions', data);
       return response.data;
     },

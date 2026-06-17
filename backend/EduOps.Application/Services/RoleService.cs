@@ -27,7 +27,7 @@ namespace EduOps.Application.Services
         public async Task<IEnumerable<PermissionResponseDto>> GetAllPermissionsAsync()
         {
             var cacheKey = "AllPermissions";
-            if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto> cached)) return cached;
+            if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto>? cached)) { if (cached != null) return cached; }
 
             var permissions = await _unitOfWork.Repository<Permission>().GetAllAsync(asNoTracking: true);
             var result = permissions.Select(p => new PermissionResponseDto
@@ -45,7 +45,7 @@ namespace EduOps.Application.Services
         public async Task<IEnumerable<RoleResponseDto>> GetRolesAsync(Guid? organizationId)
         {
             var cacheKey = $"Roles_{organizationId?.ToString() ?? "System"}";
-            if (_cache.TryGetValue(cacheKey, out IEnumerable<RoleResponseDto> cached)) return cached;
+            if (_cache.TryGetValue(cacheKey, out IEnumerable<RoleResponseDto>? cached)) { if (cached != null) return cached; }
 
             var repo = _unitOfWork.Repository<Role>();
             var roles = await repo.FindAsync(

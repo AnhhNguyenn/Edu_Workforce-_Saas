@@ -32,7 +32,8 @@ namespace EduOps.Application.BackgroundJobs
                 var timeoutThreshold = DateTime.UtcNow.AddMinutes(-10);
 
                 var expiredTransactions = await _unitOfWork.Repository<BillingTransaction>().FindAsync(
-                    t => t.StatusId == pendingStatus.Id && t.PaymentDate < timeoutThreshold
+                    t => (t.StatusId == pendingStatus.Id || t.StatusId == null) && t.PaymentDate < timeoutThreshold,
+                    ignoreQueryFilters: true
                 );
 
                 if (!expiredTransactions.Any()) return;
@@ -45,7 +46,7 @@ namespace EduOps.Application.BackgroundJobs
                     // Send notification to CENTER_ADMIN
                     if (tx.OrganizationId.HasValue)
                     {
-                        var admins = await _unitOfWork.Repository<User>().FindAsync(u => u.OrganizationId == tx.OrganizationId.Value && u.Role != null && u.Role.Code == "CENTER_ADMIN", includeProperties: "Role");
+                        var admins = await _unitOfWork.Repository<User>().FindAsync(u => u.OrganizationId == tx.OrganizationId.Value && u.Role != null && u.Role.Code == "CENTER_ADMIN", ignoreQueryFilters: true, includeProperties: "Role");
                         foreach (var admin in admins)
                         {
                             await _notificationService.CreateAndSendAsync(

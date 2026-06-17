@@ -132,7 +132,7 @@ export default function SchedulesPage() {
 
 
   const [sessionForm, setSessionForm] = useState({
-    classId: '', teacherId: '', assistantId: '', lessonTitle: '', sessionDate: '', startTime: '', endTime: ''
+    classId: '', teacherId: '', assistantId: '', lessonTitle: '', roomName: '', sessionDate: '', startTime: '', endTime: ''
   });
 
   const { data: profile } = useProfile();
@@ -412,7 +412,27 @@ export default function SchedulesPage() {
       <div className="flex flex-col xl:flex-row gap-3 md:gap-6 items-start flex-1 min-h-0">
 
         {/* Left Sidebar */}
-        <div className="w-full xl:w-[240px] flex-shrink-0 flex flex-col h-[220px] md:h-[260px] xl:h-full bg-white xl:bg-transparent rounded-3xl xl:rounded-none border border-slate-100 xl:border-none p-3 xl:p-0 shadow-sm xl:shadow-none">
+        <div 
+          className="w-full xl:w-[240px] flex-shrink-0 flex flex-col h-[220px] md:h-[260px] xl:h-full bg-white xl:bg-transparent rounded-3xl xl:rounded-none border border-slate-100 xl:border-none p-3 xl:p-0 shadow-sm xl:shadow-none transition-all relative"
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes('application/x-eduops-session')) {
+              e.preventDefault();
+              e.currentTarget.classList.add('bg-red-50', 'ring-2', 'ring-red-400');
+            }
+          }}
+          onDragLeave={(e) => {
+            e.currentTarget.classList.remove('bg-red-50', 'ring-2', 'ring-red-400');
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.currentTarget.classList.remove('bg-red-50', 'ring-2', 'ring-red-400');
+            const dragType = e.dataTransfer.getData('type');
+            if (dragType === 'session') {
+              const sessionData = JSON.parse(e.dataTransfer.getData('sessionData'));
+              handleDelete(sessionData.id);
+            }
+          }}
+        >
           <div className="flex bg-slate-100/80 p-1 rounded-xl mb-3 shrink-0">
             <button 
               onClick={() => handleTabChange('class')}
@@ -630,6 +650,7 @@ export default function SchedulesPage() {
                                 onDragStart={(e) => {
                                   e.dataTransfer.setData('type', 'session');
                                   e.dataTransfer.setData('sessionData', JSON.stringify(session));
+                                  e.dataTransfer.setData('application/x-eduops-session', 'true');
                                 }}
                                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                 onDrop={(e) => {
@@ -647,19 +668,21 @@ export default function SchedulesPage() {
                                   </div>
                                   <MoreVertical size={13} className={`${theme.textLight} opacity-50 group-hover:opacity-100 transition-opacity shrink-0 ml-1`} />
                                 </div>
-                                <div className={`text-[11px] font-medium ${theme.text} mb-1.5 leading-tight truncate`}>{session.lessonTitle || 'Lý thuyết'}</div>
-                                <div className={`flex items-center gap-2.5 text-[10px] font-medium ${theme.textLight}`}>
-                                  <div className="flex items-center gap-1 min-w-0" title={`GV: ${session.teacherName}`}>
-                                    <User size={10} className="shrink-0" /> 
+                                <div className={`flex items-center gap-2 mb-1.5 ${theme.text}`}>
+                                  <div className="text-[11px] font-medium leading-tight truncate">{session.lessonTitle || 'Lý thuyết'}</div>
+                                  <div className="flex items-center gap-1 shrink-0 text-[10px] font-medium opacity-80"><MapPin size={10} className="shrink-0" /> <span className="truncate">{session.roomName || 'Chưa xếp'}</span></div>
+                                </div>
+                                <div className={`flex flex-col gap-1.5 text-[10px] font-medium ${theme.textLight}`}>
+                                  <div className="flex items-center gap-1.5 min-w-0" title={`GV: ${session.teacherName}`}>
+                                    <User size={11} className="shrink-0" /> 
                                     <span className="truncate">{session.teacherName !== 'Chưa xếp' ? session.teacherName : 'Chưa xếp'}</span>
                                   </div>
                                   {session.assistantName && session.assistantName !== 'Chưa xếp' && (
-                                    <div className="flex items-center gap-1 min-w-0" title={`TG: ${session.assistantName}`}>
-                                      <Users size={10} className="shrink-0" /> 
+                                    <div className="flex items-center gap-1.5 min-w-0" title={`TG: ${session.assistantName}`}>
+                                      <Users size={11} className="shrink-0" /> 
                                       <span className="truncate">{session.assistantName}</span>
                                     </div>
                                   )}
-                                  <div className="flex items-center gap-1 shrink-0"><MapPin size={10} /> <span>P.101</span></div>
                                 </div>
                               </div>
                             );
@@ -746,7 +769,7 @@ export default function SchedulesPage() {
                   <div className="text-[12px] font-medium text-slate-400 mb-2.5">Phòng học</div>
                   <div className="flex items-center gap-3">
                     <MapPin size={16} className="text-blue-500" />
-                    <span className="font-bold text-slate-800 text-[15px]">P.101</span>
+                    <span className="font-bold text-slate-800 text-[15px]">{selectedSessionInfo.roomName || 'Chưa xếp'}</span>
                   </div>
                 </div>
 
@@ -773,6 +796,7 @@ export default function SchedulesPage() {
                     teacherId: selectedSessionInfo.teacherId || '',
                     assistantId: selectedSessionInfo.assistantId || '',
                     lessonTitle: selectedSessionInfo.lessonTitle || '',
+                    roomName: selectedSessionInfo.roomName || '',
                     sessionDate: new Date(selectedSessionInfo.sessionDate).toLocaleDateString('en-CA'),
                     startTime: selectedSessionInfo.startTime,
                     endTime: selectedSessionInfo.endTime
@@ -862,7 +886,7 @@ export default function SchedulesPage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Ngày học <span className="text-red-500">*</span></label>
               <DatePicker
@@ -878,6 +902,15 @@ export default function SchedulesPage() {
                 className="focus:border-blue-500 focus:ring-blue-500/20 h-11"
                 value={sessionForm.lessonTitle}
                 onChange={(e) => setSessionForm({ ...sessionForm, lessonTitle: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Phòng học</label>
+              <Input
+                placeholder="VD: P.101..."
+                className="focus:border-blue-500 focus:ring-blue-500/20 h-11"
+                value={sessionForm.roomName}
+                onChange={(e) => setSessionForm({ ...sessionForm, roomName: e.target.value })}
               />
             </div>
           </div>

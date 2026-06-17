@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Authorization;
 using EduOps.Application.DTOs.Report;
 using EduOps.Application.Interfaces;
 
@@ -10,7 +11,7 @@ namespace EduOps.Api.Controllers
 {
     [Route("api/reports")]
     [ApiController]
-    [Authorize(Roles = "TEACHER,ASSISTANT,CENTER_ADMIN")]
+    [HasPermission("Reports:Manage")]
     [EduOps.Api.Filters.FeatureGate("ENABLE_REPORTING")]
     public class ReportsController : ControllerBase
     {

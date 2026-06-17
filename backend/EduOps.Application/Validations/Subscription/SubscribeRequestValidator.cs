@@ -8,8 +8,8 @@ namespace EduOps.Application.Validations.Subscription
         public SubscribeRequestValidator()
         {
             RuleFor(x => x.PlanId).NotEmpty();
-            RuleFor(x => x.BillingCycle).Must(c => c == "MONTHLY" || c == "YEARLY").WithMessage("Must be MONTHLY or YEARLY.");
-            RuleFor(x => x.PromoCode).MaximumLength(20).When(x => !string.IsNullOrEmpty(x.PromoCode));
+            RuleFor(x => x.BillingCycle).Must(c => c == "MONTHLY" || c == "YEARLY").WithMessage("Chu kỳ thanh toán không hợp lệ.");
+            RuleFor(x => x.PromoCode).MaximumLength(50).WithMessage("Mã giảm giá tối đa 50 ký tự.").When(x => !string.IsNullOrEmpty(x.PromoCode));
         }
     }
 }

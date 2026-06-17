@@ -127,6 +127,7 @@ namespace EduOps.Application.Services
                     TeacherId = request.TeacherId,
                     AssistantId = request.AssistantId,
                     LessonTitle = request.LessonTitle,
+                    RoomName = request.RoomName,
                     SessionDate = request.SessionDate.Date.ToUniversalTime(),
                     StartTime = request.StartTime,
                     EndTime = request.EndTime,
@@ -184,6 +185,7 @@ namespace EduOps.Application.Services
             session.TeacherId = request.TeacherId;
             session.AssistantId = request.AssistantId;
             session.LessonTitle = request.LessonTitle;
+            session.RoomName = request.RoomName;
             session.SessionDate = request.SessionDate.Date.ToUniversalTime();
             session.StartTime = request.StartTime;
             session.EndTime = request.EndTime;

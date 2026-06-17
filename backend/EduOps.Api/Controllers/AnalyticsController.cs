@@ -3,12 +3,13 @@ using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Authorization;
 
 namespace EduOps.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "SUPER_ADMIN")]
+    [HasPermission("Analytics:View")]
     public class AnalyticsController : ControllerBase
     {
         private readonly IUnitOfWork _unitOfWork;

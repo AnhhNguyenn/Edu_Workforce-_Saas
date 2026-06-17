@@ -16,5 +16,6 @@ namespace EduOps.Domain.Entities
         /// Null for Super Admins
         /// </summary>
         public Guid? OrganizationId { get; set; }
+        public virtual Organization? Organization { get; set; }
     }
 }

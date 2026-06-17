@@ -38,7 +38,7 @@ namespace EduOps.Application.Services
                                                                                u.Email.ToLower().Contains(query.SearchKeyword.ToLower()) ||
                                                                                (u.Phone != null && u.Phone.ToLower().Contains(query.SearchKeyword.ToLower()))));
 
-            var result = await repo.FindPagedAsync(queryPredicate, query.PageNumber, query.PageSize, asNoTracking: true, includeProperties: "Role,Status");
+            var result = await repo.FindPagedAsync(queryPredicate, query.PageNumber, query.PageSize, asNoTracking: true, includeProperties: "Role,Status,Organization");
 
             return new PagedResult<UserListResponseDto>
             {
@@ -51,7 +51,7 @@ namespace EduOps.Application.Services
 
         public async Task<UserDetailResponseDto> GetUserByIdAsync(Guid id)
         {
-            var user = await _unitOfWork.Repository<User>().FirstOrDefaultAsync(u => u.Id == id, asNoTracking: true, includeProperties: "Role,Status,UserDetail");
+            var user = await _unitOfWork.Repository<User>().FirstOrDefaultAsync(u => u.Id == id, asNoTracking: true, includeProperties: "Role,Status,UserDetail,Organization");
             if (user == null) throw new NotFoundException("User", id);
 
             if (_currentUserService.Role != "SUPER_ADMIN" && user.OrganizationId != _currentUserService.OrganizationId)

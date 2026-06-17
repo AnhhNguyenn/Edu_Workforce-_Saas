@@ -6,12 +6,13 @@ using EduOps.Application.Services;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Authorization;
 
 namespace EduOps.Api.Controllers
 {
     [Route("api/schools")]
     [ApiController]
-    [Authorize(Roles = "CENTER_ADMIN")]
+    [HasPermission("Schools:Manage")]
     public class SchoolsController : ControllerBase
     {
         private readonly ISchoolService _schoolService;

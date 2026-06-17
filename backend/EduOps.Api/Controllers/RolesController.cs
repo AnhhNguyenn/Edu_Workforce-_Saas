@@ -5,6 +5,7 @@ using EduOps.Application.Interfaces;
 using EduOps.Api.Filters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Authorization;
 
 namespace EduOps.Api.Controllers
 {
@@ -84,7 +85,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("{id}/permissions")]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Roles:Manage")]
         public async Task<IActionResult> AssignPermissions(Guid id, [FromBody] AssignPermissionsRequestDto request)
         {
             var orgId = GetOrganizationId();

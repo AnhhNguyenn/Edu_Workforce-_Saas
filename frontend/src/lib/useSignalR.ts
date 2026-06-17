@@ -5,10 +5,12 @@ import * as signalR from '@microsoft/signalr';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store/useAppStore';
 import { ENV } from '@/config/env';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function useSignalR() {
   const { data: session } = useSession();
   const addNotification = useAppStore(state => state.addNotification);
+  const queryClient = useQueryClient();
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
 
   const token = (session as any)?.accessToken;
@@ -29,6 +31,11 @@ export function useSignalR() {
         newConnection.on('ReceiveNotification', (title: string, message: string, type: 'info' | 'success' | 'warn' | 'danger') => {
           addNotification({ title, message, type });
         });
+
+        // Lắng nghe sự kiện InvalidatePlans từ Backend để realtime cập nhật Gói cước / Khuyến mãi
+        newConnection.on('InvalidatePlans', () => {
+          queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
+        });
       })
       .catch(e => {
         // Bỏ qua lỗi do React 18 Strict Mode tự động unmount component khi đang connect
@@ -43,7 +50,7 @@ export function useSignalR() {
     return () => {
       newConnection.stop();
     };
-  }, [token, addNotification]);
+  }, [token, addNotification, queryClient]);
 
   return connection;
 }

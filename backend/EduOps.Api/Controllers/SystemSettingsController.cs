@@ -9,6 +9,7 @@ using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EduOps.Api.Controllers
@@ -89,14 +90,14 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("SystemSettings:Manage")]
         public async Task<ActionResult<List<SystemSettingResponseDto>>> GetAllSettings()
         {
             return Ok(await _settingService.GetAllSettingsAsync());
         }
 
         [HttpPut("{key}")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("SystemSettings:Manage")]
         public async Task<IActionResult> UpdateSetting(string key, [FromBody] SystemSettingUpdateRequestDto request)
         {
             await _settingService.UpdateSettingAsync(key, request);
@@ -104,7 +105,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("audit-logs")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("SystemSettings:Manage")]
         public async Task<ActionResult<List<AuditLogResponseDto>>> GetAuditLogs()
         {
             return Ok(await _settingService.GetAuditLogsAsync());

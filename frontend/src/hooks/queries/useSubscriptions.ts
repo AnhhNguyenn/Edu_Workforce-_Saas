@@ -197,7 +197,7 @@ export const useTransactionStatus = (referenceCode: string | null) => {
       return response.data.status;
     },
     enabled: !!referenceCode,
-    refetchInterval: (query) => (query.state.data === 'PAID' ? false : 3000), // Poll every 3 seconds until paid
+    refetchInterval: (query) => (query.state.data === 'SUCCESS' ? false : 3000), // Poll every 3 seconds until paid
   });
 };
 

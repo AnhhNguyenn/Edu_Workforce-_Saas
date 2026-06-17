@@ -21,23 +21,25 @@ namespace EduOps.Application.Services
         private readonly ICustomLogger _logger;
         private readonly IMemoryCache _cache;
         private readonly ISystemSettingService _settingService;
+        private readonly IRealtimeNotificationService _realtimeNotification;
 
         private const string PLANS_CACHE_KEY = "ALL_SUBSCRIPTION_PLANS";
 
-        public SubscriptionService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, ICustomLogger logger, IMemoryCache cache, ISystemSettingService settingService)
+        public SubscriptionService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, ICustomLogger logger, IMemoryCache cache, ISystemSettingService settingService, IRealtimeNotificationService realtimeNotification)
         {
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _logger = logger;
             _cache = cache;
             _settingService = settingService;
+            _realtimeNotification = realtimeNotification;
         }
 
         public async Task<List<SubscriptionPlanResponseDto>> GetPlansAsync()
         {
-            if (_cache.TryGetValue(PLANS_CACHE_KEY, out List<SubscriptionPlanResponseDto> cachedPlans))
+            if (_cache.TryGetValue(PLANS_CACHE_KEY, out List<SubscriptionPlanResponseDto>? cachedPlans))
             {
-                return cachedPlans;
+                if (cachedPlans != null) return cachedPlans;
             }
 
             var plans = await _unitOfWork.Repository<SubscriptionPlan>()
@@ -51,12 +53,7 @@ namespace EduOps.Application.Services
                 p.SubscriptionPlanDetail = await _unitOfWork.Repository<SubscriptionPlanDetail>().FirstOrDefaultAsync(d => d.SubscriptionPlanId == p.Id);
             }
 
-            var activeDiscounts = await _unitOfWork.Repository<Promotion>().FindAsync(
-                p => p.Type != null && p.Type.Code == "AUTO_DISCOUNT" && p.Status != null && p.Status.Code == "ACTIVE" && p.StartDate <= DateTime.UtcNow && p.EndDate >= DateTime.UtcNow && p.DeletedAt == null
-            );
-
             cachedPlans = plans.Select(p => {
-                var discount = activeDiscounts.FirstOrDefault(d => d.SubscriptionPlanId == p.Id);
                 return new SubscriptionPlanResponseDto
                 {
                     Id = p.Id,
@@ -65,8 +62,7 @@ namespace EduOps.Application.Services
                     MaxUsers = p.MaxUsers,
                     PricePerMonth = p.PricePerMonth,
                     PricePerYear = p.PricePerYear,
-                    Status = p.Status?.Code,
-                    ActiveDiscountPercentage = discount?.DiscountPercentage
+                    Status = p.Status?.Code
                 };
             }).ToList();
 
@@ -94,6 +90,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             _cache.Remove(PLANS_CACHE_KEY);
+            await _realtimeNotification.SendToAllAsync("InvalidatePlans");
 
             return new SubscriptionPlanResponseDto
             {
@@ -161,6 +158,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             _cache.Remove(PLANS_CACHE_KEY);
+            await _realtimeNotification.SendToAllAsync("InvalidatePlans");
 
             return new PromotionResponseDto
             {
@@ -205,6 +203,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             _cache.Remove(PLANS_CACHE_KEY);
+            await _realtimeNotification.SendToAllAsync("InvalidatePlans");
         }
 
         public async Task DeletePlanAsync(Guid id)
@@ -230,6 +229,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             _cache.Remove(PLANS_CACHE_KEY);
+            await _realtimeNotification.SendToAllAsync("InvalidatePlans");
         }
 
         public async Task UpdatePromotionAsync(Guid id, UpdatePromotionRequestDto request)
@@ -258,6 +258,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             _cache.Remove(PLANS_CACHE_KEY);
+            await _realtimeNotification.SendToAllAsync("InvalidatePlans");
         }
 
         public async Task DeletePromotionAsync(Guid id)
@@ -275,6 +276,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
 
             _cache.Remove(PLANS_CACHE_KEY);
+            await _realtimeNotification.SendToAllAsync("InvalidatePlans");
         }
 
         public async Task<List<PromotionUsageResponseDto>> GetPromotionUsageHistoryAsync(Guid promotionId)
@@ -367,22 +369,12 @@ namespace EduOps.Application.Services
             var now = DateTime.UtcNow;
             Guid? appliedPromotionId = null;
 
-            // 1. Kiểm tra Auto Discount đang diễn ra cho gói này
-            var autoPromo = await _unitOfWork.Repository<Promotion>().FirstOrDefaultAsync(
-                p => p.Type != null && p.Type.Code == "AUTO_DISCOUNT" && p.Status != null && p.Status.Code == "ACTIVE" && p.StartDate <= now && p.EndDate >= now && p.SubscriptionPlanId == request.PlanId
-            );
-
-            if (autoPromo != null)
-            {
-                appliedPromotionId = autoPromo.Id;
-                finalPrice = basePrice - (basePrice * autoPromo.DiscountPercentage / 100);
-            }
-            // 2. Nếu không có Auto Discount, kiểm tra Promo Code do người dùng nhập
-            else if (!string.IsNullOrWhiteSpace(request.PromoCode))
+            // Chỉ kiểm tra Promo Code do người dùng nhập
+            if (!string.IsNullOrWhiteSpace(request.PromoCode))
             {
                 var inputCode = request.PromoCode.Trim().ToUpper();
                 var promo = await _unitOfWork.Repository<Promotion>().FirstOrDefaultAsync(
-                    p => p.Type != null && p.Type.Code == "PROMO_CODE" && p.Code != null && p.Code.ToUpper() == inputCode && p.Status != null && p.Status.Code == "ACTIVE"
+                    p => p.Code != null && p.Code.ToUpper() == inputCode && p.Status != null && p.Status.Code == "ACTIVE"
                 );
 
                 if (promo == null) throw new BadRequestException("Mã khuyến mãi không hợp lệ.");
@@ -403,12 +395,12 @@ namespace EduOps.Application.Services
 
             var refCode = $"EDU-{orgId.Value.ToString().Substring(0, 4).ToUpper()}-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}";
 
-            var transactionStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.BillingStatus>().FirstOrDefaultAsync(s => s.Code == "PENDING");
+            transactionStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.BillingStatus>().FirstOrDefaultAsync(s => s.Code == "PENDING");
 
             // XỬ LÝ DEADLOCK 0 ĐỒNG (FREE TIER)
             if (finalPrice == 0)
             {
-                transactionStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.BillingStatus>().FirstOrDefaultAsync(s => s.Code == "PAID");
+                transactionStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.BillingStatus>().FirstOrDefaultAsync(s => s.Code == "SUCCESS");
 
                 // Trừ lượt khuyến mãi (vì giao dịch đã thành công ngay lập tức)
                 if (appliedPromotionId.HasValue)
@@ -425,7 +417,7 @@ namespace EduOps.Application.Services
                 var org = await _unitOfWork.Repository<Organization>().GetByIdAsync(orgId.Value);
                 if (org != null)
                 {
-                    org.SubscriptionStatus = plan.Name.ToUpper();
+                    org.SubscriptionStatus = "PAID";
                     org.CurrentPlanId = plan.Id;
 
                     var currentEnd = org.SubscriptionEnd ?? now;
@@ -494,23 +486,12 @@ namespace EduOps.Application.Services
 
             var now = DateTime.UtcNow;
 
-            // 1. Kiểm tra Auto Discount đang diễn ra cho gói này
-            var autoPromo = await _unitOfWork.Repository<Promotion>().FirstOrDefaultAsync(
-                p => p.Type != null && p.Type.Code == "AUTO_DISCOUNT" && p.Status != null && p.Status.Code == "ACTIVE" && p.StartDate <= now && p.EndDate >= now && p.SubscriptionPlanId == request.PlanId
-            );
-
-            if (autoPromo != null)
-            {
-                discountAmount = (basePrice * autoPromo.DiscountPercentage / 100);
-                finalPrice = basePrice - discountAmount;
-                appliedPromoCode = autoPromo.Code;
-            }
-            // 2. Nếu không có Auto Discount, kiểm tra Promo Code do người dùng nhập
-            else if (!string.IsNullOrWhiteSpace(request.PromoCode))
+            // Chỉ kiểm tra Promo Code do người dùng nhập
+            if (!string.IsNullOrWhiteSpace(request.PromoCode))
             {
                 var inputCode = request.PromoCode.Trim().ToUpper();
                 var promo = await _unitOfWork.Repository<Promotion>().FirstOrDefaultAsync(
-                    p => p.Type != null && p.Type.Code == "PROMO_CODE" && p.Code != null && p.Code.ToUpper() == inputCode && p.Status != null && p.Status.Code == "ACTIVE"
+                    p => p.Code != null && p.Code.ToUpper() == inputCode && p.Status != null && p.Status.Code == "ACTIVE"
                 );
 
                 if (promo == null) throw new BadRequestException("Mã khuyến mãi không hợp lệ.");
@@ -594,8 +575,16 @@ namespace EduOps.Application.Services
             var orgId = _currentUserService.OrganizationId;
             if (orgId == null) throw new UnauthorizedAccessException();
 
-            var trans = await _unitOfWork.Repository<BillingTransaction>()
-                .FindAsync(t => t.OrganizationId == orgId.Value);
+            var trans = await _unitOfWork.Repository<BillingTransaction>().FindAsync(t => t.OrganizationId == orgId.Value, includeProperties: "Status");
+
+            var orgs = await _unitOfWork.Repository<Organization>().GetAllAsync();
+            var orgDict = orgs.ToDictionary(o => o.Id, o => o.Name);
+
+            var plans = await _unitOfWork.Repository<SubscriptionPlan>().GetAllAsync();
+            var planDict = plans.ToDictionary(p => p.Id);
+
+            var promos = await _unitOfWork.Repository<Promotion>().GetAllAsync();
+            var promoDict = promos.ToDictionary(p => p.Id, p => p.Code);
 
             return trans.OrderByDescending(t => t.CreatedAt).Select(t => new BillingTransactionDto
             {
@@ -605,7 +594,10 @@ namespace EduOps.Application.Services
                 MonthsToAdd = t.MonthsToAdd,
                 PaymentDate = t.PaymentDate,
                 Status = t.Status?.Code ?? "",
-                ReferenceCode = t.ReferenceCode
+                ReferenceCode = t.ReferenceCode,
+                OrganizationName = t.OrganizationId.HasValue && orgDict.ContainsKey(t.OrganizationId.Value) ? orgDict[t.OrganizationId.Value] : "N/A",
+                PromotionCode = t.PromotionId.HasValue && promoDict.ContainsKey(t.PromotionId.Value) ? promoDict[t.PromotionId.Value] : "",
+                OriginalAmount = planDict.TryGetValue(t.PlanId, out var p) ? (t.MonthsToAdd >= 12 ? p.PricePerYear : p.PricePerMonth) : t.Amount
             }).ToList();
         }
 
@@ -614,7 +606,16 @@ namespace EduOps.Application.Services
             if (_currentUserService.Role != "SUPER_ADMIN")
                 throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới được xem tất cả giao dịch.");
 
-            var trans = await _unitOfWork.Repository<BillingTransaction>().GetAllAsync();
+            var trans = await _unitOfWork.Repository<BillingTransaction>().FindAsync(t => true, includeProperties: "Status");
+
+            var orgs = await _unitOfWork.Repository<Organization>().GetAllAsync();
+            var orgDict = orgs.ToDictionary(o => o.Id, o => o.Name);
+
+            var plans = await _unitOfWork.Repository<SubscriptionPlan>().GetAllAsync();
+            var planDict = plans.ToDictionary(p => p.Id);
+
+            var promos = await _unitOfWork.Repository<Promotion>().GetAllAsync();
+            var promoDict = promos.ToDictionary(p => p.Id, p => p.Code);
 
             return trans.OrderByDescending(t => t.CreatedAt).Select(t => new BillingTransactionDto
             {
@@ -624,7 +625,10 @@ namespace EduOps.Application.Services
                 MonthsToAdd = t.MonthsToAdd,
                 PaymentDate = t.PaymentDate,
                 Status = t.Status?.Code ?? "",
-                ReferenceCode = t.ReferenceCode
+                ReferenceCode = t.ReferenceCode,
+                OrganizationName = t.OrganizationId.HasValue && orgDict.ContainsKey(t.OrganizationId.Value) ? orgDict[t.OrganizationId.Value] : "N/A",
+                PromotionCode = t.PromotionId.HasValue && promoDict.ContainsKey(t.PromotionId.Value) ? promoDict[t.PromotionId.Value] : "",
+                OriginalAmount = planDict.TryGetValue(t.PlanId, out var p) ? (t.MonthsToAdd >= 12 ? p.PricePerYear : p.PricePerMonth) : t.Amount
             }).ToList();
         }
 

@@ -12,8 +12,8 @@ namespace EduOps.Domain.Entities
 
         // Bổ sung: Liên kết tới lịch định kỳ gốc nếu có
         public Guid? ClassScheduleId { get; set; }
-
-        public string LessonTitle { get; set; } = string.Empty;
+        public string LessonTitle { get; set; } = string.Empty;
+        public string? RoomName { get; set; }
         public virtual SessionDetail? SessionDetail { get; set; }
 
         public DateTime SessionDate { get; set; }

@@ -115,7 +115,7 @@ namespace EduOps.Application.Services
                             .FirstOrDefaultAsync(o => o.Id == tx.OrganizationId.Value, ignoreQueryFilters: true);
                         if (org != null)
                         {
-                            org.SubscriptionStatus = tx.PlanName?.ToUpper() ?? "PRO";
+                            org.SubscriptionStatus = "PAID";
 
                             var plan = await _unitOfWork.Repository<SubscriptionPlan>()
                                 .FirstOrDefaultAsync(p => p.Id == tx.PlanId, ignoreQueryFilters: true);

@@ -4,6 +4,10 @@ using EduOps.Application;
 using EduOps.Infrastructure;
 using Hangfire;
 using Hangfire.PostgreSql;
+using Polly;
+using Polly.Extensions.Http;
+using Microsoft.AspNetCore.Authorization;
+using EduOps.Api.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -14,8 +18,6 @@ using FluentValidation.AspNetCore;
 using FluentValidation;
 using Serilog;
 using System;
-using Microsoft.AspNetCore.RateLimiting;
-using System.Threading.RateLimiting;
 using System.Security.Claims;
 
 // Load Configuration thủ công trước khi Builder chạy để cấp cho Serilog
@@ -27,7 +29,7 @@ var configuration = new ConfigurationBuilder()
     .Build();
 
 // Định dạng Log chuẩn Doanh nghiệp (Enterprise Standard)
-var outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}";
+var outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] [CID:{CorrelationId}] [{SourceContext}] {Message:lj}{NewLine}{Exception}";
 
 long fileSizeLimit = configuration.GetValue<long>("SerilogSettings:FileSizeLimitBytes", 10485760);
 int retainedFileCount = configuration.GetValue<int>("SerilogSettings:RetainedFileCountLimit", 30);
@@ -36,6 +38,7 @@ int retainedFileCount = configuration.GetValue<int>("SerilogSettings:RetainedFil
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .Enrich.FromLogContext()
+    .Enrich.WithCorrelationId()
     .WriteTo.Console(outputTemplate: outputTemplate)
     .WriteTo.File("Logs/eduops-log-.txt",
                   rollingInterval: RollingInterval.Day,
@@ -56,36 +59,18 @@ try
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddApplication();
 
-    // Đăng ký Rate Limiter (Chống DDoS/Brute-force)
-    builder.Services.AddRateLimiter(options =>
-    {
-        options.GlobalLimiter = PartitionedRateLimiter.Create<Microsoft.AspNetCore.Http.HttpContext, string>(httpContext =>
-            RateLimitPartition.GetFixedWindowLimiter(
-                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString(),
-                factory: partition => new FixedWindowRateLimiterOptions
-                {
-                    AutoReplenishment = true,
-                    PermitLimit = 100,
-                    QueueLimit = 0,
-                    Window = TimeSpan.FromMinutes(1)
-                }));
-
-        // Rate Limiter riêng cho Auth (Chống Brute-force mật khẩu)
-        options.AddPolicy("AuthLimit", httpContext =>
-            RateLimitPartition.GetFixedWindowLimiter(
-                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString(),
-                factory: partition => new FixedWindowRateLimiterOptions
-                {
-                    AutoReplenishment = true,
-                    PermitLimit = 5,
-                    QueueLimit = 0,
-                    Window = TimeSpan.FromMinutes(1)
-                }));
-
-        options.RejectionStatusCode = 429;
-    });
+    // Cấu hình Rate Limiter đã được dời sang Nginx (Tầng Hạ tầng)
 
     // 2. Đăng ký Controllers và Auto-Validation (FluentValidation)
+    // Cấu hình Global HttpClient với Circuit Breaker & Retry Pattern (Polly)
+    builder.Services.AddHttpClient("ResilientClient")
+        .SetHandlerLifetime(TimeSpan.FromMinutes(5))
+        .AddPolicyHandler(HttpPolicyExtensions
+            .HandleTransientHttpError()
+            .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))))
+        .AddPolicyHandler(HttpPolicyExtensions
+            .HandleTransientHttpError()
+            .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30)));
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
         {
@@ -202,7 +187,7 @@ try
                 var orgIdStr = string.IsNullOrEmpty(tenantId) ? "sys" : tenantId;
                 var sessionKey = $"tenant:{orgIdStr}:user:{userId}:session";
                 var sessionJson = await cacheService.GetAsync<string>(sessionKey);
-                
+
                 if (string.IsNullOrEmpty(sessionJson))
                 {
                     context.Fail("Session expired or logged out.");
@@ -233,6 +218,10 @@ try
     builder.Services.AddMemoryCache();
     builder.Services.AddScoped<EduOps.Application.Interfaces.ICurrentUserService, EduOps.Api.Services.CurrentUserService>();
 
+    // Cấu hình Dynamic Permission-based Authorization
+    builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+    builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
     // Cấu hình Hangfire
     builder.Services.AddHangfire(config => config
         .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
@@ -243,6 +232,23 @@ try
 
     builder.Services.AddHangfireServer();
 
+    // Cấu hình Health Checks & Compression
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(builder.Configuration.GetConnectionString("DefaultConnection")!)
+        .AddRedis(builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379");
+
+    builder.Services.AddResponseCompression(options =>
+    {
+        options.EnableForHttps = true;
+        options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+        options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+    });
+
+    builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(options =>
+    {
+        options.Level = System.IO.Compression.CompressionLevel.Fastest;
+    });
+
     // 5. Build App
     var app = builder.Build();
 
@@ -251,12 +257,15 @@ try
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "EduOps API v1"));
 
     app.UseMiddleware<ExceptionHandlingMiddleware>();
+    app.UseMiddleware<IdempotencyMiddleware>();
 
     // app.UseHttpsRedirection(); // Tắt HTTPS Redirect để cho phép internal HTTP từ Docker Next.js
 
+    app.UseResponseCompression();
+
     app.UseCors("AllowFrontend");
 
-    app.UseRateLimiter();
+
 
     app.UseAuthentication();
     app.UseAuthorization();
@@ -266,6 +275,7 @@ try
 
     app.MapControllers();
     app.MapHub<EduOps.Api.Hubs.NotificationHub>("/hub/notifications");
+    app.MapHealthChecks("/api/health");
 
     // Đăng ký Recurring Job khi App vừa chạy lên
     using (var scope = app.Services.CreateScope())

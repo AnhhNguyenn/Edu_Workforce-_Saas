@@ -124,6 +124,8 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("SessionId");
 
                     b.HasIndex("StatusId");
@@ -219,6 +221,8 @@ namespace EduOps.Infrastructure.Migrations
                         .HasColumnName("xmin");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("AuditLogs");
                 });
@@ -316,6 +320,8 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("ReferenceCode");
 
                     b.HasIndex("StatusId");
@@ -366,6 +372,10 @@ namespace EduOps.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("GradeId");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("SchoolId");
 
@@ -451,6 +461,8 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasIndex("ClassId");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("StatusId");
 
                     b.HasIndex("StudentId");
@@ -509,6 +521,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClassId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("StatusId");
 
@@ -600,6 +614,8 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
                     b.ToTable("Files");
                 });
 
@@ -671,6 +687,8 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
                     b.ToTable("Grades");
                 });
 
@@ -719,6 +737,8 @@ namespace EduOps.Infrastructure.Migrations
                         .HasColumnName("xmin");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("TypeId");
 
@@ -825,6 +845,8 @@ namespace EduOps.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("CurrentPlanId");
+
+                    b.HasIndex("Name");
 
                     b.HasIndex("StatusId");
 
@@ -962,6 +984,8 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Code");
+
                     b.HasIndex("StatusId");
 
                     b.HasIndex("SubscriptionPlanId");
@@ -1057,6 +1081,8 @@ namespace EduOps.Infrastructure.Migrations
                         .HasColumnName("xmin");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("StatusId");
 
@@ -1243,6 +1269,12 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Code");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("OrganizationId");
+
                     b.ToTable("Roles");
                 });
 
@@ -1311,6 +1343,8 @@ namespace EduOps.Infrastructure.Migrations
                         .HasColumnName("xmin");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Name");
 
                     b.HasIndex("OrganizationId");
 
@@ -1401,6 +1435,9 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid?>("OrganizationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("RoomName")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("SchoolId")
                         .HasColumnType("uuid");
 
@@ -1428,6 +1465,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClassId");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("StatusId");
 
@@ -1548,7 +1587,13 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FullName");
+
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("StatusId");
+
+                    b.HasIndex("StudentCode");
 
                     b.ToTable("Students");
                 });
@@ -1638,6 +1683,8 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
                     b.HasIndex("StatusId");
 
                     b.HasIndex("StudentId");
@@ -1678,6 +1725,12 @@ namespace EduOps.Infrastructure.Migrations
                         .HasColumnName("xmin");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("Subjects");
                 });
@@ -1720,6 +1773,8 @@ namespace EduOps.Infrastructure.Migrations
                         .HasColumnName("xmin");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Name");
 
                     b.HasIndex("StatusId");
 
@@ -1884,7 +1939,11 @@ namespace EduOps.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("FullName");
+
                     b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Phone");
 
                     b.HasIndex("RoleId");
 
@@ -1941,18 +2000,39 @@ namespace EduOps.Infrastructure.Migrations
 
             modelBuilder.Entity("EduOps.Domain.Entities.Attendance", b =>
                 {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
                     b.HasOne("EduOps.Domain.Entities.AttendanceStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId");
 
+                    b.Navigation("Organization");
+
                     b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.AuditLog", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.BillingTransaction", b =>
                 {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
                     b.HasOne("EduOps.Domain.Entities.BillingStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId");
+
+                    b.Navigation("Organization");
 
                     b.Navigation("Status");
                 });
@@ -1962,6 +2042,10 @@ namespace EduOps.Infrastructure.Migrations
                     b.HasOne("EduOps.Domain.Entities.Grade", "Grade")
                         .WithMany()
                         .HasForeignKey("GradeId");
+
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
 
                     b.HasOne("EduOps.Domain.Entities.School", null)
                         .WithMany("Classes")
@@ -1978,6 +2062,8 @@ namespace EduOps.Infrastructure.Migrations
                         .HasForeignKey("SubjectId");
 
                     b.Navigation("Grade");
+
+                    b.Navigation("Organization");
 
                     b.Navigation("Status");
 
@@ -2003,6 +2089,10 @@ namespace EduOps.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
                     b.HasOne("EduOps.Domain.Entities.EnrollmentStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId");
@@ -2015,6 +2105,8 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.Navigation("Class");
 
+                    b.Navigation("Organization");
+
                     b.Navigation("Status");
                 });
 
@@ -2026,18 +2118,48 @@ namespace EduOps.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
                     b.HasOne("EduOps.Domain.Entities.AccountStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId");
 
+                    b.Navigation("Organization");
+
                     b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.FileRecord", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Grade", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.Notification", b =>
                 {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
                     b.HasOne("EduOps.Domain.Entities.NotificationType", "Type")
                         .WithMany()
                         .HasForeignKey("TypeId");
+
+                    b.Navigation("Organization");
 
                     b.Navigation("Type");
                 });
@@ -2091,9 +2213,15 @@ namespace EduOps.Infrastructure.Migrations
 
             modelBuilder.Entity("EduOps.Domain.Entities.Report", b =>
                 {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
                     b.HasOne("EduOps.Domain.Entities.ReportStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId");
+
+                    b.Navigation("Organization");
 
                     b.Navigation("Status");
                 });
@@ -2107,6 +2235,15 @@ namespace EduOps.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Report");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Role", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.RolePermission", b =>
@@ -2130,9 +2267,11 @@ namespace EduOps.Infrastructure.Migrations
 
             modelBuilder.Entity("EduOps.Domain.Entities.School", b =>
                 {
-                    b.HasOne("EduOps.Domain.Entities.Organization", null)
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
                         .WithMany("Schools")
                         .HasForeignKey("OrganizationId");
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.SchoolDetail", b =>
@@ -2154,9 +2293,15 @@ namespace EduOps.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
                     b.HasOne("EduOps.Domain.Entities.SessionStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId");
+
+                    b.Navigation("Organization");
 
                     b.Navigation("Status");
                 });
@@ -2174,9 +2319,15 @@ namespace EduOps.Infrastructure.Migrations
 
             modelBuilder.Entity("EduOps.Domain.Entities.Student", b =>
                 {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
                     b.HasOne("EduOps.Domain.Entities.AccountStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId");
+
+                    b.Navigation("Organization");
 
                     b.Navigation("Status");
                 });
@@ -2194,6 +2345,10 @@ namespace EduOps.Infrastructure.Migrations
 
             modelBuilder.Entity("EduOps.Domain.Entities.StudentSessionAttendance", b =>
                 {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
                     b.HasOne("EduOps.Domain.Entities.AttendanceStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId");
@@ -2204,7 +2359,18 @@ namespace EduOps.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Organization");
+
                     b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("EduOps.Domain.Entities.Subject", b =>
+                {
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId");
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.SubscriptionPlan", b =>
@@ -2229,7 +2395,7 @@ namespace EduOps.Infrastructure.Migrations
 
             modelBuilder.Entity("EduOps.Domain.Entities.User", b =>
                 {
-                    b.HasOne("EduOps.Domain.Entities.Organization", null)
+                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
                         .WithMany("Users")
                         .HasForeignKey("OrganizationId");
 
@@ -2240,6 +2406,8 @@ namespace EduOps.Infrastructure.Migrations
                     b.HasOne("EduOps.Domain.Entities.AccountStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId");
+
+                    b.Navigation("Organization");
 
                     b.Navigation("Role");
 

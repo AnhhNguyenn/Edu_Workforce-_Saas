@@ -6,9 +6,9 @@ services:
     image: postgres:16-alpine
     container_name: eduops_postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: mysecretpassword
-      POSTGRES_DB: EduOpsDb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       TZ: Asia/Ho_Chi_Minh
     ports:
       # Map ra cổng 5433 để tránh xung đột với Postgres cài trên máy thật của Host
@@ -33,7 +33,7 @@ services:
     restart: unless-stopped
 
   # 3. .NET 8 Backend
-  backend:
+  backendeduopssaas:
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -43,8 +43,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       # Link trực tiếp tới service 'db' và 'redis' qua network nội bộ của Docker
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=EduOpsDb;Username=postgres;Password=mysecretpassword
-      - ConnectionStrings__Redis=healthy-turtle-125098.upstash.io:6379,password=gQAAAAAAAeiqAAIgcDEwZDI0MmU1MjllYWM0Y2QyYWQ5ZmVjNWNjNTMyYjM1MA,ssl=True,abortConnect=False
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - ConnectionStrings__Redis=${REDIS_CONNECTION}
       - TZ=Asia/Ho_Chi_Minh
     volumes:
       # Mount file appsettings.json từ máy Host vào Container lúc runtime (rất quan trọng)
@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
 
   # 4. Next.js Frontend
-  frontend:
+  frontendeduopssaas:
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -66,12 +66,27 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:5001/api # URL để Client fetch API từ Host
-      - INTERNAL_API_URL=http://backend:8080/api # Cho NextAuth Server side kết nối nội bộ
+      - INTERNAL_API_URL=http://backendeduopssaas:8080/api # Cho NextAuth Server side kết nối nội bộ
       - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=eduops-secret-key-2024
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - TZ=Asia/Ho_Chi_Minh
     depends_on:
-      - backend
+      - backendeduopssaas
+    networks:
+      - eduops_network
+    restart: unless-stopped
+
+  # 5. Nginx API Gateway / Proxy Layer
+  nginx:
+    image: nginx:alpine
+    container_name: eduops_nginx
+    ports:
+      - "80:80"   # Nginx sẽ nhận traffic từ ngoài vào ở port 80
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontendeduopssaas
+      - backendeduopssaas
     networks:
       - eduops_network
     restart: unless-stopped

@@ -13,7 +13,10 @@ namespace EduOps.Application.Mappings
             {
                 Id = school.Id,
                 Name = school.Name,
-                Address = school.SchoolDetail?.Address
+                Address = school.SchoolDetail?.Address,
+                Latitude = school.SchoolDetail?.Latitude,
+                Longitude = school.SchoolDetail?.Longitude,
+                GpsRadius = school.SchoolDetail?.AttendanceRadius
             };
         }
 

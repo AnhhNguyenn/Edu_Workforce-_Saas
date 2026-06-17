@@ -6,6 +6,7 @@ using EduOps.Application.DTOs.Subscription;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Authorization;
 namespace EduOps.Api.Controllers
 {
     [ApiController]
@@ -28,7 +29,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("plans")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> CreatePlan([FromBody] CreateSubscriptionPlanRequestDto request)
         {
             var result = await _subscriptionService.CreatePlanAsync(request);
@@ -36,7 +37,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPut("plans/{id}")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> UpdatePlan(Guid id, [FromBody] UpdateSubscriptionPlanRequestDto request)
         {
             await _subscriptionService.UpdatePlanAsync(id, request);
@@ -44,7 +45,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpDelete("plans/{id}")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> DeletePlan(Guid id)
         {
             await _subscriptionService.DeletePlanAsync(id);
@@ -52,7 +53,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("promotions")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> GetPromotions()
         {
             var result = await _subscriptionService.GetPromotionsAsync();
@@ -60,7 +61,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("promotions")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> CreatePromotion([FromBody] CreatePromotionRequestDto request)
         {
             var result = await _subscriptionService.CreatePromotionAsync(request);
@@ -68,7 +69,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPut("promotions/{id}")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> UpdatePromotion(Guid id, [FromBody] UpdatePromotionRequestDto request)
         {
             await _subscriptionService.UpdatePromotionAsync(id, request);
@@ -76,7 +77,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpDelete("promotions/{id}")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> DeletePromotion(Guid id)
         {
             await _subscriptionService.DeletePromotionAsync(id);
@@ -84,7 +85,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("promotions/{id}/history")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> GetPromotionHistory(Guid id)
         {
             var result = await _subscriptionService.GetPromotionUsageHistoryAsync(id);
@@ -92,7 +93,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("subscribe")]
-        [Authorize(Roles = "CENTER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> Subscribe([FromBody] SubscribeRequestDto request)
         {
             var result = await _subscriptionService.SubscribeAsync(request);
@@ -100,7 +101,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("preview-subscribe")]
-        [Authorize(Roles = "CENTER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> PreviewSubscribe([FromBody] SubscribeRequestDto request)
         {
             var result = await _subscriptionService.PreviewSubscribeAsync(request);
@@ -108,7 +109,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("my-subscription")]
-        [Authorize(Roles = "CENTER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> GetMySubscription()
         {
             var result = await _subscriptionService.GetMySubscriptionAsync();
@@ -116,7 +117,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("my-transactions")]
-        [Authorize(Roles = "CENTER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> GetMyTransactions()
         {
             var result = await _subscriptionService.GetMyTransactionsAsync();
@@ -124,7 +125,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("transactions")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> GetAllTransactions()
         {
             var result = await _subscriptionService.GetAllTransactionsAsync();
@@ -132,7 +133,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("transactions/{refCode}/status")]
-        [Authorize(Roles = "CENTER_ADMIN")]
+        [HasPermission("Subscriptions:Manage")]
         public async Task<IActionResult> GetTransactionStatus(string refCode)
         {
             var status = await _subscriptionService.GetTransactionStatusAsync(refCode);

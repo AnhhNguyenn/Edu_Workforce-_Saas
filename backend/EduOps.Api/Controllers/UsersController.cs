@@ -7,6 +7,7 @@ using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using EduOps.Api.Filters;
+using EduOps.Api.Authorization;
 
 namespace EduOps.Api.Controllers
 {
@@ -31,7 +32,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Users:READ")]
         public async Task<IActionResult> GetUsers([FromQuery] GetUserListQueryDto query)
         {
             query.PageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
@@ -47,7 +48,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("{id}")]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Users:READ")]
         public async Task<IActionResult> GetUser(Guid id)
         {
             var result = await _userService.GetUserByIdAsync(id);
@@ -55,7 +56,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Users:CREATE")]
         public async Task<IActionResult> CreateUser([FromBody] CreateUserRequestDto request)
         {
             var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
@@ -68,7 +69,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Users:UPDATE")]
         public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequestDto request)
         {
             await _userService.UpdateUserAsync(id, request);
@@ -76,7 +77,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("{id}/deactivate")]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Users:UPDATE")]
         public async Task<IActionResult> DeactivateUser(Guid id)
         {
             await _userService.DeactivateUserAsync(id);
@@ -84,7 +85,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Users:DELETE")]
         public async Task<IActionResult> DeleteUser(Guid id)
         {
             await _userService.DeleteUserAsync(id);
@@ -92,7 +93,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("{id}/lock")]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Users:UPDATE")]
         public async Task<IActionResult> LockUser(Guid id, [FromBody] LockUserRequestDto request)
         {
             await _userService.LockUserAsync(id, request.LockEndAt);
@@ -100,7 +101,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("{id}/unlock")]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Users:UPDATE")]
         public async Task<IActionResult> UnlockUser(Guid id)
         {
             await _userService.UnlockUserAsync(id);
@@ -108,7 +109,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("{id}/reset-password")]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Users:UPDATE")]
         public async Task<IActionResult> ResetPassword(Guid id, [FromBody] ResetPasswordRequestDto request)
         {
             var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;

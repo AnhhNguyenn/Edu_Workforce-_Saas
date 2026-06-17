@@ -14,6 +14,7 @@ namespace EduOps.Application.Mappings
             {
                 Id = user.Id,
                 OrganizationId = user.OrganizationId,
+                OrganizationName = user.Organization?.Name ?? string.Empty,
                 FullName = user.FullName,
                 Email = user.Email,
                 RoleId = user.RoleId,
@@ -33,6 +34,7 @@ namespace EduOps.Application.Mappings
             {
                 Id = user.Id,
                 OrganizationId = user.OrganizationId,
+                OrganizationName = user.Organization?.Name ?? string.Empty,
                 FullName = user.FullName,
                 Email = user.Email,
                 RoleId = user.RoleId,

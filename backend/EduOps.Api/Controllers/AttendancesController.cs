@@ -5,13 +5,14 @@ using EduOps.Application.DTOs.Attendance;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Authorization;
 using EduOps.Api.Filters;
 
 namespace EduOps.Api.Controllers
 {
     [Route("api/attendances")]
     [ApiController]
-    [Authorize(Roles = "TEACHER,ASSISTANT,CENTER_ADMIN")]
+    [HasPermission("Attendances:Manage")]
     [RequirePaidSubscription]
     [FeatureGate("ENABLE_ATTENDANCE")]
     public class AttendancesController : ControllerBase
@@ -48,7 +49,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("sessions/{sessionId}/students")]
-        [Authorize(Roles = "TEACHER,ASSISTANT,CENTER_ADMIN")]
+        [HasPermission("Attendances:Manage")]
         public async Task<IActionResult> SubmitStudentAttendances(Guid sessionId, [FromBody] StudentAttendanceSubmitDto request)
         {
             var userId = _currentUserService.UserId;

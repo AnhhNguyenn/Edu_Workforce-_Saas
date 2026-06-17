@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import { Search, Filter } from "lucide-react";
+import { useState, useEffect, Fragment, useMemo } from "react";
+import { Search, Filter, ChevronRight, ChevronDown, Building2, ShieldCheck, Users, GraduationCap, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateButton } from "@/components/ui/create-button";
 import { ActionButtons } from "@/components/ui/action-buttons";
@@ -36,6 +36,18 @@ export default function AdminsPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    'Hội đồng quản trị (Super Admin)': true,
+    'Trung Tâm': true
+  });
+
+  const toggleGroup = (groupName: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
+  };
 
   // Simple debounce for search
   useEffect(() => {
@@ -46,7 +58,7 @@ export default function AdminsPage() {
   }, [searchTerm]);
 
   const { data: orgs } = useOrganizations();
-  const { data: admins, isLoading, isError, error } = useUsers(roleFilter || 'SUPER_ADMIN,CENTER_ADMIN', debouncedSearch);
+  const { data: admins, isLoading, isError, error } = useUsers(roleFilter || '', debouncedSearch);
   
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
@@ -55,16 +67,59 @@ export default function AdminsPage() {
   const unlockMutation = useUnlockUser();
   const { confirm } = useConfirm();
 
+  const groupedAdmins = useMemo(() => {
+    if (!admins?.items) return { superAdmins: [], centers: {} as Record<string, Record<string, any[]>> };
+    
+    const superAdmins: any[] = [];
+    const centers: Record<string, Record<string, any[]>> = {};
+
+    admins.items.forEach((admin: any) => {
+      if (admin.roleCode === 'SUPER_ADMIN' || admin.role === 'SUPER_ADMIN' || !admin.organizationName) {
+        superAdmins.push(admin);
+      } else {
+        const orgName = admin.organizationName;
+        if (!centers[orgName]) {
+          centers[orgName] = {
+            'Quản lý trung tâm': [],
+            'Giáo viên': [],
+            'Trợ giảng': []
+          };
+        }
+        
+        if (admin.roleCode === 'CENTER_ADMIN' || admin.role === 'CENTER_ADMIN') {
+          centers[orgName]['Quản lý trung tâm'].push(admin);
+        } else if (admin.roleCode === 'TEACHER' || admin.role === 'TEACHER') {
+          centers[orgName]['Giáo viên'].push(admin);
+        } else if (admin.roleCode === 'ASSISTANT' || admin.role === 'ASSISTANT') {
+          centers[orgName]['Trợ giảng'].push(admin);
+        } else {
+          centers[orgName]['Quản lý trung tâm'].push(admin);
+        }
+      }
+    });
+
+    return { superAdmins, centers };
+  }, [admins?.items]);
+
   const handleCreate = () => {
     if (!formData.fullName.trim()) return toast.error("Vui lòng nhập Họ tên");
     if (!formData.email.trim()) return toast.error("Vui lòng nhập Email");
     if (!formData.password.trim()) return toast.error("Vui lòng nhập Mật khẩu khởi tạo");
     if (!formData.phone.trim()) return toast.error("Vui lòng nhập Số điện thoại");
-    if (formData.roleCode === 'CENTER_ADMIN' && !formData.organizationId) {
+    if (formData.roleCode !== 'SUPER_ADMIN' && !formData.organizationId) {
       return toast.error("Vui lòng chọn Trực thuộc Trung tâm");
     }
 
-    createMutation.mutate(formData, {
+    const payload = {
+      fullName: formData.fullName,
+      email: formData.email,
+      password: formData.password,
+      role: formData.roleCode,
+      phone: formData.phone,
+      organizationId: formData.organizationId || null
+    };
+
+    createMutation.mutate(payload, {
       onSuccess: () => {
         setIsCreateOpen(false);
         setFormData({ fullName: '', email: '', password: '', roleCode: 'SUPER_ADMIN', phone: '', organizationId: '' });
@@ -80,7 +135,7 @@ export default function AdminsPage() {
     if (selectedUser) {
       if (!editFormData.fullName.trim()) return toast.error("Vui lòng nhập Họ tên");
       if (!editFormData.phone.trim()) return toast.error("Vui lòng nhập Số điện thoại");
-      if (editFormData.roleCode === 'CENTER_ADMIN' && !editFormData.organizationId) {
+      if (editFormData.roleCode !== 'SUPER_ADMIN' && !editFormData.organizationId) {
         return toast.error("Vui lòng chọn Trực thuộc Trung tâm");
       }
 
@@ -189,7 +244,9 @@ export default function AdminsPage() {
                 options={[
                   { value: '', label: 'Tất cả Vai trò' },
                   { value: 'SUPER_ADMIN', label: 'Super Admin' },
-                  { value: 'CENTER_ADMIN', label: 'Center Admin' }
+                  { value: 'CENTER_ADMIN', label: 'Center Admin' },
+                  { value: 'TEACHER', label: 'Giáo viên' },
+                  { value: 'ASSISTANT', label: 'Trợ giảng' }
                 ]}
                 value={roleFilter}
                 onChange={setRoleFilter}
@@ -230,46 +287,184 @@ export default function AdminsPage() {
                     />
                   </TableCell>
                 </TableRow>
-              ) : admins?.items?.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-edu-accentLighter flex items-center justify-center text-edu-accent font-bold text-xs shrink-0">
-                        {getAvatarInitials(a.fullName || 'U')}
-                      </div>
-                      <div className="overflow-hidden">
-                        <div className="font-semibold text-edu-fg truncate max-w-[150px]" title={a.fullName}>{a.fullName ?? 'Chưa cập nhật'}</div>
-                        <div className="text-xs text-edu-muted truncate max-w-[150px]" title={a.email}>{a.email ?? 'Chưa cập nhật'}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={a.roleCode === 'SUPER_ADMIN' ? 'warn' : 'info'}>
-                      {a.roleCode || a.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-edu-fgSecondary truncate max-w-[150px]" title={a.organizationName}>{a.organizationName || 'Tất cả'}</TableCell>
-                  <TableCell className="text-edu-muted">{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString('vi-VN') : 'Chưa đăng nhập'}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1 items-start">
-                      <Badge variant={a.statusCode === 'ACTIVE' ? 'success' : 'danger'}>
-                        {a.statusCode === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
-                      </Badge>
-                      {a.statusCode === 'SUSPENDED' && a.lockEndAt && new Date(a.lockEndAt).getFullYear() < 9999 && (
-                        <span className="text-[10px] text-edu-danger">Đến {new Date(a.lockEndAt).toLocaleDateString('vi-VN')}</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <ActionButtons
-                      onEdit={() => openEditModal(a)}
-                      onDelete={() => handleDeleteClick(a)}
-                      onToggleStatus={a.statusCode === 'ACTIVE' ? () => { setSelectedUser(a); setIsLockOpen(true); } : () => handleUnlock(a.id)}
-                      isLocked={a.statusCode !== 'ACTIVE'}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
+              ) : (
+                <>
+                  {/* Super Admin Group */}
+                  {groupedAdmins.superAdmins.length > 0 && (
+                    <Fragment key="superAdminGroup">
+                      <TableRow 
+                        className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                        onClick={(e) => toggleGroup('Hội đồng quản trị (Super Admin)', e)}
+                      >
+                        <TableCell colSpan={6} className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            {expandedGroups['Hội đồng quản trị (Super Admin)'] ? <ChevronDown size={18} className="text-gray-500" /> : <ChevronRight size={18} className="text-gray-500" />}
+                            <div className="p-1.5 rounded-lg bg-amber-100 text-amber-600">
+                              <ShieldCheck size={18} />
+                            </div>
+                            <span className="font-semibold text-edu-fg text-[15px]">Hội đồng quản trị (Super Admin)</span>
+                            <Badge variant="info" className="ml-2 bg-blue-50 text-blue-600 border-blue-200">{groupedAdmins.superAdmins.length} tài khoản</Badge>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      
+                      {expandedGroups['Hội đồng quản trị (Super Admin)'] && groupedAdmins.superAdmins.map((a: any) => (
+                        <TableRow key={a.id} className="bg-white">
+                          <TableCell className="pl-14">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-edu-accentLighter flex items-center justify-center text-edu-accent font-bold text-xs shrink-0">
+                                {getAvatarInitials(a.fullName || 'U')}
+                              </div>
+                              <div className="overflow-hidden">
+                                <div className="font-semibold text-edu-fg truncate max-w-[150px]" title={a.fullName}>{a.fullName ?? 'Chưa cập nhật'}</div>
+                                <div className="text-xs text-edu-muted truncate max-w-[150px]" title={a.email}>{a.email ?? 'Chưa cập nhật'}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={a.roleCode === 'SUPER_ADMIN' ? 'warn' : 'info'}>
+                              {a.roleCode || a.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-edu-fgSecondary truncate max-w-[150px]" title={a.organizationName}>{a.organizationName || 'Tất cả'}</TableCell>
+                          <TableCell className="text-edu-muted">{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString('vi-VN') : 'Chưa đăng nhập'}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1 items-start">
+                              <Badge variant={a.statusCode === 'ACTIVE' ? 'success' : 'danger'}>
+                                {a.statusCode === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
+                              </Badge>
+                              {a.statusCode === 'SUSPENDED' && a.lockEndAt && new Date(a.lockEndAt).getFullYear() < 9999 && (
+                                <span className="text-[10px] text-edu-danger">Đến {new Date(a.lockEndAt).toLocaleDateString('vi-VN')}</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <ActionButtons
+                              onEdit={() => openEditModal(a)}
+                              onDelete={() => handleDeleteClick(a)}
+                              onToggleStatus={a.statusCode === 'ACTIVE' ? () => { setSelectedUser(a); setIsLockOpen(true); } : () => handleUnlock(a.id)}
+                              isLocked={a.statusCode !== 'ACTIVE'}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </Fragment>
+                  )}
+
+                  {/* Centers Group */}
+                  {Object.keys(groupedAdmins.centers).length > 0 && (
+                    <Fragment key="trungTamGroup">
+                      <TableRow 
+                        className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors border-t border-gray-200"
+                        onClick={(e) => toggleGroup('Trung Tâm', e)}
+                      >
+                        <TableCell colSpan={6} className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            {expandedGroups['Trung Tâm'] ? <ChevronDown size={18} className="text-gray-500" /> : <ChevronRight size={18} className="text-gray-500" />}
+                            <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
+                              <Building2 size={18} />
+                            </div>
+                            <span className="font-semibold text-edu-fg text-[15px]">Trung Tâm</span>
+                            <Badge variant="info" className="ml-2 bg-blue-50 text-blue-600 border-blue-200">{Object.keys(groupedAdmins.centers).length} cơ sở</Badge>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+
+                      {expandedGroups['Trung Tâm'] && Object.entries(groupedAdmins.centers).map(([orgName, rolesData]) => {
+                        const orgKey = `org_${orgName}`;
+                        const isOrgExpanded = expandedGroups[orgKey];
+                        const totalUsersInOrg = rolesData['Quản lý trung tâm'].length + rolesData['Giáo viên'].length + rolesData['Trợ giảng'].length;
+
+                        return (
+                          <Fragment key={orgKey}>
+                            <TableRow 
+                              className="bg-blue-50/30 hover:bg-blue-50/50 cursor-pointer transition-colors"
+                              onClick={(e) => toggleGroup(orgKey, e)}
+                            >
+                              <TableCell colSpan={6} className="py-2 px-4 pl-12 border-l-2 border-blue-200">
+                                <div className="flex items-center gap-2">
+                                  {isOrgExpanded ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+                                  <span className="font-semibold text-edu-fg text-sm">{orgName}</span>
+                                  <Badge variant="info" className="ml-2 bg-blue-50 text-blue-600 border-blue-200">{totalUsersInOrg} tài khoản</Badge>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+
+                            {isOrgExpanded && Object.entries(rolesData).map(([roleName, users]) => {
+                              if (users.length === 0) return null;
+                              const roleKey = `org_${orgName}_${roleName}`;
+                              const isRoleExpanded = expandedGroups[roleKey];
+                              
+                              let RoleIcon = Users;
+                              if (roleName === 'Giáo viên') RoleIcon = GraduationCap;
+                              if (roleName === 'Quản lý trung tâm') RoleIcon = Briefcase;
+
+                              return (
+                                <Fragment key={roleKey}>
+                                  <TableRow 
+                                    className="bg-gray-50/50 hover:bg-gray-50 cursor-pointer transition-colors"
+                                    onClick={(e) => toggleGroup(roleKey, e)}
+                                  >
+                                    <TableCell colSpan={6} className="py-2 px-4 pl-20 border-l-2 border-blue-100">
+                                      <div className="flex items-center gap-2">
+                                        {isRoleExpanded ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
+                                        <RoleIcon size={14} className="text-gray-500" />
+                                        <span className="font-medium text-edu-fgSecondary text-sm">{roleName}</span>
+                                        <Badge variant="info" className="ml-1 bg-gray-100 text-gray-600 border-gray-200">{users.length}</Badge>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+
+                                  {isRoleExpanded && users.map((a: any) => (
+                                    <TableRow key={a.id} className="bg-white">
+                                      <TableCell className="pl-28 border-l-2 border-blue-50">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-full bg-edu-accentLighter flex items-center justify-center text-edu-accent font-bold text-xs shrink-0">
+                                            {getAvatarInitials(a.fullName || 'U')}
+                                          </div>
+                                          <div>
+                                            <div className="font-semibold text-edu-fg" title={a.fullName}>{a.fullName ?? 'Chưa cập nhật'}</div>
+                                            <div className="text-xs text-edu-muted" title={a.email}>{a.email ?? 'Chưa cập nhật'}</div>
+                                          </div>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge variant={a.roleCode === 'CENTER_ADMIN' ? 'info' : (a.roleCode === 'TEACHER' ? 'success' : 'default')}>
+                                          {a.roleCode || a.role}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="text-edu-fgSecondary" title={a.organizationName}>{a.organizationName}</TableCell>
+                                      <TableCell className="text-edu-muted">{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString('vi-VN') : 'Chưa đăng nhập'}</TableCell>
+                                      <TableCell>
+                                        <div className="flex flex-col gap-1 items-start">
+                                          <Badge variant={a.statusCode === 'ACTIVE' ? 'success' : 'danger'}>
+                                            {a.statusCode === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
+                                          </Badge>
+                                          {a.statusCode === 'SUSPENDED' && a.lockEndAt && new Date(a.lockEndAt).getFullYear() < 9999 && (
+                                            <span className="text-[10px] text-edu-danger">Đến {new Date(a.lockEndAt).toLocaleDateString('vi-VN')}</span>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        <ActionButtons
+                                          onEdit={() => openEditModal(a)}
+                                          onDelete={() => handleDeleteClick(a)}
+                                          onToggleStatus={a.statusCode === 'ACTIVE' ? () => { setSelectedUser(a); setIsLockOpen(true); } : () => handleUnlock(a.id)}
+                                          isLocked={a.statusCode !== 'ACTIVE'}
+                                        />
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </Fragment>
+                              );
+                            })}
+                          </Fragment>
+                        );
+                      })}
+                    </Fragment>
+                  )}
+                </>
+              )}
             </TableBody>
           </Table>
         )}
@@ -293,7 +488,7 @@ export default function AdminsPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Họ tên</label>
-              <Input placeholder="Nhập tên admin..." value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
+              <Input placeholder="Nhập họ tên..." value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
             </div>
             <div>
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Email</label>
@@ -310,7 +505,9 @@ export default function AdminsPage() {
               <Select 
                 options={[
                   { value: 'SUPER_ADMIN', label: 'Super Admin' },
-                  { value: 'CENTER_ADMIN', label: 'Center Admin' }
+                  { value: 'CENTER_ADMIN', label: 'Quản lý trung tâm' },
+                  { value: 'TEACHER', label: 'Giáo viên' },
+                  { value: 'ASSISTANT', label: 'Trợ giảng' }
                 ]}
                 value={formData.roleCode}
                 onChange={v => setFormData({...formData, roleCode: v})}
@@ -321,7 +518,7 @@ export default function AdminsPage() {
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Số điện thoại</label>
               <Input placeholder="09xxxx" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
             </div>
-            {formData.roleCode === 'CENTER_ADMIN' && (
+            {formData.roleCode !== 'SUPER_ADMIN' && (
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Trực thuộc Trung tâm</label>
                 <Select 
@@ -354,7 +551,7 @@ export default function AdminsPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Họ tên</label>
-              <Input placeholder="Nhập tên admin..." value={editFormData.fullName} onChange={e => setEditFormData({...editFormData, fullName: e.target.value})} />
+              <Input placeholder="Nhập họ tên..." value={editFormData.fullName} onChange={e => setEditFormData({...editFormData, fullName: e.target.value})} />
             </div>
             <div>
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Email (Không thể sửa)</label>
@@ -367,7 +564,9 @@ export default function AdminsPage() {
               <Select 
                 options={[
                   { value: 'SUPER_ADMIN', label: 'Super Admin' },
-                  { value: 'CENTER_ADMIN', label: 'Center Admin' }
+                  { value: 'CENTER_ADMIN', label: 'Quản lý trung tâm' },
+                  { value: 'TEACHER', label: 'Giáo viên' },
+                  { value: 'ASSISTANT', label: 'Trợ giảng' }
                 ]}
                 value={editFormData.roleCode}
                 onChange={v => setEditFormData({...editFormData, roleCode: v})}
@@ -378,7 +577,7 @@ export default function AdminsPage() {
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Số điện thoại</label>
               <Input placeholder="09xxxx" value={editFormData.phone} onChange={e => setEditFormData({...editFormData, phone: e.target.value})} />
             </div>
-            {editFormData.roleCode === 'CENTER_ADMIN' && (
+            {editFormData.roleCode !== 'SUPER_ADMIN' && (
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Trực thuộc Trung tâm</label>
                 <Select 

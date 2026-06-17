@@ -56,6 +56,19 @@ namespace EduOps.Infrastructure.Data
 
 
 
+            // 2.5 Auto-Heal SubscriptionStatus cho các Tổ chức bị lưu sai tên gói (vd PREMIUM, BASIC)
+            var orgsWithInvalidStatus = await context.Organizations.IgnoreQueryFilters()
+                .Where(o => o.SubscriptionStatus != "TRIAL" && o.SubscriptionStatus != "PAID" && o.SubscriptionStatus != "UNPAID" && o.SubscriptionStatus != "EXPIRED" && o.SubscriptionStatus != "LOCKED" && o.SubscriptionStatus != "INACTIVE")
+                .ToListAsync();
+            if (orgsWithInvalidStatus.Any())
+            {
+                foreach (var o in orgsWithInvalidStatus)
+                {
+                    o.SubscriptionStatus = "PAID"; // Bất kỳ trạng thái rác nào (như PREMIUM) đều là do đã thanh toán
+                }
+                context.Organizations.UpdateRange(orgsWithInvalidStatus);
+            }
+
             // 8. Seed System Settings (Feature Toggles)
             if (!context.SystemSettings.IgnoreQueryFilters().Any())
             {
@@ -107,6 +120,13 @@ namespace EduOps.Infrastructure.Data
                 new Permission { Module = "Classes", Action = "DELETE", Description = "Xóa lớp học" },
 
                 new Permission { Module = "Finance", Action = "READ", Description = "Xem báo cáo tài chính" },
+                new Permission { Module = "Schools", Action = "Manage", Description = "Quản lý Cơ sở" },
+                new Permission { Module = "Schedules", Action = "Manage", Description = "Quản lý Lịch học" },
+                new Permission { Module = "Attendances", Action = "Manage", Description = "Quản lý Điểm danh" },
+                new Permission { Module = "Reports", Action = "Manage", Description = "Quản lý Báo cáo" },
+                new Permission { Module = "Organizations", Action = "Manage", Description = "Quản lý Trung tâm" },
+                new Permission { Module = "Subscriptions", Action = "Manage", Description = "Quản lý Gói cước" },
+                new Permission { Module = "Analytics", Action = "View", Description = "Xem Thống kê" },
                 new Permission { Module = "System", Action = "MANAGE_SETTINGS", Description = "Quản lý cài đặt hệ thống" }
             };
 
@@ -128,16 +148,20 @@ namespace EduOps.Infrastructure.Data
             }
             await context.SaveChangesAsync();
 
-            // Gán toàn bộ quyền cho SUPER_ADMIN
-            var superAdminRole = await context.Roles.IgnoreQueryFilters().FirstOrDefaultAsync(r => r.Code == "SUPER_ADMIN");
-            if (superAdminRole != null)
+            // Gán toàn bộ quyền cho SUPER_ADMIN và CENTER_ADMIN
+            var rolesToGrantAll = new[] { "SUPER_ADMIN", "CENTER_ADMIN" };
+            foreach (var roleCode in rolesToGrantAll)
             {
-                var allPerms = await context.Permissions.IgnoreQueryFilters().ToListAsync();
-                foreach (var p in allPerms)
+                var roleEntity = await context.Roles.IgnoreQueryFilters().FirstOrDefaultAsync(r => r.Code == roleCode);
+                if (roleEntity != null)
                 {
-                    if (!context.RolePermissions.IgnoreQueryFilters().Any(rp => rp.RoleId == superAdminRole.Id && rp.PermissionId == p.Id))
+                    var allPerms = await context.Permissions.IgnoreQueryFilters().ToListAsync();
+                    foreach (var p in allPerms)
                     {
-                        context.RolePermissions.Add(new RolePermission { RoleId = superAdminRole.Id, PermissionId = p.Id });
+                        if (!context.RolePermissions.IgnoreQueryFilters().Any(rp => rp.RoleId == roleEntity.Id && rp.PermissionId == p.Id))
+                        {
+                            context.RolePermissions.Add(new RolePermission { RoleId = roleEntity.Id, PermissionId = p.Id });
+                        }
                     }
                 }
             }

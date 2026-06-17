@@ -5,12 +5,13 @@ using EduOps.Application.Interfaces;
 using EduOps.Api.Filters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Authorization;
 
 namespace EduOps.Api.Controllers
 {
     [Route("api/classes/{classId}")]
     [ApiController]
-    [Authorize(Roles = "CENTER_ADMIN,ASSISTANT")]
+    [HasPermission("Schedules:Manage")]
     [RequirePaidSubscription]
     public class ClassSchedulesController : ControllerBase
     {

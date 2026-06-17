@@ -3,12 +3,13 @@
 import { useAppStore } from '@/store/useAppStore';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/components/ui/stat-card';
-import { Search, Menu, LogOut, User, Zap, X, CheckCircle2 } from 'lucide-react';
+import { Search, Menu, LogOut, User, Zap, X, CheckCircle2, QrCode, Clock } from 'lucide-react';
 import { NotificationBell } from './notification-bell';
 import { useSignalR } from '@/lib/useSignalR';
 import { useSession, signOut } from 'next-auth/react';
 import { useState, useRef, useEffect } from 'react';
 import { usePlans, useSubscribe, usePreviewSubscribe, useTransactionStatus, SubscribeResponseDto, PreviewSubscribeResponseDto, useMySubscription } from '@/hooks/queries/useSubscriptions';
+import { toast } from 'react-hot-toast';
 
 export function Topbar() {
   const sidebarOpen = useAppStore(state => state.sidebarOpen);
@@ -46,25 +47,47 @@ export function Topbar() {
   const [previewResult, setPreviewResult] = useState<PreviewSubscribeResponseDto | null>(null);
   const [promoError, setPromoError] = useState('');
 
-  const { data: mySubscription } = useMySubscription();
+  const { data: mySubscription, isLoading: isMySubLoading, isError: isMySubError } = useMySubscription();
   const { data: txStatus } = useTransactionStatus(subscribeResult?.referenceCode || null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
 
   useEffect(() => {
-    if (txStatus === 'PAID') {
+    if (subscribeResult && txStatus !== 'SUCCESS') {
+      setRemainingSeconds(subscribeResult.remainingSeconds || 600);
+    }
+  }, [subscribeResult]);
+
+  useEffect(() => {
+    if (remainingSeconds === null || remainingSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setRemainingSeconds(s => {
+        if (s && s > 1) return s - 1;
+        // Hết giờ -> Hủy giao dịch
+        setSubscribeResult(null);
+        setShowUpgradeModal(false);
+        return 0;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [remainingSeconds]);
+
+  useEffect(() => {
+    if (txStatus === 'SUCCESS' || subscribeResult?.amount === 0) {
+      // Khi thành công, dừng đếm ngược
+      setRemainingSeconds(null);
+      
       // Refresh window after 2 seconds to reload session/permissions
       setTimeout(() => {
         window.location.reload();
       }, 2000);
     }
-  }, [txStatus]);
+  }, [txStatus, subscribeResult?.amount]);
 
   const openCheckout = (planId: string, billingCycle: string, planName: string, basePrice: number) => {
     setCheckoutPlan({ planId, billingCycle, planName, basePrice });
     setPromoCode('');
     setPreviewResult(null);
     setPromoError('');
-    // Automatically preview without promo code to get any active auto discounts
-    handlePreviewDiscount(planId, billingCycle, '');
   };
 
   const handlePreviewDiscount = async (planId: string, billingCycle: string, code: string) => {
@@ -75,7 +98,17 @@ export function Topbar() {
     } catch (error: any) {
       setPreviewResult(null);
       if (code) {
-        setPromoError(error.response?.data?.message || 'Mã giảm giá không hợp lệ');
+        let errorMessage = 'Mã giảm giá không hợp lệ';
+        if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response?.data?.errors) {
+          const errors = error.response.data.errors;
+          const firstKey = Object.keys(errors)[0];
+          if (firstKey && errors[firstKey].length > 0) {
+            errorMessage = errors[firstKey][0];
+          }
+        }
+        setPromoError(errorMessage);
       }
     }
   };
@@ -96,8 +129,17 @@ export function Topbar() {
       });
       setSubscribeResult(res);
       setCheckoutPlan(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to subscribe', error);
+      let errMsg = 'Có lỗi xảy ra khi thực hiện thanh toán';
+      if (error.response?.data?.message) {
+        errMsg = error.response.data.message;
+      } else if (error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        const firstKey = Object.keys(errors)[0];
+        if (firstKey && errors[firstKey].length > 0) errMsg = errors[firstKey][0];
+      }
+      toast.error(errMsg);
     }
   };
 
@@ -133,6 +175,21 @@ export function Topbar() {
         </div>
 
         <div className="ml-auto flex items-center gap-2 relative">
+          
+          {/* Minimized QR Widget */}
+          {subscribeResult && txStatus !== 'SUCCESS' && subscribeResult.amount !== 0 && !showUpgradeModal && remainingSeconds !== null && remainingSeconds > 0 && (
+            <div 
+              onClick={() => setShowUpgradeModal(true)}
+              className="hidden sm:flex cursor-pointer items-center gap-2 mr-2 bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded-full hover:bg-amber-100 transition-colors shadow-sm"
+              title="Bạn có một giao dịch đang chờ thanh toán"
+            >
+              <QrCode size={16} className="animate-pulse" />
+              <span className="text-xs font-bold font-mono">
+                {Math.floor(remainingSeconds / 60)}:{(remainingSeconds % 60).toString().padStart(2, '0')}
+              </span>
+            </div>
+          )}
+
           <NotificationBell />
           
           <div ref={menuRef} className="relative">
@@ -191,9 +248,11 @@ export function Topbar() {
             <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div>
                 <h2 className="text-xl font-bold text-gray-800">Nâng cấp gói dịch vụ</h2>
+                {isMySubLoading && <p className="text-sm text-gray-500 mt-1">Đang tải thông tin gói...</p>}
+                {isMySubError && <p className="text-sm text-red-500 mt-1">Lỗi tải thông tin gói</p>}
                 {mySubscription && (
                   <p className="text-sm text-gray-500 mt-1">
-                    Gói hiện tại: <span className="font-semibold text-[#2563EB]">{mySubscription.planName}</span> 
+                    Gói hiện tại: <span className="font-semibold text-[#2563EB]">{mySubscription.planName || 'Chưa rõ'}</span> 
                     {mySubscription.subscriptionEnd && ` • Hết hạn: ${new Date(mySubscription.subscriptionEnd).toLocaleDateString('vi-VN')}`}
                   </p>
                 )}
@@ -206,7 +265,7 @@ export function Topbar() {
             <div className="p-6 bg-gray-50/50">
               {subscribeResult ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  {txStatus === 'PAID' ? (
+                  {txStatus === 'SUCCESS' || subscribeResult.amount === 0 ? (
                     <div className="text-green-500 flex flex-col items-center animate-in fade-in zoom-in duration-500">
                       <CheckCircle2 size={64} className="mb-4" />
                       <h3 className="text-2xl font-bold text-gray-800 mb-2">Thanh toán thành công!</h3>
@@ -215,21 +274,29 @@ export function Topbar() {
                   ) : (
                     <>
                       <h3 className="text-xl font-bold text-gray-800 mb-2">Quét mã QR để thanh toán</h3>
-                      <p className="text-gray-600 mb-6">Mã giao dịch: <strong>{subscribeResult.referenceCode}</strong></p>
+                      <p className="text-gray-600 mb-2">Mã giao dịch: <strong>{subscribeResult.referenceCode}</strong></p>
+                      
+                      {remainingSeconds !== null && (
+                        <div className="flex items-center gap-1.5 text-red-600 font-medium bg-red-50 px-3 py-1 rounded-full mb-4">
+                          <Clock size={16} className="animate-pulse" />
+                          <span>Hết hạn trong: {Math.floor(remainingSeconds / 60)}:{(remainingSeconds % 60).toString().padStart(2, '0')}</span>
+                        </div>
+                      )}
+
                       {subscribeResult.qrCodeUrl ? (
                          <img src={subscribeResult.qrCodeUrl} alt="QR Code" className="w-64 h-64 rounded-xl border-4 border-white shadow-md mb-6" />
                       ) : (
-                         <div className="w-64 h-64 rounded-xl border-4 border-white shadow-md mb-6 flex items-center justify-center bg-gray-100 text-gray-400">QR Code</div>
+                         <div className="w-64 h-64 rounded-xl border-4 border-white shadow-md mb-6 flex items-center justify-center bg-gray-100 text-gray-400">Đang tải mã QR...</div>
                       )}
                       
                       <div className="bg-blue-50 border border-blue-100 text-blue-800 text-sm p-4 rounded-lg flex items-start gap-3 max-w-md text-left">
                         <div className="animate-spin mt-0.5 rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent shrink-0"></div>
-                        <p>Hệ thống đang chờ xác nhận thanh toán từ ngân hàng. Vui lòng không đóng cửa sổ này...</p>
+                        <p>Hệ thống đang chờ xác nhận thanh toán từ ngân hàng. Bạn có thể bấm [X] góc trên để thu nhỏ cửa sổ này và làm việc khác, giao dịch vẫn được giữ trong thời gian đếm ngược.</p>
                       </div>
                       
                       <button 
-                        onClick={() => setSubscribeResult(null)} 
-                        className="mt-6 text-sm text-gray-500 hover:text-gray-700 underline"
+                        onClick={() => { setSubscribeResult(null); setRemainingSeconds(null); }} 
+                        className="mt-6 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors font-medium"
                       >
                         Hủy giao dịch
                       </button>
@@ -280,7 +347,9 @@ export function Topbar() {
                         {previewResult && previewResult.discountAmount > 0 && (
                           <div className="mt-4 p-3 bg-green-50 text-green-800 rounded-lg text-sm flex justify-between items-center border border-green-100">
                             <div>
-                              <p className="font-medium">Đã áp dụng mã giảm giá {previewResult.appliedPromotionCode}</p>
+                              <p className="font-medium">
+                                Đã áp dụng mã giảm giá {previewResult.appliedPromotionCode || ''}
+                              </p>
                             </div>
                             <p className="font-bold">- {previewResult.discountAmount.toLocaleString('vi-VN')} đ</p>
                           </div>

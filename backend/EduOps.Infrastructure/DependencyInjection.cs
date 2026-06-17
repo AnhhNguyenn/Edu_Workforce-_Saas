@@ -15,11 +15,25 @@ namespace EduOps.Infrastructure
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
-            // Database
-            services.AddDbContext<EduOpsDbContext>(options =>
-                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+            // Interceptor N+1 Query
+            services.AddSingleton<EduOps.Infrastructure.Data.Interceptors.QueryCountInterceptor>();
 
-            // Repositories & UnitOfWork
+            // Database
+            services.AddDbContext<EduOpsDbContext>((sp, options) =>
+            {
+                var interceptor = sp.GetRequiredService<EduOps.Infrastructure.Data.Interceptors.QueryCountInterceptor>();
+                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
+                {
+                    npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+                });
+                options.ConfigureWarnings(w => w.Throw(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.MultipleCollectionIncludeWarning));
+                options.AddInterceptors(interceptor);
+            });
+
+            // IEduOpsDbContext (Clean Architecture)
+            services.AddScoped<IEduOpsDbContext>(provider => provider.GetRequiredService<EduOpsDbContext>());
+
+            // Repositories & UnitOfWork (Sắp bị loại bỏ, tạm giữ cho tương thích ngược)
             services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 

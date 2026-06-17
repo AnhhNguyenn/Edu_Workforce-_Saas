@@ -20,5 +20,10 @@ namespace EduOps.Api.Services
             // Bắn event tới chính xác Group mang ID của User
             await _hubContext.Clients.Group(userId.ToString()).SendAsync(messageType, payload);
         }
+
+        public async Task SendToAllAsync(string messageType, object? payload = null)
+        {
+            await _hubContext.Clients.All.SendAsync(messageType, payload);
+        }
     }
 }

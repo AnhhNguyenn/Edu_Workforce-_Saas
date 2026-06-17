@@ -1,12 +1,14 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EduOps.Domain.Entities;
+using EduOps.Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace EduOps.Infrastructure.Data
 {
-    public class EduOpsDbContext : DbContext
+    public class EduOpsDbContext : DbContext, IEduOpsDbContext
     {
         private readonly EduOps.Application.Interfaces.ICurrentUserService _currentUserService;
 

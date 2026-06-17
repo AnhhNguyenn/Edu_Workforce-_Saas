@@ -5,6 +5,7 @@ using EduOps.Application.DTOs.Organization.Responses;
 using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EduOps.Api.Authorization;
 
 namespace EduOps.Api.Controllers
 {
@@ -22,7 +23,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Organizations:Manage")]
         public async Task<IActionResult> GetOrganizations([FromQuery] GetOrganizationListQueryDto query)
         {
             var result = await _orgService.GetOrganizationsAsync(query);
@@ -30,7 +31,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("{id}")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Organizations:Manage")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var result = await _orgService.GetByIdAsync(id);
@@ -38,7 +39,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Organizations:Manage")]
         public async Task<IActionResult> Create([FromBody] CreateOrganizationRequestDto request)
         {
             var result = await _orgService.CreateAsync(request);
@@ -46,7 +47,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "SUPER_ADMIN,CENTER_ADMIN")]
+        [HasPermission("Organizations:Manage")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateOrganizationRequestDto request)
         {
             await _orgService.UpdateAsync(id, request);
@@ -54,7 +55,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPut("{id}/subscription")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Organizations:Manage")]
         public async Task<IActionResult> UpdateSubscription(Guid id, [FromBody] UpdateOrganizationSubscriptionRequestDto request)
         {
             await _orgService.UpdateSubscriptionAsync(id, request);
@@ -62,7 +63,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("{id}/suspend")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Organizations:Manage")]
         public async Task<IActionResult> Suspend(Guid id)
         {
             await _orgService.SuspendAsync(id);
@@ -70,7 +71,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost("{id}/activate")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Organizations:Manage")]
         public async Task<IActionResult> Activate(Guid id)
         {
             await _orgService.ActivateAsync(id);
@@ -78,7 +79,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Organizations:Manage")]
         public async Task<IActionResult> Delete(Guid id)
         {
             await _orgService.DeleteAsync(id);
@@ -86,7 +87,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("{id}/stats")]
-        [Authorize(Roles = "SUPER_ADMIN")]
+        [HasPermission("Organizations:Manage")]
         public async Task<IActionResult> GetStats(Guid id)
         {
             var userRepo = _unitOfWork.Repository<EduOps.Domain.Entities.User>();
