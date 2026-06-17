@@ -162,11 +162,24 @@ namespace EduOps.Infrastructure.Data
             // ĐÁNH INDEX (TỐI ƯU HIỆU NĂNG TÌM KIẾM TỐC ĐỘ CAO)
             modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
             modelBuilder.Entity<User>().HasIndex(u => u.OrganizationId);
+            modelBuilder.Entity<User>().HasIndex(u => u.Phone);
+            modelBuilder.Entity<User>().HasIndex(u => u.FullName);
+            modelBuilder.Entity<Student>().HasIndex(s => s.FullName);
+            modelBuilder.Entity<Student>().HasIndex(s => s.StudentCode);
             modelBuilder.Entity<Organization>().HasIndex(o => o.Code).IsUnique();
+            modelBuilder.Entity<Organization>().HasIndex(o => o.Name);
             modelBuilder.Entity<OrganizationDetail>().HasIndex(o => o.Email).IsUnique();
             modelBuilder.Entity<BillingTransaction>().HasIndex(t => t.ReferenceCode);
             modelBuilder.Entity<School>().HasIndex(s => s.OrganizationId);
+            modelBuilder.Entity<School>().HasIndex(s => s.Name);
             modelBuilder.Entity<Class>().HasIndex(c => c.SchoolId);
+            modelBuilder.Entity<Class>().HasIndex(c => c.Name);
+            modelBuilder.Entity<Subject>().HasIndex(s => s.Name);
+            modelBuilder.Entity<Subject>().HasIndex(s => s.Code);
+            modelBuilder.Entity<SubscriptionPlan>().HasIndex(p => p.Name);
+            modelBuilder.Entity<Role>().HasIndex(r => r.Name);
+            modelBuilder.Entity<Role>().HasIndex(r => r.Code);
+            modelBuilder.Entity<Promotion>().HasIndex(p => p.Code);
             modelBuilder.Entity<Session>().HasIndex(s => new { s.SessionDate, s.TeacherId });
             modelBuilder.Entity<Attendance>().HasIndex(a => a.SessionId);
         }

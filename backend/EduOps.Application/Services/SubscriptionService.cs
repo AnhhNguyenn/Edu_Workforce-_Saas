@@ -10,6 +10,7 @@ using EduOps.Domain.Entities;
 
 using EduOps.Domain.Interfaces;
 using EduOps.Application.DTOs.Subscription;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace EduOps.Application.Services
 {
@@ -18,12 +19,12 @@ namespace EduOps.Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICustomLogger _logger;
-        private readonly ICacheService _cache;
+        private readonly IMemoryCache _cache;
         private readonly ISystemSettingService _settingService;
 
         private const string PLANS_CACHE_KEY = "ALL_SUBSCRIPTION_PLANS";
 
-        public SubscriptionService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, ICustomLogger logger, ICacheService cache, ISystemSettingService settingService)
+        public SubscriptionService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, ICustomLogger logger, IMemoryCache cache, ISystemSettingService settingService)
         {
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
@@ -34,8 +35,7 @@ namespace EduOps.Application.Services
 
         public async Task<List<SubscriptionPlanResponseDto>> GetPlansAsync()
         {
-            var cachedPlans = await _cache.GetAsync<List<SubscriptionPlanResponseDto>>(PLANS_CACHE_KEY);
-            if (cachedPlans != null)
+            if (_cache.TryGetValue(PLANS_CACHE_KEY, out List<SubscriptionPlanResponseDto> cachedPlans))
             {
                 return cachedPlans;
             }
@@ -70,7 +70,7 @@ namespace EduOps.Application.Services
                 };
             }).ToList();
 
-            await _cache.SetAsync(PLANS_CACHE_KEY, cachedPlans, TimeSpan.FromHours(24));
+            _cache.Set(PLANS_CACHE_KEY, cachedPlans, TimeSpan.FromHours(24));
 
             return cachedPlans;
         }
@@ -93,7 +93,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.Repository<SubscriptionPlan>().AddAsync(plan);
             await _unitOfWork.CommitAsync();
 
-            await _cache.RemoveAsync(PLANS_CACHE_KEY);
+            _cache.Remove(PLANS_CACHE_KEY);
 
             return new SubscriptionPlanResponseDto
             {
@@ -160,7 +160,7 @@ namespace EduOps.Application.Services
             await _unitOfWork.Repository<Promotion>().AddAsync(promo);
             await _unitOfWork.CommitAsync();
 
-            await _cache.RemoveAsync(PLANS_CACHE_KEY);
+            _cache.Remove(PLANS_CACHE_KEY);
 
             return new PromotionResponseDto
             {
@@ -204,7 +204,7 @@ namespace EduOps.Application.Services
             _unitOfWork.Repository<SubscriptionPlan>().Update(plan);
             await _unitOfWork.CommitAsync();
 
-            await _cache.RemoveAsync(PLANS_CACHE_KEY);
+            _cache.Remove(PLANS_CACHE_KEY);
         }
 
         public async Task DeletePlanAsync(Guid id)
@@ -229,7 +229,7 @@ namespace EduOps.Application.Services
             _unitOfWork.Repository<SubscriptionPlan>().Update(plan);
             await _unitOfWork.CommitAsync();
 
-            await _cache.RemoveAsync(PLANS_CACHE_KEY);
+            _cache.Remove(PLANS_CACHE_KEY);
         }
 
         public async Task UpdatePromotionAsync(Guid id, UpdatePromotionRequestDto request)
@@ -257,7 +257,7 @@ namespace EduOps.Application.Services
             _unitOfWork.Repository<Promotion>().Update(promo);
             await _unitOfWork.CommitAsync();
 
-            await _cache.RemoveAsync(PLANS_CACHE_KEY);
+            _cache.Remove(PLANS_CACHE_KEY);
         }
 
         public async Task DeletePromotionAsync(Guid id)
@@ -274,7 +274,7 @@ namespace EduOps.Application.Services
             _unitOfWork.Repository<Promotion>().Update(promo);
             await _unitOfWork.CommitAsync();
 
-            await _cache.RemoveAsync(PLANS_CACHE_KEY);
+            _cache.Remove(PLANS_CACHE_KEY);
         }
 
         public async Task<List<PromotionUsageResponseDto>> GetPromotionUsageHistoryAsync(Guid promotionId)
@@ -315,6 +315,50 @@ namespace EduOps.Application.Services
             var plan = await _unitOfWork.Repository<SubscriptionPlan>().FirstOrDefaultAsync(p => p.Id == request.PlanId, includeProperties: "Status");
             if (plan == null || plan.Status?.Code != "ACTIVE")
                 throw new BadRequestException("Gói cước không tồn tại hoặc đã ngừng cung cấp.");
+
+            var transactionStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.BillingStatus>().FirstOrDefaultAsync(s => s.Code == "PENDING");
+
+            // ==========================================
+            // LOGIC "RESUMABLE TRANSACTION" (CHUẨN ENTERPRISE)
+            // Tái sử dụng giao dịch PENDING nếu chưa quá 10 phút
+            // ==========================================
+            var tenMinsAgo = DateTime.UtcNow.AddMinutes(-10);
+            if (transactionStatus != null)
+            {
+                var existingTx = await _unitOfWork.Repository<BillingTransaction>().FirstOrDefaultAsync(
+                    t => t.OrganizationId == orgId.Value && 
+                         t.StatusId == transactionStatus.Id && 
+                         t.PlanId == request.PlanId && 
+                         t.CreatedAt >= tenMinsAgo
+                );
+
+                if (existingTx != null)
+                {
+                    int remainingSeconds = 600 - (int)(DateTime.UtcNow - existingTx.CreatedAt).TotalSeconds;
+                    if (remainingSeconds < 0) remainingSeconds = 0;
+
+                    var bAccountSetting = await _settingService.GetSettingValueAsync("PAYMENT_BANK_ACCOUNT");
+                    var bNameSetting = await _settingService.GetSettingValueAsync("PAYMENT_BANK_NAME");
+                    var bAccount = existingTx.Amount == 0 ? "FREE_TIER" : (bAccountSetting ?? "96247UH35V");
+                    var bName = existingTx.Amount == 0 ? "FREE_TIER" : (bNameSetting ?? "BIDV");
+                    
+                    var safeRef = System.Web.HttpUtility.UrlEncode(existingTx.ReferenceCode);
+                    var qrUrl = existingTx.Amount == 0
+                        ? string.Empty
+                        : $"https://qr.sepay.vn/img?acc={bAccount}&bank={bName}&amount={(int)existingTx.Amount}&des={safeRef}&template=compact";
+
+                    return new SubscribeResponseDto
+                    {
+                        ReferenceCode = existingTx.ReferenceCode ?? "",
+                        Amount = existingTx.Amount,
+                        PlanName = existingTx.PlanName ?? "",
+                        BankAccount = bAccount,
+                        BankName = bName,
+                        QrCodeUrl = qrUrl,
+                        RemainingSeconds = remainingSeconds
+                    };
+                }
+            }
 
             decimal basePrice = request.BillingCycle == "YEARLY" ? plan.PricePerYear : plan.PricePerMonth;
             int monthsToAdd = request.BillingCycle == "YEARLY" ? 12 : 1;
@@ -393,7 +437,7 @@ namespace EduOps.Application.Services
                     _unitOfWork.Repository<Organization>().Update(org);
 
                     // CHÚ Ý: BẮT BUỘC PHẢI XÓA CACHE ĐỂ MIDDLEWARE MỞ KHÓA NGAY LẬP TỨC
-                    await _cache.RemoveAsync($"OrgSubscription_{orgId.Value}");
+                    _cache.Remove($"OrgSubscription_{orgId.Value}");
                 }
             }
 
@@ -432,7 +476,8 @@ namespace EduOps.Application.Services
                 PlanName = plan.Name,
                 BankAccount = bankAccount,
                 BankName = bankName,
-                QrCodeUrl = qrCodeUrl
+                QrCodeUrl = qrCodeUrl,
+                RemainingSeconds = 600
             };
         }
 

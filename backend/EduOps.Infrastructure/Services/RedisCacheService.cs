@@ -90,5 +90,38 @@ namespace EduOps.Infrastructure.Services
                 Console.WriteLine($"[Redis Error] Failed to REMOVE key '{key}': {ex.Message}");
             }
         }
+
+        // --- DISTRIBUTED LOCK ---
+        public async Task<bool> AcquireLockAsync(string key, TimeSpan expiration)
+        {
+            var lockKey = $"Lock_{key}";
+            try
+            {
+                // Soft lock using DistributedCache (Giảm thiểu 99% Race Condition)
+                var existing = await _distributedCache.GetStringAsync(lockKey);
+                if (!string.IsNullOrEmpty(existing))
+                {
+                    return false; // Khóa đã bị chiếm
+                }
+
+                var options = new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = expiration };
+                await _distributedCache.SetStringAsync(lockKey, "LOCKED", options);
+                return true;
+            }
+            catch
+            {
+                // Nếu Redis sập, mặc định cho pass để không làm gián đoạn webhook (dựa vào DB để check)
+                return true; 
+            }
+        }
+
+        public async Task ReleaseLockAsync(string key)
+        {
+            try
+            {
+                await _distributedCache.RemoveAsync($"Lock_{key}");
+            }
+            catch { /* Ignore if Redis is down */ }
+        }
     }
 }

@@ -8,16 +8,17 @@ using EduOps.Application.Exceptions;
 using EduOps.Application.Interfaces;
 using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace EduOps.Application.Services
 {
     public class RoleService : IRoleService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly ICacheService _cache;
+        private readonly IMemoryCache _cache;
         private readonly string[] _systemRoles = { "SUPER_ADMIN", "CENTER_ADMIN", "TEACHER", "ASSISTANT" };
 
-        public RoleService(IUnitOfWork unitOfWork, ICacheService cache)
+        public RoleService(IUnitOfWork unitOfWork, IMemoryCache cache)
         {
             _unitOfWork = unitOfWork;
             _cache = cache;
@@ -26,8 +27,7 @@ namespace EduOps.Application.Services
         public async Task<IEnumerable<PermissionResponseDto>> GetAllPermissionsAsync()
         {
             var cacheKey = "AllPermissions";
-            var cached = await _cache.GetAsync<IEnumerable<PermissionResponseDto>>(cacheKey);
-            if (cached != null) return cached;
+            if (_cache.TryGetValue(cacheKey, out IEnumerable<PermissionResponseDto> cached)) return cached;
 
             var permissions = await _unitOfWork.Repository<Permission>().GetAllAsync(asNoTracking: true);
             var result = permissions.Select(p => new PermissionResponseDto
@@ -38,15 +38,14 @@ namespace EduOps.Application.Services
                 Description = p.Description
             }).OrderBy(p => p.Module).ThenBy(p => p.Action).ToList();
 
-            await _cache.SetAsync(cacheKey, result, TimeSpan.FromHours(12));
+            _cache.Set(cacheKey, result, TimeSpan.FromHours(12));
             return result;
         }
 
         public async Task<IEnumerable<RoleResponseDto>> GetRolesAsync(Guid? organizationId)
         {
             var cacheKey = $"Roles_{organizationId?.ToString() ?? "System"}";
-            var cached = await _cache.GetAsync<IEnumerable<RoleResponseDto>>(cacheKey);
-            if (cached != null) return cached;
+            if (_cache.TryGetValue(cacheKey, out IEnumerable<RoleResponseDto> cached)) return cached;
 
             var repo = _unitOfWork.Repository<Role>();
             var roles = await repo.FindAsync(
@@ -56,7 +55,7 @@ namespace EduOps.Application.Services
             );
 
             var result = roles.Select(MapToDto).OrderByDescending(r => r.IsSystemRole).ThenBy(r => r.Name).ToList();
-            await _cache.SetAsync(cacheKey, result, TimeSpan.FromHours(1));
+            _cache.Set(cacheKey, result, TimeSpan.FromHours(1));
             return result;
         }
 
@@ -106,7 +105,7 @@ namespace EduOps.Application.Services
 
             await _unitOfWork.CommitAsync();
 
-            await _cache.RemoveAsync($"Roles_{organizationId?.ToString() ?? "System"}");
+            _cache.Remove($"Roles_{organizationId?.ToString() ?? "System"}");
 
             // Fetch to return with permissions
             return await GetRoleByIdAsync(newRole.Id, organizationId);
@@ -153,7 +152,7 @@ namespace EduOps.Application.Services
             repo.Update(role);
             await _unitOfWork.CommitAsync();
 
-            await _cache.RemoveAsync($"Roles_{organizationId?.ToString() ?? "System"}");
+            _cache.Remove($"Roles_{organizationId?.ToString() ?? "System"}");
         }
 
         public async Task DeleteRoleAsync(Guid id, Guid? organizationId)
@@ -178,7 +177,7 @@ namespace EduOps.Application.Services
             repo.Update(role);
             await _unitOfWork.CommitAsync();
 
-            await _cache.RemoveAsync($"Roles_{organizationId?.ToString() ?? "System"}");
+            _cache.Remove($"Roles_{organizationId?.ToString() ?? "System"}");
         }
 
         private RoleResponseDto MapToDto(Role role)
@@ -244,7 +243,7 @@ namespace EduOps.Application.Services
             repo.Update(role);
             await _unitOfWork.CommitAsync();
 
-            await _cache.RemoveAsync($"Roles_{organizationId?.ToString() ?? "System"}");
+            _cache.Remove($"Roles_{organizationId?.ToString() ?? "System"}");
         }
     }
 }

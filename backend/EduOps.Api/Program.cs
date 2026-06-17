@@ -293,11 +293,11 @@ try
             new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
         );
 
-        // Đăng ký Job hủy giao dịch treo quá 30 phút (Chạy mỗi 10 phút)
+        // Đăng ký Job hủy giao dịch treo quá 10 phút (Chạy mỗi 1 phút)
         recurringJobManager.AddOrUpdate<EduOps.Application.BackgroundJobs.SubscriptionJobs>(
             "Cancel_Expired_Transactions_Job",
             job => job.CancelExpiredTransactionsAsync(),
-            "*/10 * * * *",
+            "*/1 * * * *",
             new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
         );
 

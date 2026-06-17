@@ -8,5 +8,6 @@ namespace EduOps.Application.DTOs.Subscription
         public string BankAccount { get; set; } = string.Empty;
         public string BankName { get; set; } = string.Empty;
         public string QrCodeUrl { get; set; } = string.Empty;
+        public int RemainingSeconds { get; set; }
     }
 }

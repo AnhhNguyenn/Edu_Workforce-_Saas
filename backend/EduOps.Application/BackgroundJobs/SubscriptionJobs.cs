@@ -11,11 +11,13 @@ namespace EduOps.Application.BackgroundJobs
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICustomLogger _logger;
+        private readonly INotificationService _notificationService;
 
-        public SubscriptionJobs(IUnitOfWork unitOfWork, ICustomLogger logger)
+        public SubscriptionJobs(IUnitOfWork unitOfWork, ICustomLogger logger, INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         public async Task CancelExpiredTransactionsAsync()
@@ -27,7 +29,7 @@ namespace EduOps.Application.BackgroundJobs
 
                 if (pendingStatus == null || failedStatus == null) return;
 
-                var timeoutThreshold = DateTime.UtcNow.AddMinutes(-30);
+                var timeoutThreshold = DateTime.UtcNow.AddMinutes(-10);
 
                 var expiredTransactions = await _unitOfWork.Repository<BillingTransaction>().FindAsync(
                     t => t.StatusId == pendingStatus.Id && t.PaymentDate < timeoutThreshold
@@ -39,6 +41,21 @@ namespace EduOps.Application.BackgroundJobs
                 {
                     tx.StatusId = failedStatus.Id;
                     _unitOfWork.Repository<BillingTransaction>().Update(tx);
+
+                    // Send notification to CENTER_ADMIN
+                    if (tx.OrganizationId.HasValue)
+                    {
+                        var admins = await _unitOfWork.Repository<User>().FindAsync(u => u.OrganizationId == tx.OrganizationId.Value && u.Role != null && u.Role.Code == "CENTER_ADMIN", includeProperties: "Role");
+                        foreach (var admin in admins)
+                        {
+                            await _notificationService.CreateAndSendAsync(
+                                admin.Id,
+                                "Thanh toán quá hạn",
+                                $"Giao dịch thanh toán gói cước {tx.PlanName} đã bị hủy do quá thời gian chờ 10 phút.",
+                                "BILLING"
+                            );
+                        }
+                    }
                 }
 
                 await _unitOfWork.CommitAsync();

@@ -44,7 +44,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       # Link trực tiếp tới service 'db' và 'redis' qua network nội bộ của Docker
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=EduOpsDb;Username=postgres;Password=mysecretpassword
-      - ConnectionStrings__Redis=redis:6379
+      - ConnectionStrings__Redis=healthy-turtle-125098.upstash.io:6379,password=gQAAAAAAAeiqAAIgcDEwZDI0MmU1MjllYWM0Y2QyYWQ5ZmVjNWNjNTMyYjM1MA,ssl=True,abortConnect=False
       - TZ=Asia/Ho_Chi_Minh
     volumes:
       # Mount file appsettings.json từ máy Host vào Container lúc runtime (rất quan trọng)
