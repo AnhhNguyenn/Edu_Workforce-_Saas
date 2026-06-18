@@ -54,7 +54,7 @@ namespace EduOps.Application.Services
                     allTeacherClassIds.Contains(c.Id);
             }
 
-            var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Grade,Subject,Status");
+            var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Grade,Subject,Status,Enrollments,Enrollments.Status");
 
             return new PagedResult<ClassListResponseDto>
             {

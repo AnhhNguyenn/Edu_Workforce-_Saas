@@ -48,7 +48,7 @@ export function TransactionTable({ transactions, isLoading, searchTerm, onClearS
               <TableCell className="text-edu-fgSecondary truncate max-w-[150px]" title={inv.planName}>{inv.planName || 'Gói Dịch Vụ'}</TableCell>
               <TableCell>
                 {inv.promotionCode ? (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 uppercase">{inv.promotionCode}</Badge>
+                  <Badge variant="info" className="bg-blue-50 text-blue-600 border-blue-200 uppercase">{inv.promotionCode}</Badge>
                 ) : (
                   <span className="text-gray-400 text-sm">-</span>
                 )}

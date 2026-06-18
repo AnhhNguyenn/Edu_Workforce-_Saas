@@ -8,19 +8,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EduOps.Infrastructure.Data
 {
-    public class EduOpsDbContext : DbContext, IEduOpsDbContext
+    public class EduOpsDbContext(DbContextOptions<EduOpsDbContext> options, EduOps.Application.Interfaces.ICurrentUserService currentUserService) : DbContext(options), IEduOpsDbContext
     {
-        private readonly EduOps.Application.Interfaces.ICurrentUserService _currentUserService;
-
-        public EduOpsDbContext(DbContextOptions<EduOpsDbContext> options, EduOps.Application.Interfaces.ICurrentUserService currentUserService) : base(options)
-        {
-            _currentUserService = currentUserService;
-        }
+        private readonly EduOps.Application.Interfaces.ICurrentUserService _currentUserService = currentUserService;
 
         // Expose parameters for EF Core Global Query Filter Translation
         public Guid? CurrentOrgId => _currentUserService.OrganizationId;
         public bool IsSuperAdmin => _currentUserService.Role == "SUPER_ADMIN" || _currentUserService.IsBackgroundJob;
 
+#pragma warning disable CS8618
         // --- CORE ---
         public DbSet<User> Users { get; set; }
         public DbSet<UserDetail> UserDetails { get; set; }
@@ -78,6 +74,7 @@ namespace EduOps.Infrastructure.Data
 
         // --- AUTH ---
         // Token logic is implemented directly on the User entity.
+#pragma warning restore CS8618
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -210,6 +207,7 @@ namespace EduOps.Infrastructure.Data
                     {
                         case EntityState.Added:
                             baseEntity.CreatedAt = DateTime.UtcNow;
+                            if (userId != Guid.Empty) baseEntity.CreatedBy = userId;
                             if (baseEntity is TenantEntity tenantEntity && tenantEntity.OrganizationId == null)
                             {
                                 tenantEntity.OrganizationId = _currentUserService.OrganizationId;
@@ -217,10 +215,12 @@ namespace EduOps.Infrastructure.Data
                             break;
                         case EntityState.Modified:
                             baseEntity.UpdatedAt = DateTime.UtcNow;
+                            if (userId != Guid.Empty) baseEntity.UpdatedBy = userId;
                             break;
                         case EntityState.Deleted:
                             entry.State = EntityState.Modified;
                             baseEntity.DeletedAt = DateTime.UtcNow;
+                            if (userId != Guid.Empty) baseEntity.DeletedBy = userId;
                             break;
                     }
                 }

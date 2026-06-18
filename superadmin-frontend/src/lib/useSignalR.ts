@@ -5,8 +5,10 @@ import * as signalR from '@microsoft/signalr';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store/useAppStore';
 import { ENV } from '@/config/env';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function useSignalR() {
+  const queryClient = useQueryClient();
   const { data: session } = useSession();
   const addNotification = useAppStore(state => state.addNotification);
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
@@ -28,6 +30,15 @@ export function useSignalR() {
         console.log('Connected to SignalR Hub!');
         newConnection.on('ReceiveNotification', (title: string, message: string, type: 'info' | 'success' | 'warn' | 'danger') => {
           addNotification({ title, message, type });
+        });
+        newConnection.on('AdminTransactionUpdated', () => {
+          queryClient.invalidateQueries({ queryKey: ['admin-transactions'] });
+        });
+        newConnection.on('AdminOrganizationUpdated', () => {
+          queryClient.invalidateQueries({ queryKey: ['organizations'] });
+        });
+        newConnection.on('AdminUserUpdated', () => {
+          queryClient.invalidateQueries({ queryKey: ['users'] });
         });
       })
       .catch(e => {

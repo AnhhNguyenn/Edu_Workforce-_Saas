@@ -44,7 +44,12 @@ export function AuditLogTable({ logs, isLoading, hasFilter, onClearFilter }: Aud
               <TableCell className="text-edu-muted text-xs whitespace-nowrap">
                 {format(new Date(log.createdAt), 'dd/MM/yyyy HH:mm:ss')}
               </TableCell>
-              <TableCell className="font-medium text-edu-fg truncate max-w-[200px]" title={log.userId}>{log.userId}</TableCell>
+              <TableCell className="font-medium text-edu-fg truncate max-w-[200px]" title={`${log.userName} (${log.userEmail})`}>
+                <div className="flex flex-col">
+                  <span>{log.userName}</span>
+                  <span className="text-xs text-edu-muted font-normal">{log.userEmail}</span>
+                </div>
+              </TableCell>
               <TableCell className="font-semibold text-edu-fgSecondary truncate max-w-[150px]" title={log.action}>{log.action}</TableCell>
               <TableCell className="text-edu-muted truncate max-w-[250px]" title={`${log.entityType} (${log.entityId})`}>{log.entityType} ({log.entityId})</TableCell>
               <TableCell>

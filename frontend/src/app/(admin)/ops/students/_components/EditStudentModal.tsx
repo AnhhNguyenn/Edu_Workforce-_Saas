@@ -10,6 +10,7 @@ import * as z from 'zod';
 
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { Controller } from 'react-hook-form';
 
@@ -63,7 +64,8 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
     try {
       const payload = {
         ...data,
-        birthDate: data.birthDate || null
+        birthDate: data.birthDate || null,
+        classId: data.classId || null
       };
       await updateMutation.mutateAsync({ id: studentId, data: payload });
       toast.success('Cập nhật học viên thành công!');
@@ -108,13 +110,20 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
               error={errors.fullName?.message}
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="text-sm font-semibold text-edu-fgSecondary">Ngày sinh</label>
-            <Input 
-              type="date" 
-              {...register('birthDate')}
-              error={errors.birthDate?.message}
+            <Controller
+              control={control}
+              name="birthDate"
+              render={({ field }) => (
+                <DatePicker 
+                  selected={field.value ? new Date(field.value) : null}
+                  onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : '')}
+                  placeholderText="dd/mm/yyyy"
+                />
+              )}
             />
+            {errors.birthDate?.message && <p className="text-sm text-red-500">{errors.birthDate.message}</p>}
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-semibold text-edu-fgSecondary">Xếp lớp</label>

@@ -15,10 +15,12 @@ namespace EduOps.Application.Services
     public class AttendanceService : IAttendanceService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IRealtimeNotificationService _realtimeNotification;
 
-        public AttendanceService(IUnitOfWork unitOfWork)
+        public AttendanceService(IUnitOfWork unitOfWork, IRealtimeNotificationService realtimeNotification)
         {
             _unitOfWork = unitOfWork;
+            _realtimeNotification = realtimeNotification;
         }
 
         public async Task<AttendanceDto> CheckInAsync(Guid userId, AttendanceRequestDto request)
@@ -99,6 +101,12 @@ namespace EduOps.Application.Services
             }
 
             await _unitOfWork.CommitAsync();
+
+            if (session.OrganizationId.HasValue)
+            {
+                await _realtimeNotification.SendToOrganizationAsync(session.OrganizationId.Value, "AttendanceUpdated");
+            }
+
             return attendance.ToDto();
         }
 
@@ -155,6 +163,11 @@ namespace EduOps.Application.Services
 
             attendanceRepo.Update(record);
             await _unitOfWork.CommitAsync();
+
+            if (session.OrganizationId.HasValue)
+            {
+                await _realtimeNotification.SendToOrganizationAsync(session.OrganizationId.Value, "AttendanceUpdated");
+            }
 
             return record.ToDto();
         }
@@ -234,6 +247,7 @@ namespace EduOps.Application.Services
             }
 
             await _unitOfWork.CommitAsync();
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "AttendanceUpdated");
         }
     }
 }

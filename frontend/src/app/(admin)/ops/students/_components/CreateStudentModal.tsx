@@ -49,7 +49,8 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
     try {
       const payload = {
         ...data,
-        birthDate: data.birthDate || null
+        birthDate: data.birthDate || null,
+        classId: data.classId || null
       };
       await createMutation.mutateAsync(payload);
       toast.success('Thêm học viên thành công!');

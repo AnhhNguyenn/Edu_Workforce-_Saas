@@ -187,17 +187,26 @@ export const usePreviewSubscribe = () => {
       return response.data;
     }
   });
-};
+};  
 
-export const useTransactionStatus = (referenceCode: string | null) => {
+export const useTransactionStatus = (referenceCode?: string) => {
   return useQuery({
     queryKey: ['transaction-status', referenceCode],
     queryFn: async () => {
-      const response = await apiClient.get<{ referenceCode: string, status: string }>(`/subscriptions/transactions/${referenceCode}/status`);
-      return response.data.status;
+      const response = await apiClient.get<{ data: string }>(`/subscriptions/${referenceCode}/status`);
+      return response.data.data;
     },
     enabled: !!referenceCode,
-    refetchInterval: (query) => (query.state.data === 'SUCCESS' ? false : 3000), // Poll every 3 seconds until paid
+    refetchInterval: (query) => (query.state.data === 'SUCCESS' || query.state.data === 'FAILED' ? false : 3000), // Dừng poll nếu thành công/thất bại
+  });
+};
+
+export const useCancelTransaction = () => {
+  return useMutation({
+    mutationFn: async (referenceCode: string) => {
+      const response = await apiClient.post(`/subscriptions/${referenceCode}/cancel`);
+      return response.data;
+    }
   });
 };
 

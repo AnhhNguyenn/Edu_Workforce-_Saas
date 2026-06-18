@@ -20,13 +20,15 @@ namespace EduOps.Application.Services
         private readonly ICustomLogger _logger;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICacheService _cache;
+        private readonly IRealtimeNotificationService _realtimeNotification;
 
-        public OrganizationService(IUnitOfWork unitOfWork, ICustomLogger logger, ICurrentUserService currentUserService, ICacheService cache)
+        public OrganizationService(IUnitOfWork unitOfWork, ICustomLogger logger, ICurrentUserService currentUserService, ICacheService cache, IRealtimeNotificationService realtimeNotification)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _currentUserService = currentUserService;
             _cache = cache;
+            _realtimeNotification = realtimeNotification;
         }
 
         public async Task<PagedResult<OrganizationListResponseDto>> GetOrganizationsAsync(GetOrganizationListQueryDto query)
@@ -205,6 +207,8 @@ namespace EduOps.Application.Services
 
                 _logger.LogInformation($"Created new Organization: {org.Code}");
 
+                await _realtimeNotification.SendToAllAsync("AdminOrganizationUpdated");
+
                 return await GetByIdAsync(org.Id);
             }
             catch (Exception ex)
@@ -250,6 +254,8 @@ namespace EduOps.Application.Services
             // Xóa Cache để cập nhật trạng thái ngay lập tức
             await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogInformation($"Updated Organization: {org.Code}");
+
+            await _realtimeNotification.SendToAllAsync("AdminOrganizationUpdated");
         }
 
         public async Task UpdateSubscriptionAsync(Guid id, UpdateOrganizationSubscriptionRequestDto request)
@@ -285,6 +291,8 @@ namespace EduOps.Application.Services
 
             await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogInformation($"Updated Subscription for Organization: {org.Code}");
+
+            await _realtimeNotification.SendToAllAsync("AdminOrganizationUpdated");
         }
 
         public async Task SuspendAsync(Guid id)
@@ -301,6 +309,8 @@ namespace EduOps.Application.Services
             // Xóa Cache để lệnh Đình chỉ có hiệu lực ngay lập tức (0.001 giây)
             await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogWarning($"Suspended Organization: {org.Code}");
+
+            await _realtimeNotification.SendToAllAsync("AdminOrganizationUpdated");
         }
 
         public async Task ActivateAsync(Guid id)
@@ -317,6 +327,8 @@ namespace EduOps.Application.Services
             // Xóa Cache để cập nhật trạng thái ngay lập tức
             await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogInformation($"Activated Organization: {org.Code}");
+
+            await _realtimeNotification.SendToAllAsync("AdminOrganizationUpdated");
         }
 
         public async Task DeleteAsync(Guid id)
@@ -334,6 +346,8 @@ namespace EduOps.Application.Services
 
             await _cache.RemoveAsync($"OrgSubscription_{id}");
             _logger.LogWarning($"Soft Deleted Organization: {org.Code}");
+
+            await _realtimeNotification.SendToAllAsync("AdminOrganizationUpdated");
         }
 
         public async Task<OrganizationBrandingDto> GetBrandingByDomainAsync(string domain)

@@ -19,11 +19,13 @@ namespace EduOps.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IRealtimeNotificationService _realtimeNotification;
 
-        public UserService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService)
+        public UserService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, IRealtimeNotificationService realtimeNotification)
         {
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
+            _realtimeNotification = realtimeNotification;
         }
 
         public async Task<PagedResult<UserListResponseDto>> GetUsersAsync(Guid? organizationId, GetUserListQueryDto query)
@@ -131,6 +133,12 @@ namespace EduOps.Application.Services
 
             await _unitOfWork.CommitAsync();
 
+            await _realtimeNotification.SendToAllAsync("AdminUserUpdated");
+            if (organizationId.HasValue)
+            {
+                await _realtimeNotification.SendToOrganizationAsync(organizationId.Value, "OrgTeachersUpdated");
+            }
+
             return newUser.ToDetailResponseDto();
         }
 
@@ -193,6 +201,12 @@ namespace EduOps.Application.Services
             }
 
             await _unitOfWork.CommitAsync();
+
+            await _realtimeNotification.SendToAllAsync("AdminUserUpdated");
+            if (user.OrganizationId.HasValue)
+            {
+                await _realtimeNotification.SendToOrganizationAsync(user.OrganizationId.Value, "OrgTeachersUpdated");
+            }
         }
 
         public async Task DeactivateUserAsync(Guid id)
@@ -214,6 +228,12 @@ namespace EduOps.Application.Services
 
             repo.Update(user);
             await _unitOfWork.CommitAsync();
+
+            await _realtimeNotification.SendToAllAsync("AdminUserUpdated");
+            if (user.OrganizationId.HasValue)
+            {
+                await _realtimeNotification.SendToOrganizationAsync(user.OrganizationId.Value, "OrgTeachersUpdated");
+            }
         }
 
         public async Task DeleteUserAsync(Guid id)
@@ -235,11 +255,13 @@ namespace EduOps.Application.Services
             user.RefreshTokenExpiryTime = null;
             user.Email = $"{user.Email}.deleted_{Guid.NewGuid()}";
 
-            repo.Update(user);
-
-
-
             await _unitOfWork.CommitAsync();
+
+            await _realtimeNotification.SendToAllAsync("AdminUserUpdated");
+            if (user.OrganizationId.HasValue)
+            {
+                await _realtimeNotification.SendToOrganizationAsync(user.OrganizationId.Value, "OrgTeachersUpdated");
+            }
         }
 
         public async Task LockUserAsync(Guid id, DateTime? lockEndAt)
@@ -262,6 +284,12 @@ namespace EduOps.Application.Services
 
             repo.Update(user);
             await _unitOfWork.CommitAsync();
+
+            await _realtimeNotification.SendToAllAsync("AdminUserUpdated");
+            if (user.OrganizationId.HasValue)
+            {
+                await _realtimeNotification.SendToOrganizationAsync(user.OrganizationId.Value, "OrgTeachersUpdated");
+            }
         }
 
         public async Task UnlockUserAsync(Guid id)
@@ -278,6 +306,12 @@ namespace EduOps.Application.Services
             user.LockEndAt = null;
             repo.Update(user);
             await _unitOfWork.CommitAsync();
+
+            await _realtimeNotification.SendToAllAsync("AdminUserUpdated");
+            if (user.OrganizationId.HasValue)
+            {
+                await _realtimeNotification.SendToOrganizationAsync(user.OrganizationId.Value, "OrgTeachersUpdated");
+            }
         }
 
         public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequestDto request)

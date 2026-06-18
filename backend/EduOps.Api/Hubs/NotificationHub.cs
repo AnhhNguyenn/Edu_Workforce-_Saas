@@ -10,13 +10,16 @@ namespace EduOps.Api.Hubs
     {
         public override async Task OnConnectedAsync()
         {
-            // Lấy ID người dùng từ JWT Token
             var userId = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (!string.IsNullOrEmpty(userId))
             {
-                // Thêm kết nối hiện tại vào Group mang tên ID của người dùng
-                // Để khi bắn thông báo, ta chỉ cần bắn vào Group(UserId)
                 await Groups.AddToGroupAsync(Context.ConnectionId, userId);
+            }
+
+            var orgId = Context.User?.FindFirst("OrganizationId")?.Value;
+            if (!string.IsNullOrEmpty(orgId))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"ORG_{orgId}");
             }
 
             await base.OnConnectedAsync();
@@ -28,6 +31,12 @@ namespace EduOps.Api.Hubs
             if (!string.IsNullOrEmpty(userId))
             {
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId);
+            }
+
+            var orgId = Context.User?.FindFirst("OrganizationId")?.Value;
+            if (!string.IsNullOrEmpty(orgId))
+            {
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"ORG_{orgId}");
             }
 
             await base.OnDisconnectedAsync(exception);

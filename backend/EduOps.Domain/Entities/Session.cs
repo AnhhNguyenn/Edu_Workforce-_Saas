@@ -14,6 +14,7 @@ namespace EduOps.Domain.Entities
         public Guid? ClassScheduleId { get; set; }
         public string LessonTitle { get; set; } = string.Empty;
         public string? RoomName { get; set; }
+        public string? Notes { get; set; }
         public virtual SessionDetail? SessionDetail { get; set; }
 
         public DateTime SessionDate { get; set; }
@@ -22,7 +23,5 @@ namespace EduOps.Domain.Entities
 
         public Guid? StatusId { get; set; }
         public virtual SessionStatus? Status { get; set; }
-
-        public Guid? CreatedBy { get; set; }
     }
 }

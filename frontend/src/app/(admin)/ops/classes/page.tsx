@@ -200,14 +200,12 @@ export default function ClassesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-2 justify-end items-center">
-                      <Button variant="secondary" size="sm" onClick={() => openDetailModal(c.id)} className="hover:border-[#4CAF50] hover:text-[#4CAF50]">Chi tiết</Button>
-                      {isAuthorized && (
-                        <ActionButtons
-                          onEdit={() => openEditModal(c)}
-                          onDelete={() => handleDeleteClick(c.id)}
-                        />
-                      )}
+                    <div className="flex justify-end">
+                      <ActionButtons
+                        onView={() => openDetailModal(c.id)}
+                        onEdit={isAuthorized ? () => openEditModal(c) : undefined}
+                        onDelete={isAuthorized ? () => handleDeleteClick(c.id) : undefined}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -392,8 +390,8 @@ export default function ClassesPage() {
                 </div>
                 <div>
                   <span className="text-gray-500 block text-xs">Trạng thái</span>
-                  <Badge variant={classDetails.status === 'active' ? 'success' : 'warn'} className="mt-1">
-                    {classDetails.status === 'active' ? 'Đang học' : 'Sắp khai giảng'}
+                  <Badge variant={classDetails.statusCode === 'ACTIVE' ? 'success' : 'warn'} className="mt-1">
+                    {classDetails.statusCode === 'ACTIVE' ? 'Đang học' : 'Sắp khai giảng'}
                   </Badge>
                 </div>
               </div>

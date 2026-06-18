@@ -126,7 +126,7 @@ namespace EduOps.Application.Services
         public async Task UpdateAsync(Guid id, Guid organizationId, UpdateStudentRequestDto request)
         {
             var repo = _unitOfWork.Repository<Student>();
-            var student = await repo.GetByIdAsync(id);
+            var student = await repo.FirstOrDefaultAsync(s => s.Id == id, includeProperties: "StudentDetail,Status");
             if (student == null || student.OrganizationId != organizationId)
                 throw new NotFoundException("Student", id);
 

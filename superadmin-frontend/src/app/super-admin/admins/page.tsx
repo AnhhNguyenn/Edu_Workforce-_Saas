@@ -429,7 +429,7 @@ export default function AdminsPage() {
                                         </div>
                                       </TableCell>
                                       <TableCell>
-                                        <Badge variant={a.roleCode === 'CENTER_ADMIN' ? 'info' : (a.roleCode === 'TEACHER' ? 'success' : 'default')}>
+                                        <Badge variant={a.roleCode === 'CENTER_ADMIN' ? 'info' : (a.roleCode === 'TEACHER' ? 'success' : 'muted')}>
                                           {a.roleCode || a.role}
                                         </Badge>
                                       </TableCell>

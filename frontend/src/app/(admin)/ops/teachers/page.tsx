@@ -24,6 +24,7 @@ export default function TeachersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
+  const [viewUser, setViewUser] = useState<UserDto | null>(null);
   const { confirm } = useConfirm();
 
   const [newUser, setNewUser] = useState({ fullName: '', email: '', password: '', phone: '', roleCode: 'TEACHER' });
@@ -231,6 +232,7 @@ export default function TeachersPage() {
                   <TableCell>
                     {isAuthorized && (
                       <ActionButtons
+                        onView={() => setViewUser(t)}
                         onEdit={() => openEditModal(t)}
                         onToggleStatus={() => handleToggleStatusClick(t)}
                         onDelete={() => handleDeleteClick(t)}
@@ -286,6 +288,7 @@ export default function TeachersPage() {
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Email</label>
               <Input 
                 type="email" 
+                autoComplete="off"
                 placeholder="gv@domain.com" 
                 className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
                 value={newUser.email}
@@ -298,6 +301,7 @@ export default function TeachersPage() {
               <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Mật khẩu khởi tạo</label>
               <Input 
                 type="password"
+                autoComplete="new-password"
                 placeholder="••••••••" 
                 className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
                 value={newUser.password}
@@ -393,6 +397,54 @@ export default function TeachersPage() {
             />
           </div>
         </div>
+      </Modal>
+
+      {/* VIEW MODAL */}
+      <Modal 
+        isOpen={!!viewUser} 
+        onClose={() => setViewUser(null)} 
+        title="Chi tiết nhân sự"
+        className="!max-w-md"
+      >
+        {viewUser && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="w-16 h-16 rounded-full bg-[#E8F5E9] flex items-center justify-center text-[#2E7D32] font-bold text-2xl shrink-0">
+                {getAvatarInitials(viewUser.fullName ?? 'U')}
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-edu-fg">{viewUser.fullName}</h3>
+                <div className="text-sm text-edu-muted mt-1">{viewUser.email}</div>
+                <div className="mt-2 flex gap-2">
+                  <Badge variant={viewUser.roleCode === 'TEACHER' ? 'info' : 'muted'}>
+                    {viewUser.roleCode === 'TEACHER' ? 'Giáo viên' : 'Trợ giảng'}
+                  </Badge>
+                  <Badge variant={(viewUser.statusCode === 'ACTIVE' || viewUser.status === 'ACTIVE') ? 'success' : (viewUser.statusCode === 'INACTIVE' || viewUser.status === 'INACTIVE') ? 'danger' : 'warn'}>
+                    {(viewUser.statusCode === 'ACTIVE' || viewUser.status === 'ACTIVE') ? 'Đang làm' : 'Đã nghỉ'}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="font-semibold text-edu-fg border-b pb-2">Thông tin liên hệ</h4>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-start gap-3">
+                  <div className="font-medium w-24 text-edu-muted">Họ và tên:</div>
+                  <div className="font-medium text-edu-fg">{viewUser.fullName || 'Chưa cập nhật'}</div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="font-medium w-24 text-edu-muted">Số điện thoại:</div>
+                  <div className="font-medium text-edu-fg">{viewUser.phone || 'Chưa cập nhật'}</div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="font-medium w-24 text-edu-muted">Email:</div>
+                  <div className="font-medium text-edu-fg">{viewUser.email || 'Chưa cập nhật'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
     </div>

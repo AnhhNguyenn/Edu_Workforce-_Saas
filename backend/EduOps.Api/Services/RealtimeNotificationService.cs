@@ -25,5 +25,10 @@ namespace EduOps.Api.Services
         {
             await _hubContext.Clients.All.SendAsync(messageType, payload);
         }
+
+        public async Task SendToOrganizationAsync(Guid orgId, string messageType, object? payload = null)
+        {
+            await _hubContext.Clients.Group($"ORG_{orgId}").SendAsync(messageType, payload);
+        }
     }
 }

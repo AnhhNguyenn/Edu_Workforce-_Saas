@@ -634,15 +634,36 @@ namespace EduOps.Application.Services
 
         public async Task<string> GetTransactionStatusAsync(string referenceCode)
         {
-            var orgId = _currentUserService.OrganizationId;
-            if (orgId == null) throw new UnauthorizedAccessException();
+            var tx = await _unitOfWork.Repository<BillingTransaction>().FirstOrDefaultAsync(
+                t => t.ReferenceCode == referenceCode,
+                includeProperties: "Status"
+            );
 
-            var tx = await _unitOfWork.Repository<BillingTransaction>()
-                .FirstOrDefaultAsync(t => t.ReferenceCode == referenceCode && t.OrganizationId == orgId.Value);
+            if (tx == null) throw new NotFoundException("Giao dịch", referenceCode);
 
-            if (tx == null) throw new NotFoundException("Giao dịch không tồn tại", referenceCode);
+            return tx.Status?.Code ?? "PENDING";
+        }
 
-            return tx.Status?.Code ?? "";
+        public async Task CancelTransactionAsync(string referenceCode)
+        {
+            var tx = await _unitOfWork.Repository<BillingTransaction>().FirstOrDefaultAsync(
+                t => t.ReferenceCode == referenceCode && t.OrganizationId == _currentUserService.OrganizationId,
+                includeProperties: "Status"
+            );
+
+            if (tx == null) throw new NotFoundException("Giao dịch", referenceCode);
+
+            // Chỉ cho phép hủy nếu giao dịch đang ở trạng thái PENDING hoặc NULL (đang chờ)
+            if (tx.Status == null || tx.Status.Code == "PENDING")
+            {
+                var failedStatus = await _unitOfWork.Repository<BillingStatus>().FirstOrDefaultAsync(s => s.Code == "FAILED");
+                tx.StatusId = failedStatus?.Id;
+                _unitOfWork.Repository<BillingTransaction>().Update(tx);
+                await _unitOfWork.CommitAsync();
+
+                // Gửi sự kiện Realtime tới Super Admin để cập nhật bảng giao dịch ngay lập tức
+                await _realtimeNotification.SendToAllAsync("AdminTransactionUpdated");
+            }
         }
     }
 }

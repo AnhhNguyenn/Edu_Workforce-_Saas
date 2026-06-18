@@ -26,11 +26,17 @@ const EditStudentModal = dynamic(() => import('./_components/EditStudentModal'),
   loading: () => null 
 });
 
+const ViewStudentModal = dynamic(() => import('./_components/ViewStudentModal'), { 
+  ssr: false,
+  loading: () => null 
+});
+
 export default function StudentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [showBulkAssign, setShowBulkAssign] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState('');
@@ -147,6 +153,7 @@ export default function StudentsPage() {
       <StudentTable 
         students={students} 
         isLoading={isLoading} 
+        onView={(student) => setViewingStudentId(student.id)}
         onEdit={(student) => setEditingStudentId(student.id)}
         onDelete={handleDeleteClick}
         isAuthorized={isAuthorized}
@@ -181,6 +188,7 @@ export default function StudentsPage() {
 
       {showCreate && <CreateStudentModal onClose={() => setShowCreate(false)} />}
       {editingStudentId && <EditStudentModal studentId={editingStudentId} onClose={() => setEditingStudentId(null)} />}
+      {viewingStudentId && <ViewStudentModal studentId={viewingStudentId} onClose={() => setViewingStudentId(null)} />}
 
       <Modal
         isOpen={showBulkAssign}

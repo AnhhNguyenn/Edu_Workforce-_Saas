@@ -145,11 +145,17 @@ namespace EduOps.Application.Services
                 throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới được xem Audit Logs.");
 
             var logs = await _unitOfWork.Repository<AuditLog>().FindAsync(x => true, ignoreQueryFilters: true);
+            var userIds = logs.Select(x => x.UserId).Distinct().ToList();
+            var users = await _unitOfWork.Repository<User>().FindAsync(u => userIds.Contains(u.Id), ignoreQueryFilters: true);
+            var userDict = users.ToDictionary(u => u.Id, u => u);
+
             // Sort by CreatedAt Desc and limit to 100 for now to prevent massive payloads
             return logs.OrderByDescending(x => x.CreatedAt).Take(100).Select(x => new AuditLogResponseDto
             {
                 Id = x.Id,
                 UserId = x.UserId,
+                UserEmail = userDict.ContainsKey(x.UserId) ? userDict[x.UserId].Email : "Unknown",
+                UserName = userDict.ContainsKey(x.UserId) ? userDict[x.UserId].FullName : "Unknown",
                 Action = x.Action,
                 EntityType = x.EntityType,
                 EntityId = x.EntityId,

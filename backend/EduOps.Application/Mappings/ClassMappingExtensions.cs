@@ -19,7 +19,8 @@ namespace EduOps.Application.Mappings
                 SubjectId = c.SubjectId,
                 SubjectCode = c.Subject?.Code,
                 StatusId = c.StatusId,
-                StatusCode = c.Status?.Code ?? string.Empty
+                StatusCode = c.Status?.Code ?? string.Empty,
+                StudentsCount = c.Enrollments?.Count(e => e.Status == null || e.Status.Code == "ENROLLED") ?? 0
             };
         }
 

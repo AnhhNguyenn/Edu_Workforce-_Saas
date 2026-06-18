@@ -7,6 +7,7 @@ using EduOps.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using EduOps.Api.Authorization;
+
 namespace EduOps.Api.Controllers
 {
     [ApiController]
@@ -132,12 +133,20 @@ namespace EduOps.Api.Controllers
             return Ok(result);
         }
 
-        [HttpGet("transactions/{refCode}/status")]
-        [HasPermission("Subscriptions:Manage")]
-        public async Task<IActionResult> GetTransactionStatus(string refCode)
+        [HttpGet("{referenceCode}/status")]
+        [Authorize]
+        public async Task<IActionResult> GetTransactionStatus(string referenceCode)
         {
-            var status = await _subscriptionService.GetTransactionStatusAsync(refCode);
-            return Ok(new { ReferenceCode = refCode, Status = status });
+            var status = await _subscriptionService.GetTransactionStatusAsync(referenceCode);
+            return Ok(new { status = status, message = "Retrieved transaction status successfully." });
+        }
+
+        [HttpPost("{referenceCode}/cancel")]
+        [Authorize]
+        public async Task<IActionResult> CancelTransaction(string referenceCode)
+        {
+            await _subscriptionService.CancelTransactionAsync(referenceCode);
+            return Ok(new { status = "Cancelled", message = "Transaction cancelled successfully." });
         }
     }
 }

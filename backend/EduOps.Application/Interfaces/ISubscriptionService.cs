@@ -28,5 +28,6 @@ namespace EduOps.Application.Interfaces
         Task<IEnumerable<BillingTransactionDto>> GetMyTransactionsAsync();
         Task<IEnumerable<BillingTransactionDto>> GetAllTransactionsAsync();
         Task<string> GetTransactionStatusAsync(string referenceCode);
+        Task CancelTransactionAsync(string referenceCode);
     }
 }

@@ -21,6 +21,8 @@ export interface DatePickerProps {
   timeIntervals?: number;
   timeCaption?: string;
   dateFormat?: string;
+  showMonthYearPicker?: boolean;
+  showYearPicker?: boolean;
 }
 
 export function DatePicker({
@@ -35,6 +37,8 @@ export function DatePicker({
   timeIntervals = 15,
   timeCaption = "Thời gian",
   dateFormat = showTimeSelect ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy',
+  showMonthYearPicker = false,
+  showYearPicker = false,
 }: DatePickerProps) {
   return (
     <div className="relative w-full">
@@ -50,6 +54,8 @@ export function DatePicker({
         showTimeSelectOnly={showTimeSelectOnly}
         timeIntervals={timeIntervals}
         timeCaption={timeCaption}
+        showMonthYearPicker={showMonthYearPicker}
+        showYearPicker={showYearPicker}
         className={`flex h-10 w-full items-center justify-between rounded-md border border-edu-border bg-white px-3.5 py-2 pl-10 text-sm transition-all duration-200 outline-none focus:border-edu-accent focus:ring-4 focus:ring-edu-accentLight/50 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       />
       <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-edu-muted pointer-events-none" size={16} />

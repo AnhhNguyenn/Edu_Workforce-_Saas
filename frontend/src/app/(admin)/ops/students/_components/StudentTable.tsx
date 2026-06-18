@@ -15,9 +15,10 @@ interface StudentTableProps {
   selectedIds?: string[];
   onSelectAll?: (checked: boolean) => void;
   onSelectRow?: (studentId: string, checked: boolean) => void;
+  onView?: (student: any) => void;
 }
 
-export function StudentTable({ students, isLoading, onEdit, onDelete, isAuthorized, selectedIds = [], onSelectAll, onSelectRow }: StudentTableProps) {
+export function StudentTable({ students, isLoading, onEdit, onDelete, isAuthorized, selectedIds = [], onSelectAll, onSelectRow, onView }: StudentTableProps) {
   const allSelected = students.length > 0 && selectedIds.length === students.length;
 
   return (
@@ -72,7 +73,7 @@ export function StudentTable({ students, isLoading, onEdit, onDelete, isAuthoriz
                 </TableCell>
                 <TableCell>
                   <div className="text-sm truncate max-w-[120px]">{std.phoneNumber ?? 'Trống'}</div>
-                  <div className="text-xs text-edu-muted truncate max-w-[120px]">{std.email ?? 'Trống'}</div>
+                  <div className="text-xs text-edu-muted">{std.email || 'Chưa cập nhật'}</div>
                 </TableCell>
                 <TableCell className="text-edu-fgSecondary font-medium">{std.currentClass || 'Chưa xếp lớp'}</TableCell>
                 <TableCell>
@@ -86,6 +87,7 @@ export function StudentTable({ students, isLoading, onEdit, onDelete, isAuthoriz
                 <TableCell className="text-right">
                   <div className="flex justify-end">
                     <ActionButtons
+                      onView={onView ? () => onView(std) : undefined}
                       onEdit={() => onEdit(std)}
                       onDelete={isAuthorized ? () => onDelete(std.id) : undefined}
                     />

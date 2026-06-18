@@ -12,6 +12,7 @@ namespace EduOps.Application.DTOs.User.Responses
         public string Email { get; set; } = string.Empty;
         public Guid? RoleId { get; set; }
         public string RoleCode { get; set; } = string.Empty;
+        public string? Phone { get; set; }
         public Guid? StatusId { get; set; }
         public string StatusCode { get; set; } = string.Empty;
         public DateTime? LastLoginAt { get; set; }

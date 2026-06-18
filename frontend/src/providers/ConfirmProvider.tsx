@@ -8,6 +8,7 @@ type ConfirmOptions = {
   description?: string;
   requireInput?: boolean;
   expectedInput?: string;
+  variant?: 'danger' | 'warning' | 'info';
   action: () => Promise<void> | void;
 };
 
@@ -69,6 +70,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         requireInput={options?.requireInput}
         expectedInput={options?.expectedInput}
         isPending={isPending}
+        variant={options?.variant}
       />
     </ConfirmContext.Provider>
   );

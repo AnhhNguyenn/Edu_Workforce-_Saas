@@ -37,9 +37,11 @@ namespace EduOps.Application.Services
             var result = await repo.FindPagedAsync(s =>
                 s.OrganizationId == organizationId &&
                 (!query.ClassId.HasValue || s.ClassId == query.ClassId.Value) &&
+                (!query.SchoolId.HasValue || s.SchoolId == query.SchoolId.Value) &&
                 (!query.TeacherId.HasValue || s.TeacherId == query.TeacherId.Value) &&
                 (!query.AssistantId.HasValue || s.AssistantId == query.AssistantId.Value) &&
-                (!query.Date.HasValue || s.SessionDate == query.Date.Value.Date.ToUniversalTime()) &&
+                (!query.StartDate.HasValue || s.SessionDate >= query.StartDate.Value.Date.ToUniversalTime()) &&
+                (!query.EndDate.HasValue || s.SessionDate <= query.EndDate.Value.Date.ToUniversalTime()) &&
                 (string.IsNullOrEmpty(query.SearchKeyword) || s.LessonTitle.ToLower().Contains(query.SearchKeyword.ToLower())),
                 query.PageNumber, query.PageSize, includeProperties: "Status");
 
@@ -128,6 +130,7 @@ namespace EduOps.Application.Services
                     AssistantId = request.AssistantId,
                     LessonTitle = request.LessonTitle,
                     RoomName = request.RoomName,
+                    Notes = request.Notes,
                     SessionDate = request.SessionDate.Date.ToUniversalTime(),
                     StartTime = request.StartTime,
                     EndTime = request.EndTime,
@@ -186,6 +189,7 @@ namespace EduOps.Application.Services
             session.AssistantId = request.AssistantId;
             session.LessonTitle = request.LessonTitle;
             session.RoomName = request.RoomName;
+            session.Notes = request.Notes;
             session.SessionDate = request.SessionDate.Date.ToUniversalTime();
             session.StartTime = request.StartTime;
             session.EndTime = request.EndTime;

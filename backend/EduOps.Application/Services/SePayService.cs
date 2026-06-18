@@ -15,13 +15,15 @@ namespace EduOps.Application.Services
         private readonly ICustomLogger _logger;
         private readonly ICacheService _cache;
         private readonly INotificationService _notificationService;
+        private readonly IRealtimeNotificationService _realtimeNotification;
 
-        public SePayService(IUnitOfWork unitOfWork, ICustomLogger logger, ICacheService cache, INotificationService notificationService)
+        public SePayService(IUnitOfWork unitOfWork, ICustomLogger logger, ICacheService cache, INotificationService notificationService, IRealtimeNotificationService realtimeNotification)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _cache = cache;
             _notificationService = notificationService;
+            _realtimeNotification = realtimeNotification;
         }
 
         public async Task<SePayResponseDto> ProcessWebhookAsync(SePayWebhookDto payload)
@@ -86,6 +88,9 @@ namespace EduOps.Application.Services
                         transactionRepo.Update(tx);
                         await _unitOfWork.CommitAsync();
 
+                        // Notify Super Admin Realtime
+                        await _realtimeNotification.SendToAllAsync("AdminTransactionUpdated");
+
                         _logger.LogWarning($"[SePay] UNDERPAYMENT ALERT: Khách chuyển thiếu tiền cho đơn {refCode}. Cần: {tx.Amount}, Nhận: {payload.amountIn}");
                         return new SePayResponseDto { success = true, message = "Handled: Underpayment" };
                     }
@@ -147,6 +152,9 @@ namespace EduOps.Application.Services
                                     "BILLING"
                                 );
                             }
+
+                            // Notify Super Admin Realtime
+                            await _realtimeNotification.SendToAllAsync("AdminTransactionUpdated");
                         }
                     }
 

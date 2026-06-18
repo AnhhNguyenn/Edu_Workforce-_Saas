@@ -14,5 +14,6 @@ namespace EduOps.Application.DTOs.Academic.Classes.Responses
         public string? SubjectCode { get; set; }
         public Guid? StatusId { get; set; }
         public string StatusCode { get; set; } = string.Empty;
+        public int StudentsCount { get; set; }
     }
 }

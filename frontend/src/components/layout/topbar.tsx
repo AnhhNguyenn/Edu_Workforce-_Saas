@@ -8,7 +8,7 @@ import { NotificationBell } from './notification-bell';
 import { useSignalR } from '@/lib/useSignalR';
 import { useSession, signOut } from 'next-auth/react';
 import { useState, useRef, useEffect } from 'react';
-import { usePlans, useSubscribe, usePreviewSubscribe, useTransactionStatus, SubscribeResponseDto, PreviewSubscribeResponseDto, useMySubscription } from '@/hooks/queries/useSubscriptions';
+import { usePlans, useSubscribe, usePreviewSubscribe, useTransactionStatus, SubscribeResponseDto, PreviewSubscribeResponseDto, useMySubscription, useCancelTransaction } from '@/hooks/queries/useSubscriptions';
 import { toast } from 'react-hot-toast';
 
 export function Topbar() {
@@ -48,14 +48,28 @@ export function Topbar() {
   const [promoError, setPromoError] = useState('');
 
   const { data: mySubscription, isLoading: isMySubLoading, isError: isMySubError } = useMySubscription();
-  const { data: txStatus } = useTransactionStatus(subscribeResult?.referenceCode || null);
+  const { data: txStatus } = useTransactionStatus(subscribeResult?.referenceCode || undefined);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
 
   useEffect(() => {
     if (subscribeResult && txStatus !== 'SUCCESS') {
-      setRemainingSeconds(subscribeResult.remainingSeconds || 600);
+      setRemainingSeconds((subscribeResult as any).remainingSeconds || 600);
     }
   }, [subscribeResult]);
+
+  const cancelTransactionMutation = useCancelTransaction();
+
+  const handleCancelTransaction = async () => {
+    if (subscribeResult?.referenceCode) {
+      try {
+        await cancelTransactionMutation.mutateAsync(subscribeResult.referenceCode);
+      } catch (error) {
+        console.error("Lỗi khi hủy giao dịch:", error);
+      }
+    }
+    setSubscribeResult(null);
+    setRemainingSeconds(null);
+  };
 
   useEffect(() => {
     if (remainingSeconds === null || remainingSeconds <= 0) return;
@@ -63,7 +77,7 @@ export function Topbar() {
       setRemainingSeconds(s => {
         if (s && s > 1) return s - 1;
         // Hết giờ -> Hủy giao dịch
-        setSubscribeResult(null);
+        handleCancelTransaction();
         setShowUpgradeModal(false);
         return 0;
       });
@@ -295,10 +309,11 @@ export function Topbar() {
                       </div>
                       
                       <button 
-                        onClick={() => { setSubscribeResult(null); setRemainingSeconds(null); }} 
-                        className="mt-6 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors font-medium"
+                        onClick={handleCancelTransaction} 
+                        disabled={cancelTransactionMutation.isPending}
+                        className="mt-6 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50"
                       >
-                        Hủy giao dịch
+                        {cancelTransactionMutation.isPending ? 'Đang hủy...' : 'Hủy giao dịch'}
                       </button>
                     </>
                   )}
