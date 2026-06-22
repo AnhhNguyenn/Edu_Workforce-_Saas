@@ -5,6 +5,16 @@ export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
+
+    // Nếu refresh token đã hết hạn/lỗi → redirect về login, phá vòng lặp vô hạn
+    if (token?.error === "RefreshAccessTokenError") {
+      const response = NextResponse.redirect(new URL("/login", req.url));
+      response.cookies.set("auth_error", "session_expired", { path: "/", maxAge: 10 });
+      // Xóa next-auth session cookie để không bị loop
+      response.cookies.set("next-auth.session-token", "", { path: "/", maxAge: 0 });
+      response.cookies.set("__Secure-next-auth.session-token", "", { path: "/", maxAge: 0 });
+      return response;
+    }
     
     const role = (token?.role as string)?.toUpperCase()?.replace('-', '_'); // Chuẩn hóa thành SUPER_ADMIN hoặc CENTER_ADMIN
 

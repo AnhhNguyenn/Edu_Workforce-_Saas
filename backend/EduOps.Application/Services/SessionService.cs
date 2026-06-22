@@ -375,7 +375,27 @@ namespace EduOps.Application.Services
                     else 
                     {
                         if (!string.IsNullOrEmpty(headerText))
-                            customFieldsIndices[cell.Address.ColumnNumber] = headerText;
+                        {
+                            var lower = headerText.ToLower().Trim();
+                            bool isGarbage = false;
+                            if (System.Text.RegularExpressions.Regex.IsMatch(lower, @"^cột\s*\d*$") || System.Text.RegularExpressions.Regex.IsMatch(lower, @"^column\s*\d*$"))
+                            {
+                                bool hasData = false;
+                                foreach(var r in dataRows)
+                                {
+                                    if(!string.IsNullOrWhiteSpace(r.Cell(cell.Address.ColumnNumber).GetString()))
+                                    {
+                                        hasData = true;
+                                        break;
+                                    }
+                                }
+                                if(!hasData) isGarbage = true;
+                            }
+                            if (!isGarbage)
+                            {
+                                customFieldsIndices[cell.Address.ColumnNumber] = headerText;
+                            }
+                        }
                     }
                 }
 
@@ -657,7 +677,27 @@ namespace EduOps.Application.Services
                         {
                             var headerText = cell.GetString().Trim();
                             if (!string.IsNullOrEmpty(headerText))
-                                customFieldsIndices[cell.Address.ColumnNumber] = headerText;
+                            {
+                                var lower = headerText.ToLower().Trim();
+                                bool isGarbage = false;
+                                if (System.Text.RegularExpressions.Regex.IsMatch(lower, @"^cột\s*\d*$") || System.Text.RegularExpressions.Regex.IsMatch(lower, @"^column\s*\d*$"))
+                                {
+                                    bool hasData = false;
+                                    foreach(var r in dataRows)
+                                    {
+                                        if(!string.IsNullOrWhiteSpace(r.Cell(cell.Address.ColumnNumber).GetString()))
+                                        {
+                                            hasData = true;
+                                            break;
+                                        }
+                                    }
+                                    if(!hasData) isGarbage = true;
+                                }
+                                if (!isGarbage)
+                                {
+                                    customFieldsIndices[cell.Address.ColumnNumber] = headerText;
+                                }
+                            }
                         }
                     }
                 }
@@ -681,7 +721,27 @@ namespace EduOps.Application.Services
                         else 
                         {
                             if (!string.IsNullOrEmpty(headerText))
-                                customFieldsIndices[cell.Address.ColumnNumber] = headerText;
+                            {
+                                var lower = headerText.ToLower().Trim();
+                                bool isGarbage = false;
+                                if (System.Text.RegularExpressions.Regex.IsMatch(lower, @"^cột\s*\d*$") || System.Text.RegularExpressions.Regex.IsMatch(lower, @"^column\s*\d*$"))
+                                {
+                                    bool hasData = false;
+                                    foreach(var r in dataRows)
+                                    {
+                                        if(!string.IsNullOrWhiteSpace(r.Cell(cell.Address.ColumnNumber).GetString()))
+                                        {
+                                            hasData = true;
+                                            break;
+                                        }
+                                    }
+                                    if(!hasData) isGarbage = true;
+                                }
+                                if (!isGarbage)
+                                {
+                                    customFieldsIndices[cell.Address.ColumnNumber] = headerText;
+                                }
+                            }
                         }
                     }
                 }

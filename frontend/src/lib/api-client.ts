@@ -8,7 +8,7 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 1800000, // Tăng lên 30 phút (1,800,000 ms) theo yêu cầu
 });
 
 // Biến lưu trữ token trên bộ nhớ để tránh gọi getSession() liên tục gây chậm Web

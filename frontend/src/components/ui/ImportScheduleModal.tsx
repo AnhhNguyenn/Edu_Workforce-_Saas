@@ -6,6 +6,7 @@ import { usePreviewImportSession, useConfirmImportSession } from '@/hooks/querie
 import { toast } from 'react-hot-toast';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 import { Switch } from './switch';
 
@@ -15,7 +16,7 @@ interface ImportScheduleModalProps {
 
 export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
   const [step, setStep] = useState<'upload' | 'preview_system' | 'preview_sessions'>('upload');
-  
+
   const [files, setFiles] = useState<File[]>([]);
   const [autoCreateUsers, setAutoCreateUsers] = useState(true);
   const [autoCreateSchools, setAutoCreateSchools] = useState(true);
@@ -82,7 +83,7 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
       }));
     } catch (e) { }
   }, [autoCreateUsers, autoCreateSchools, autoCreateClasses, autoCreateCustomFields, isLoaded]);
-  
+
   const previewMutation = usePreviewImportSession();
   const confirmMutation = useConfirmImportSession();
 
@@ -197,21 +198,20 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
         </div>
       </div>
 
-      <div 
-        className={`transition-all ${
-          files.length > 0 
-            ? 'flex flex-col gap-3' 
-            : 'border-2 border-dashed border-edu-border hover:border-edu-accent hover:bg-slate-50 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer'
-        }`}
+      <div
+        className={`transition-all ${files.length > 0
+          ? 'flex flex-col gap-3'
+          : 'border-2 border-dashed border-edu-border hover:border-edu-accent hover:bg-slate-50 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer'
+          }`}
         onClick={() => files.length === 0 && fileInputRef.current?.click()}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          className="hidden" 
-          accept=".xlsx, .xls" 
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          accept=".xlsx, .xls"
           onChange={handleFileChange}
           multiple
         />
@@ -227,9 +227,9 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
                   <p className="text-sm font-bold text-edu-fg truncate">{f.name}</p>
                   <p className="text-xs text-edu-muted mt-0.5">{(f.size / 1024).toFixed(1)} KB</p>
                 </div>
-                <button 
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setFiles(prev => prev.filter((_, idx) => idx !== i));
                     if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
@@ -240,8 +240,8 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
                 </button>
               </div>
             ))}
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
               className="mt-2"
             >
@@ -269,7 +269,7 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
         <div className="bg-edu-warnLight/50 border border-edu-warnLight text-edu-warn p-4 rounded-xl text-sm shadow-sm flex gap-3">
           <AlertCircle className="shrink-0 mt-0.5" size={20} />
           <div>
-            <p className="font-bold mb-1">Kiểm tra dữ liệu Hệ thống (Chưa lưu vào Database)</p>
+            <p className="font-bold mb-1">Kiểm tra dữ liệu Hệ thống (VUI LÒNG KIỂM TRA KỸ TRƯỚC KHI XÁC NHẬN)</p>
             <p className="text-edu-fg/80">Dưới đây là các tài khoản, cơ sở, lớp học sẽ được hệ thống tạo mới. Bạn có thể xóa nếu không muốn tạo.</p>
           </div>
         </div>
@@ -332,7 +332,7 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
                     {previewData.schoolsToCreate.map((s: any) => (
                       <li key={s.tempId} className="px-4 py-2.5 flex justify-between items-center hover:bg-slate-50">
                         <span className="text-sm font-bold text-edu-fg">{s.name}</span>
-                        <button onClick={() => removeItem('schoolsToCreate', s.tempId)} className="text-edu-muted hover:text-edu-danger p-1.5 hover:bg-edu-dangerLight rounded-md"><Trash2 size={14}/></button>
+                        <button onClick={() => removeItem('schoolsToCreate', s.tempId)} className="text-edu-muted hover:text-edu-danger p-1.5 hover:bg-edu-dangerLight rounded-md"><Trash2 size={14} /></button>
                       </li>
                     ))}
                   </ul>
@@ -357,13 +357,52 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
                           <div className="text-sm font-bold text-edu-fg">{c.name}</div>
                           <div className="text-xs text-edu-muted">Thuộc: {c.schoolName}</div>
                         </div>
-                        <button onClick={() => removeItem('classesToCreate', c.tempId)} className="text-edu-muted hover:text-edu-danger p-1.5 hover:bg-edu-dangerLight rounded-md"><Trash2 size={14}/></button>
+                        <button onClick={() => removeItem('classesToCreate', c.tempId)} className="text-edu-muted hover:text-edu-danger p-1.5 hover:bg-edu-dangerLight rounded-md"><Trash2 size={14} /></button>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
             </div>
+
+            {previewData.customFieldsToCreate && (
+              <div className="border border-edu-border rounded-xl overflow-hidden shadow-sm bg-white">
+                <div className="bg-slate-50 border-b border-edu-border px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-edu-fg text-sm">
+                    <Settings2 size={16} className="text-slate-500" /> Thông tin bổ sung Mới ({previewData.customFieldsToCreate.length})
+                  </div>
+                </div>
+                <div className="p-0 max-h-[140px] overflow-y-auto">
+                  {previewData.customFieldsToCreate.length === 0 ? (
+                    <div className="p-4 text-center text-edu-muted text-sm">Không có cột tùy chỉnh mới</div>
+                  ) : (
+                    <ul className="divide-y divide-edu-border">
+                      {previewData.customFieldsToCreate.map((cf: any, i: number) => (
+                        <li key={i} className="px-4 py-2.5 flex justify-between items-center hover:bg-slate-50">
+                          <span className="text-sm font-bold text-edu-fg">{cf.fieldName}</span>
+                          <button onClick={() => {
+                            const newData = { ...previewData };
+                            newData.customFieldsToCreate = newData.customFieldsToCreate.filter((c: any) => c.fieldName !== cf.fieldName);
+                            
+                            // Also remove this field from extraData in all sessions
+                            newData.sessions = newData.sessions.map((s: any) => {
+                              if (s.extraData && s.extraData[cf.fieldName]) {
+                                const newExtraData = { ...s.extraData };
+                                delete newExtraData[cf.fieldName];
+                                return { ...s, extraData: newExtraData };
+                              }
+                              return s;
+                            });
+                            
+                            setPreviewData(newData);
+                          }} className="text-edu-muted hover:text-edu-danger p-1.5 hover:bg-edu-dangerLight rounded-md"><Trash2 size={14} /></button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -406,7 +445,7 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
               {previewData.sessions.map((s: any) => (
                 <TableRow key={s.tempId}>
                   <TableCell className="font-medium text-edu-fg">{new Date(s.sessionDate).toLocaleDateString('en-GB')}</TableCell>
-                  <TableCell className="font-bold text-edu-muted">{s.startTime.substring(0,5)} - {s.endTime.substring(0,5)}</TableCell>
+                  <TableCell className="font-bold text-edu-muted">{s.startTime.substring(0, 5)} - {s.endTime.substring(0, 5)}</TableCell>
                   <TableCell className="font-bold text-edu-accent">{s.className}</TableCell>
                   <TableCell className="text-edu-muted">{s.schoolName}</TableCell>
                   <TableCell className="font-medium">{s.teacherName || <span className="text-edu-muted font-normal italic">Trống</span>}</TableCell>
@@ -415,7 +454,7 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
                   <TableCell>
                     {s.errors && s.errors.length > 0 ? (
                       <Badge variant="danger" className="flex gap-1 items-center px-1.5 py-0.5">
-                        <AlertCircle size={12}/> Lỗi
+                        <AlertCircle size={12} /> Lỗi
                       </Badge>
                     ) : <Badge variant="success">Hợp lệ</Badge>}
                   </TableCell>
@@ -445,49 +484,77 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
             <div className="bg-white rounded-xl shadow-lg w-[500px] overflow-hidden">
               <div className="px-6 py-4 border-b border-edu-border font-bold text-lg flex justify-between items-center">
                 Chỉnh sửa Ca học
-                <button onClick={() => setEditingSession(null)} className="text-edu-muted hover:text-edu-fg"><X size={20}/></button>
+                <button onClick={() => setEditingSession(null)} className="text-edu-muted hover:text-edu-fg"><X size={20} /></button>
               </div>
               <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Ngày học</label>
-                    <input type="date" className="w-full border rounded-lg px-3 py-2 text-sm" value={editingSession.sessionDate ? new Date(editingSession.sessionDate).toISOString().split('T')[0] : ''} onChange={e => setEditingSession({...editingSession, sessionDate: new Date(e.target.value).toISOString()})} />
+                    <label className="block text-sm font-medium mb-1 text-slate-700">Ngày học</label>
+                    <Input type="date" value={editingSession.sessionDate ? new Date(editingSession.sessionDate).toISOString().split('T')[0] : ''} onChange={e => setEditingSession({ ...editingSession, sessionDate: new Date(e.target.value).toISOString() })} />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-sm font-medium mb-1">Từ giờ</label>
-                      <input type="time" className="w-full border rounded-lg px-3 py-2 text-sm" value={editingSession.startTime?.substring(0,5)} onChange={e => setEditingSession({...editingSession, startTime: e.target.value + ":00"})} />
+                      <label className="block text-sm font-medium mb-1 text-slate-700">Từ giờ</label>
+                      <Input type="time" value={editingSession.startTime?.substring(0, 5)} onChange={e => setEditingSession({ ...editingSession, startTime: e.target.value + ":00" })} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1">Đến</label>
-                      <input type="time" className="w-full border rounded-lg px-3 py-2 text-sm" value={editingSession.endTime?.substring(0,5)} onChange={e => setEditingSession({...editingSession, endTime: e.target.value + ":00"})} />
+                      <label className="block text-sm font-medium mb-1 text-slate-700">Đến</label>
+                      <Input type="time" value={editingSession.endTime?.substring(0, 5)} onChange={e => setEditingSession({ ...editingSession, endTime: e.target.value + ":00" })} />
                     </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Lớp học</label>
-                    <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" value={editingSession.className || ''} onChange={e => setEditingSession({...editingSession, className: e.target.value})} />
+                    <label className="block text-sm font-medium mb-1 text-slate-700">Lớp học</label>
+                    <Input type="text" value={editingSession.className || ''} onChange={e => setEditingSession({ ...editingSession, className: e.target.value })} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Cơ sở</label>
-                    <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" value={editingSession.schoolName || ''} onChange={e => setEditingSession({...editingSession, schoolName: e.target.value})} />
+                    <label className="block text-sm font-medium mb-1 text-slate-700">Cơ sở</label>
+                    <Input type="text" value={editingSession.schoolName || ''} onChange={e => setEditingSession({ ...editingSession, schoolName: e.target.value })} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Giáo viên</label>
-                    <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" value={editingSession.teacherName || ''} onChange={e => setEditingSession({...editingSession, teacherName: e.target.value})} />
+                    <label className="block text-sm font-medium mb-1 text-slate-700">Giáo viên</label>
+                    <Input type="text" value={editingSession.teacherName || ''} onChange={e => setEditingSession({ ...editingSession, teacherName: e.target.value })} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Sĩ số</label>
-                    <input type="number" className="w-full border rounded-lg px-3 py-2 text-sm" value={editingSession.actualStudentCount || 0} onChange={e => setEditingSession({...editingSession, actualStudentCount: parseInt(e.target.value)})} />
+                    <label className="block text-sm font-medium mb-1 text-slate-700">Sĩ số</label>
+                    <Input type="number" value={editingSession.actualStudentCount || 0} onChange={e => setEditingSession({ ...editingSession, actualStudentCount: parseInt(e.target.value) })} />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Trợ giảng (Cách nhau bởi dấu phẩy)</label>
-                  <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" value={editingSession.assistantNames ? editingSession.assistantNames.join(', ') : ''} onChange={e => setEditingSession({...editingSession, assistantNames: e.target.value.split(',').map((s: string)=>s.trim()).filter((s: string)=>s)})} />
+                  <label className="block text-sm font-medium mb-1 text-slate-700">Trợ giảng</label>
+                  <Input type="text" value={editingSession.assistantNames ? editingSession.assistantNames.join(', ') : ''} onChange={e => setEditingSession({ ...editingSession, assistantNames: e.target.value.split(',').map((s: string) => s.trim()).filter((s: string) => s) })} />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-slate-700">Tiến độ bài giảng</label>
+                  <Input type="text" placeholder="VD: Review Course..." value={editingSession.lessonProgress || ''} onChange={e => setEditingSession({ ...editingSession, lessonProgress: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-slate-700">Nhận xét / Ghi chú</label>
+                  <textarea className="flex min-h-[80px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 resize-none transition-all" placeholder="Ghi chú thêm về ca học..." value={editingSession.notes || ''} onChange={e => setEditingSession({ ...editingSession, notes: e.target.value })} />
+                </div>
+                {editingSession.extraData && Object.keys(editingSession.extraData).length > 0 && (
+                  <div className="pt-4 border-t border-slate-100 mt-2">
+                    <h5 className="text-sm font-bold text-slate-800 mb-3">Cột tùy chỉnh</h5>
+                    <div className="grid grid-cols-2 gap-4">
+                      {Object.keys(editingSession.extraData).map(key => (
+                        <div key={key}>
+                          <label className="block text-sm font-medium mb-1 text-slate-700">{key}</label>
+                          <Input
+                            type="text"
+                            value={editingSession.extraData[key] || ''}
+                            onChange={e => setEditingSession({
+                              ...editingSession,
+                              extraData: { ...editingSession.extraData, [key]: e.target.value }
+                            })}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setEditingSession(null)}>Hủy</Button>
@@ -502,9 +569,9 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
   };
 
   const getModalWidth = () => {
-    if (step === 'upload') return 'max-w-2xl';
-    if (step === 'preview_system') return 'max-w-5xl';
-    return 'max-w-[90vw]';
+    if (step === 'upload') return '!max-w-2xl';
+    if (step === 'preview_system') return '!max-w-5xl';
+    return '!max-w-[90vw]';
   };
 
   return (
@@ -512,9 +579,9 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
       isOpen={true}
       onClose={onClose}
       title={
-        step === 'upload' ? "Phân tích & Nhập lịch học từ Excel" : 
-        step === 'preview_system' ? "Bước 1/2: Kiểm tra Dữ liệu Khởi tạo" : 
-        "Bước 2/2: Xác nhận Danh sách Ca học"
+        step === 'upload' ? "Phân tích & Nhập lịch học từ Excel" :
+          step === 'preview_system' ? "Bước 1/2: Kiểm tra Dữ liệu Khởi tạo" :
+            "Bước 2/2: Xác nhận Danh sách Ca học"
       }
       className={getModalWidth()}
       footer={
@@ -534,10 +601,10 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
 
           <div className="flex gap-3">
             <Button variant="outline" onClick={onClose} disabled={previewMutation.isPending || confirmMutation.isPending}>Hủy</Button>
-            
+
             {step === 'upload' && (
-              <Button 
-                onClick={handlePreview} 
+              <Button
+                onClick={handlePreview}
                 disabled={files.length === 0 || previewMutation.isPending}
                 className="bg-edu-accent hover:bg-edu-accent/90 text-white gap-2 px-6"
               >
@@ -547,8 +614,8 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
             )}
 
             {step === 'preview_system' && (
-              <Button 
-                onClick={() => setStep('preview_sessions')} 
+              <Button
+                onClick={() => setStep('preview_sessions')}
                 className="bg-edu-accent hover:bg-edu-accent/90 text-white gap-2 px-6"
               >
                 Tiếp tục <ArrowRight size={16} />
@@ -556,8 +623,8 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
             )}
 
             {step === 'preview_sessions' && (
-              <Button 
-                onClick={handleConfirm} 
+              <Button
+                onClick={handleConfirm}
                 disabled={confirmMutation.isPending || !previewData || previewData.sessions.length === 0}
                 className="bg-edu-success hover:bg-edu-success/90 text-white gap-2 px-6 shadow-md shadow-edu-success/20"
               >

@@ -70,21 +70,32 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
+      // Nếu có user mới đăng nhập → ghi đè token hoàn toàn (xóa error cũ nếu có)
       if (user) {
-        token.role = (user as any).role;
-        token.accessToken = (user as any).token;
-        token.refreshToken = (user as any).refreshToken;
-        
-        // Parse token to get expiration time
-        try {
-          const parts = ((user as any).token as string).split('.');
-          if (parts.length === 3) {
-            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-            token.accessTokenExpires = payload.exp * 1000;
-          }
-        } catch (e) {
-          console.error("Lỗi khi parse JWT", e);
-        }
+        return {
+          ...token,
+          role: (user as any).role,
+          accessToken: (user as any).token,
+          refreshToken: (user as any).refreshToken,
+          error: undefined, // Xóa error cũ khi login thành công
+          accessTokenExpires: (() => {
+            try {
+              const parts = ((user as any).token as string).split('.');
+              if (parts.length === 3) {
+                const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+                return payload.exp * 1000;
+              }
+            } catch (e) {
+              console.error("Lỗi khi parse JWT", e);
+            }
+            return undefined;
+          })()
+        };
+      }
+
+      // ĐÃ FAIL REFRESH TRƯỚC ĐÓ → không cố refresh lại, trả về luôn để tránh loop vô hạn
+      if (token.error === "RefreshAccessTokenError") {
+        return token;
       }
 
       // Check if token has expired (with 10 seconds buffer)
@@ -123,7 +134,8 @@ export const authOptions: NextAuthOptions = {
           ...token,
           accessToken: refreshedTokens.accessToken,
           accessTokenExpires: newExp,
-          refreshToken: refreshedTokens.refreshToken ?? token.refreshToken
+          refreshToken: refreshedTokens.refreshToken ?? token.refreshToken,
+          error: undefined // Xóa error nếu refresh thành công
         };
       } catch (error) {
         console.error("Lỗi khi refresh token:", error);
