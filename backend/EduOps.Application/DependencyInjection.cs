@@ -29,6 +29,9 @@ namespace EduOps.Application
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<EduOps.Application.BackgroundJobs.NotificationJobs>();
 
+            // AI Mapping Service
+            services.AddHttpClient<IAiMappingService, MimoMappingService>();
+
             // Mapping: Khuyến nghị dùng Manual Mapping bằng Extension Methods thay vì AutoMapper
             // để đảm bảo Performance và giảm Dependency theo chuẩn Clean Architecture.
 

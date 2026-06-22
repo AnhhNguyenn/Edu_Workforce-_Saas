@@ -84,21 +84,38 @@ export const ExportScheduleModal: React.FC<ExportScheduleModalProps> = ({ onClos
         return;
       }
 
-      // Enrich data
-      const enrichedSessions = sessions.map((s: any) => {
+      // Enrich data and group by time/teacher/assistant
+      const groupedSessionsMap = new Map<string, any>();
+      
+      sessions.forEach((s: any) => {
         const cInfo = classes?.items?.find((c: any) => c.id === s.classId);
         const className = cInfo?.name || s.classId?.substring(0, 8);
+        const studentsCount = cInfo?.studentsCount || 0;
+        
         const schId = (cInfo as any)?.schoolId || s.schoolId;
         const schoolName = schools?.items?.find((sch: any) => sch.id === schId)?.name || 'Chưa xếp cơ sở';
         const tName = teachers?.items?.find((t: any) => t.id === s.teacherId)?.fullName || 'Chưa xếp';
+        const aName = s.assistantId ? (teachers?.items?.find((t: any) => t.id === s.assistantId)?.fullName || 'Chưa xếp') : ''; // Trợ giảng từ bảng user
         
-        return {
-          ...s,
-          className,
-          schoolName,
-          teacherName: tName,
-        };
+        const key = `${s.sessionDate}_${s.startTime}_${s.endTime}_${s.teacherId}`;
+        
+        if (groupedSessionsMap.has(key)) {
+          const existing = groupedSessionsMap.get(key);
+          existing.className = `${existing.className}, ${className}`;
+          existing.studentsCount = (existing.studentsCount || 0) + studentsCount;
+        } else {
+          groupedSessionsMap.set(key, {
+            ...s,
+            className,
+            schoolName,
+            teacherName: tName,
+            assistantName: aName,
+            studentsCount
+          });
+        }
       });
+
+      const enrichedSessions = Array.from(groupedSessionsMap.values());
 
       // Format data for excel
       const formatDataForSheet = (data: any[]) => {
@@ -108,12 +125,14 @@ export const ExportScheduleModal: React.FC<ExportScheduleModalProps> = ({ onClos
           'Giờ kết thúc': s.endTime.substring(0, 5),
           'Cơ sở': s.schoolName,
           'Lớp': s.className,
+          'Sĩ số': s.studentsCount || 0,
           'Bài học': s.lessonTitle || 'Lý thuyết',
           'Phòng': s.roomName || 'Chưa xếp phòng',
           'Giáo viên': s.teacherName,
-          'Trợ giảng': s.assistantName || 'Chưa xếp',
+          'Trợ giảng': s.assistantName || s.localTeachingAssistant || 'Chưa xếp',
           'Trạng thái': s.statusCode === 'COMPLETED' ? 'Đã hoàn thành' : (s.statusCode === 'CANCELLED' ? 'Đã hủy' : 'Đã lên lịch'),
-          'Ghi chú': s.notes || ''
+          'Tiến độ': s.lessonProgress || 'Đúng tiến độ',
+          'Nhận xét': s.notes || ''
         }));
       };
 
@@ -135,7 +154,7 @@ export const ExportScheduleModal: React.FC<ExportScheduleModalProps> = ({ onClos
           // Auto-size columns
           const colWidths = [
             { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 25 }, 
-            { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 30 }
+            { wch: 20 }, { wch: 8 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 30 }
           ];
           ws['!cols'] = colWidths;
           
@@ -156,10 +175,12 @@ export const ExportScheduleModal: React.FC<ExportScheduleModalProps> = ({ onClos
 
       } else {
         // Multiple files -> ZIP
-        const JSZip = (await import('jszip')).default;
-        const { saveAs } = await import('file-saver');
+        const jszipMod = await import('jszip');
+        const JSZip = jszipMod.default || jszipMod;
+        const fsMod = await import('file-saver');
+        const saveAs = fsMod.saveAs || fsMod.default?.saveAs || fsMod.default;
         
-        const zip = new JSZip();
+        const zip = new (JSZip as any)();
         
         const groupedByTeacher: Record<string, any[]> = {};
         enrichedSessions.forEach((s: any) => {
@@ -175,7 +196,7 @@ export const ExportScheduleModal: React.FC<ExportScheduleModalProps> = ({ onClos
           
           const colWidths = [
             { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 25 }, 
-            { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 30 }
+            { wch: 20 }, { wch: 8 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 30 }
           ];
           ws['!cols'] = colWidths;
           XLSX.utils.book_append_sheet(wb, ws, "Lịch Học");
@@ -192,9 +213,9 @@ export const ExportScheduleModal: React.FC<ExportScheduleModalProps> = ({ onClos
       }
       
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Export error:', error);
-      toast.error('Có lỗi xảy ra khi xuất dữ liệu!');
+      toast.error('Lỗi xuất dữ liệu: ' + (error?.message || 'Có lỗi xảy ra'));
     } finally {
       setIsExporting(false);
     }

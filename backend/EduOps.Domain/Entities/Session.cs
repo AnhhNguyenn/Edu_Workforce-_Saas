@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using EduOps.Domain.Enums;
 
 namespace EduOps.Domain.Entities
@@ -15,7 +16,19 @@ namespace EduOps.Domain.Entities
         public string LessonTitle { get; set; } = string.Empty;
         public string? RoomName { get; set; }
         public string? Notes { get; set; }
+        
+        // Bổ sung cho Báo cáo Trợ giảng
+        public string? LocalTeachingAssistant { get; set; }
+        public string? LessonProgress { get; set; }
+        
+        // Sĩ số thực tế từ Excel
+        public int? ActualStudentCount { get; set; }
+
+        // Dữ liệu mở rộng (Custom Fields) dạng JSON
+        public string? ExtraData { get; set; }
+
         public virtual SessionDetail? SessionDetail { get; set; }
+        public virtual ICollection<SessionAssistant> SessionAssistants { get; set; } = new List<SessionAssistant>();
 
         public DateTime SessionDate { get; set; }
         public TimeSpan StartTime { get; set; }

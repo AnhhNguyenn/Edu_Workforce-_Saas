@@ -154,7 +154,7 @@ namespace EduOps.Application.Services
 
                     if (!exists)
                     {
-                        await _sessionService.CheckConflictAsync(organizationId, schedule.TeacherId, schedule.AssistantId, date, schedule.StartTime, schedule.EndTime);
+                        await _sessionService.CheckConflictAsync(organizationId, schedule.TeacherId, schedule.AssistantId.HasValue ? new System.Collections.Generic.List<Guid> { schedule.AssistantId.Value } : null, date, schedule.StartTime, schedule.EndTime);
 
                         var scheduledStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.SessionStatus>().FirstOrDefaultAsync(s => s.Code == "SCHEDULED");
                         var session = new Session
@@ -165,6 +165,7 @@ namespace EduOps.Application.Services
                             SchoolId = classEntity.SchoolId,
                             TeacherId = schedule.TeacherId,
                             AssistantId = schedule.AssistantId,
+                            SessionAssistants = schedule.AssistantId.HasValue ? new System.Collections.Generic.List<SessionAssistant> { new SessionAssistant { AssistantId = schedule.AssistantId.Value } } : new System.Collections.Generic.List<SessionAssistant>(),
                             LessonTitle = $"Buổi học {date:dd/MM/yyyy}",
                             SessionDate = date,
                             StartTime = schedule.StartTime,

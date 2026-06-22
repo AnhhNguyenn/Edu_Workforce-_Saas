@@ -10,6 +10,8 @@ namespace EduOps.Application.DTOs.Academic
         public Guid? AssistantId { get; set; }
         public string LessonTitle { get; set; } = string.Empty;
         public string? RoomName { get; set; }
+        public string? LocalTeachingAssistant { get; set; }
+        public string? LessonProgress { get; set; }
         public DateTime SessionDate { get; set; }
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }

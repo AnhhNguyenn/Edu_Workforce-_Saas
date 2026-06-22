@@ -1,5 +1,6 @@
 using EduOps.Application.DTOs.Academic.Sessions.Responses;
 using EduOps.Domain.Entities;
+using System.Linq;
 
 namespace EduOps.Application.Mappings
 {
@@ -14,10 +15,16 @@ namespace EduOps.Application.Mappings
                 Id = s.Id,
                 ClassId = s.ClassId,
                 TeacherId = s.TeacherId,
-                AssistantId = s.AssistantId,
+                AssistantIds = s.SessionAssistants != null && s.SessionAssistants.Any() 
+                                ? s.SessionAssistants.Select(sa => sa.AssistantId).ToList() 
+                                : (s.AssistantId.HasValue ? new System.Collections.Generic.List<System.Guid> { s.AssistantId.Value } : null),
                 LessonTitle = s.LessonTitle,
                 RoomName = s.RoomName,
                 Notes = s.Notes,
+                ActualStudentCount = s.ActualStudentCount,
+                ExtraData = s.ExtraData,
+                LocalTeachingAssistant = s.LocalTeachingAssistant,
+                LessonProgress = s.LessonProgress,
                 SessionDate = s.SessionDate,
                 StartTime = s.StartTime,
                 EndTime = s.EndTime,
@@ -35,10 +42,16 @@ namespace EduOps.Application.Mappings
                 Id = s.Id,
                 ClassId = s.ClassId,
                 TeacherId = s.TeacherId,
-                AssistantId = s.AssistantId,
+                AssistantIds = s.SessionAssistants != null && s.SessionAssistants.Any() 
+                                ? s.SessionAssistants.Select(sa => sa.AssistantId).ToList() 
+                                : (s.AssistantId.HasValue ? new System.Collections.Generic.List<System.Guid> { s.AssistantId.Value } : null),
                 LessonTitle = s.LessonTitle,
                 RoomName = s.RoomName,
                 Notes = s.Notes,
+                ActualStudentCount = s.ActualStudentCount,
+                ExtraData = s.ExtraData,
+                LocalTeachingAssistant = s.LocalTeachingAssistant,
+                LessonProgress = s.LessonProgress,
                 SessionDate = s.SessionDate,
                 StartTime = s.StartTime,
                 EndTime = s.EndTime,

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { useSubmitTeacherReport, useSubmitAssistantReport, useSessionReport, useUploadReportMedia } from '@/hooks/queries/useReports';
+import { useUpdateSession, useSessions } from '@/hooks/queries/useSessions';
 import { useProfile } from '@/hooks/queries/useProfile';
 import { ChevronLeft, Loader2, Save, Star, ImagePlus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -23,6 +24,7 @@ export default function SubmitReportPage({ params }: { params: { sessionId: stri
 
   const teacherMutation = useSubmitTeacherReport(sessionId);
   const assistantMutation = useSubmitAssistantReport(sessionId);
+  const updateSessionMutation = useUpdateSession();
   const uploadMediaMutation = useUploadReportMedia();
 
   const isTeacher = profile?.role === 'TEACHER';
@@ -37,6 +39,8 @@ export default function SubmitReportPage({ params }: { params: { sessionId: stri
 
   // Assistant Form State
   const [assistantNote, setAssistantNote] = useState('');
+  const [localTeachingAssistant, setLocalTeachingAssistant] = useState('');
+  const [assistantProgress, setAssistantProgress] = useState('Đúng tiến độ');
   const [ratingForTeacher, setRatingForTeacher] = useState(5);
   const [feedbackForTeacher, setFeedbackForTeacher] = useState('');
 
@@ -77,8 +81,18 @@ export default function SubmitReportPage({ params }: { params: { sessionId: stri
         onError: (e: any) => toast.error(e.response?.data?.message || "Lỗi nộp báo cáo")
       });
     } else {
-      if (!assistantNote.trim()) return toast.error("Vui lòng nhập Ghi chú của trợ giảng");
+      if (!assistantNote.trim()) return toast.error("Vui lòng nhập Nhận xét");
       if (ratingForTeacher < 1 || ratingForTeacher > 5) return toast.error("Điểm đánh giá giáo viên từ 1 đến 5");
+
+      // Update Session directly for these 3 fields
+      updateSessionMutation.mutate({
+        id: sessionId,
+        data: {
+          notes: assistantNote,
+          localTeachingAssistant: localTeachingAssistant,
+          lessonProgress: assistantProgress
+        }
+      });
 
       assistantMutation.mutate({
         assistantNote,
@@ -119,7 +133,7 @@ export default function SubmitReportPage({ params }: { params: { sessionId: stri
     );
   }
 
-  const isPending = teacherMutation.isPending || assistantMutation.isPending || uploadMediaMutation.isPending;
+  const isPending = teacherMutation.isPending || assistantMutation.isPending || uploadMediaMutation.isPending || updateSessionMutation.isPending;
 
   return (
     <div className="space-y-4 pb-20 -mt-2">
@@ -176,7 +190,23 @@ export default function SubmitReportPage({ params }: { params: { sessionId: stri
         ) : (
           <>
             <div>
-              <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Ghi chú của Trợ giảng</label>
+              <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Tiến độ bài giảng</label>
+              <Select 
+                value={assistantProgress} 
+                onChange={val => setAssistantProgress(val)} 
+                options={[
+                  { value: 'Đúng tiến độ', label: 'Đúng tiến độ' },
+                  { value: 'Chậm tiến độ', label: 'Chậm tiến độ' },
+                  { value: 'Vượt tiến độ', label: 'Vượt tiến độ' }
+                ]}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Trợ giảng tại trường MN/THCS</label>
+              <Input value={localTeachingAssistant} onChange={e => setLocalTeachingAssistant(e.target.value)} placeholder="Tên trợ giảng tại cơ sở..." />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-edu-muted uppercase mb-1">Nhận xét</label>
               <Textarea value={assistantNote} onChange={e => setAssistantNote(e.target.value)} rows={3} placeholder="Tình hình lớp, học sinh..." />
             </div>
 

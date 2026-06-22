@@ -32,6 +32,7 @@ namespace EduOps.Infrastructure.Data
         public DbSet<ClassSchedule> ClassSchedules { get; set; }
         public DbSet<Session> Sessions { get; set; }
         public DbSet<SessionDetail> SessionDetails { get; set; }
+        public DbSet<SessionAssistant> SessionAssistants { get; set; }
 
         // --- ATTENDANCE & REPORT ---
         public DbSet<Attendance> Attendances { get; set; }
@@ -45,6 +46,7 @@ namespace EduOps.Infrastructure.Data
 
         // --- SYSTEM & AUDIT ---
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<TenantCustomField> TenantCustomFields { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<FileRecord> Files { get; set; }
         public DbSet<BillingTransaction> BillingTransactions { get; set; }

@@ -56,10 +56,58 @@ namespace EduOps.Api.Controllers
             return Ok(result);
         }
 
+        [HttpGet("custom-fields")]
+        public async Task<IActionResult> GetCustomFields()
+        {
+            var result = await _sessionService.GetSessionCustomFieldsAsync(GetOrganizationId());
+            return Ok(result);
+        }
+
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateSessionRequestDto request)
         {
             var result = await _sessionService.CreateSessionAsync(GetOrganizationId(), request);
+            return Ok(result);
+        }
+
+        [HttpPost("batch")]
+        public async Task<IActionResult> BatchCreate([FromBody] BatchCreateSessionRequestDto request)
+        {
+            var result = await _sessionService.CreateBatchSessionsAsync(GetOrganizationId(), request);
+            return Ok(result);
+        }
+
+        [HttpPost("batch-update-staff")]
+        public async Task<IActionResult> BatchUpdateStaff([FromBody] BatchUpdateStaffRequestDto request)
+        {
+            var result = await _sessionService.BatchUpdateStaffAsync(GetOrganizationId(), request);
+            return Ok(result);
+        }
+
+        [HttpPost("import")]
+        public async Task<IActionResult> Import([FromForm] ImportSessionRequestDto request)
+        {
+            if (request.Files == null || request.Files.Count == 0)
+                return BadRequest("No files uploaded.");
+
+            var result = await _sessionService.ImportSessionsFromExcelAsync(GetOrganizationId(), request);
+            return Ok(result);
+        }
+
+        [HttpPost("import/preview")]
+        public async Task<IActionResult> PreviewImport([FromForm] ImportSessionRequestDto request)
+        {
+            if (request.Files == null || request.Files.Count == 0)
+                return BadRequest("No files uploaded.");
+
+            var result = await _sessionService.PreviewImportSessionsFromExcelAsync(GetOrganizationId(), request);
+            return Ok(result);
+        }
+
+        [HttpPost("import/confirm")]
+        public async Task<IActionResult> ConfirmImport([FromBody] EduOps.Application.DTOs.Academic.Sessions.Responses.SessionImportPreviewResponseDto request)
+        {
+            var result = await _sessionService.ConfirmImportSessionsAsync(GetOrganizationId(), request);
             return Ok(result);
         }
 

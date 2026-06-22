@@ -3,6 +3,7 @@ using System;
 using EduOps.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EduOps.Infrastructure.Migrations
 {
     [DbContext(typeof(EduOpsDbContext))]
-    partial class EduOpsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260622012323_AddLocalTAAndLessonProgressToSession")]
+    partial class AddLocalTAAndLessonProgressToSession
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1668,9 +1671,6 @@ namespace EduOps.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<int?>("ActualStudentCount")
-                        .HasColumnType("integer");
-
                     b.Property<Guid?>("AssistantId")
                         .HasColumnType("uuid");
 
@@ -1694,9 +1694,6 @@ namespace EduOps.Infrastructure.Migrations
 
                     b.Property<TimeSpan>("EndTime")
                         .HasColumnType("interval");
-
-                    b.Property<string>("ExtraData")
-                        .HasColumnType("text");
 
                     b.Property<string>("LessonProgress")
                         .HasColumnType("text");
@@ -1755,56 +1752,6 @@ namespace EduOps.Infrastructure.Migrations
                     b.HasIndex("SessionDate", "TeacherId");
 
                     b.ToTable("Sessions");
-                });
-
-            modelBuilder.Entity("EduOps.Domain.Entities.SessionAssistant", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AssistantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("OrganizationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("SessionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<uint>("Version")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssistantId");
-
-                    b.HasIndex("OrganizationId");
-
-                    b.HasIndex("SessionId");
-
-                    b.ToTable("SessionAssistants");
                 });
 
             modelBuilder.Entity("EduOps.Domain.Entities.SessionDetail", b =>
@@ -2274,64 +2221,6 @@ namespace EduOps.Infrastructure.Migrations
                     b.ToTable("SystemSettings");
                 });
 
-            modelBuilder.Entity("EduOps.Domain.Entities.TenantCustomField", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("EntityName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FieldName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FieldType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsRequired")
-                        .HasColumnType("boolean");
-
-                    b.Property<int>("OrderIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid?>("OrganizationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<uint>("Version")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrganizationId");
-
-                    b.ToTable("TenantCustomFields");
-                });
-
             modelBuilder.Entity("EduOps.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2795,31 +2684,6 @@ namespace EduOps.Infrastructure.Migrations
                     b.Navigation("Status");
                 });
 
-            modelBuilder.Entity("EduOps.Domain.Entities.SessionAssistant", b =>
-                {
-                    b.HasOne("EduOps.Domain.Entities.User", "Assistant")
-                        .WithMany()
-                        .HasForeignKey("AssistantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
-                        .WithMany()
-                        .HasForeignKey("OrganizationId");
-
-                    b.HasOne("EduOps.Domain.Entities.Session", "Session")
-                        .WithMany("SessionAssistants")
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Assistant");
-
-                    b.Navigation("Organization");
-
-                    b.Navigation("Session");
-                });
-
             modelBuilder.Entity("EduOps.Domain.Entities.SessionDetail", b =>
                 {
                     b.HasOne("EduOps.Domain.Entities.Session", "Session")
@@ -2907,15 +2771,6 @@ namespace EduOps.Infrastructure.Migrations
                     b.Navigation("SubscriptionPlan");
                 });
 
-            modelBuilder.Entity("EduOps.Domain.Entities.TenantCustomField", b =>
-                {
-                    b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
-                        .WithMany()
-                        .HasForeignKey("OrganizationId");
-
-                    b.Navigation("Organization");
-                });
-
             modelBuilder.Entity("EduOps.Domain.Entities.User", b =>
                 {
                     b.HasOne("EduOps.Domain.Entities.Organization", "Organization")
@@ -2998,8 +2853,6 @@ namespace EduOps.Infrastructure.Migrations
 
             modelBuilder.Entity("EduOps.Domain.Entities.Session", b =>
                 {
-                    b.Navigation("SessionAssistants");
-
                     b.Navigation("SessionDetail");
                 });
 
