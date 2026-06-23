@@ -8,7 +8,7 @@ export interface NotificationDto {
   type: string;
   isRead: boolean;
   createdAt: string;
-  link?: string;
+  actionLink?: string;
 }
 
 export interface PagedResult<T> {

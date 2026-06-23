@@ -43,6 +43,23 @@ export function useSignalR() {
           queryClient.invalidateQueries({ queryKey: ['attendances'] });
           queryClient.invalidateQueries({ queryKey: ['sessions'] });
         });
+        
+        // Realtime cho hệ thống CenterAdmin / Teacher
+        newConnection.on('ClassUpdated', () => {
+          queryClient.invalidateQueries({ queryKey: ['classes'] });
+          queryClient.invalidateQueries({ queryKey: ['sessions'] });
+        });
+        newConnection.on('StudentUpdated', () => {
+          queryClient.invalidateQueries({ queryKey: ['students'] });
+          queryClient.invalidateQueries({ queryKey: ['classes'] }); // Do enrollment thay đổi
+        });
+        newConnection.on('SessionUpdated', () => {
+          queryClient.invalidateQueries({ queryKey: ['sessions'] });
+          queryClient.invalidateQueries({ queryKey: ['schedules'] }); 
+        });
+        newConnection.on('ScheduleUpdated', () => {
+          queryClient.invalidateQueries({ queryKey: ['schedules'] });
+        });
       })
       .catch(e => {
         // Bỏ qua lỗi do React 18 Strict Mode tự động unmount component khi đang connect

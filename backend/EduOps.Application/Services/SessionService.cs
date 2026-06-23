@@ -26,14 +26,16 @@ namespace EduOps.Application.Services
         private readonly ICurrentUserService _currentUserService;
         private readonly INotificationService _notificationService;
         private readonly IAiMappingService _aiMappingService;
+        private readonly IRealtimeNotificationService _realtimeNotification;
 
-        public SessionService(IUnitOfWork unitOfWork, ICustomLogger logger, ICurrentUserService currentUserService, INotificationService notificationService, IAiMappingService aiMappingService)
+        public SessionService(IUnitOfWork unitOfWork, ICustomLogger logger, ICurrentUserService currentUserService, INotificationService notificationService, IAiMappingService aiMappingService, IRealtimeNotificationService realtimeNotification)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _currentUserService = currentUserService;
             _notificationService = notificationService;
             _aiMappingService = aiMappingService;
+            _realtimeNotification = realtimeNotification;
         }
 
         public async Task<PagedResult<SessionListResponseDto>> GetSessionsAsync(Guid organizationId, GetSessionListQueryDto query)
@@ -179,6 +181,8 @@ namespace EduOps.Application.Services
                     }
                 }
 
+                await _realtimeNotification.SendToOrganizationAsync(organizationId, "SessionUpdated");
+
                 return session.ToDetailResponseDto();
             }
             catch (Exception ex)
@@ -301,6 +305,7 @@ namespace EduOps.Application.Services
 
             repo.Update(session);
             await _unitOfWork.CommitAsync();
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "SessionUpdated");
             return session.ToDetailResponseDto();
         }
 
@@ -312,6 +317,7 @@ namespace EduOps.Application.Services
 
             repo.Remove(session);
             await _unitOfWork.CommitAsync();
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "SessionUpdated");
         }
 
         public async Task<List<SessionDetailResponseDto>> ImportSessionsFromExcelAsync(Guid organizationId, ImportSessionRequestDto request)
@@ -596,6 +602,7 @@ namespace EduOps.Application.Services
             }
             
             await _unitOfWork.CommitAsync();
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "SessionUpdated");
             return createdSessions;
         }
 

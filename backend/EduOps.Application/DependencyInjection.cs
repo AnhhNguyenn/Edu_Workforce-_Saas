@@ -27,10 +27,11 @@ namespace EduOps.Application
 
             // Notifications & Background Jobs
             services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<ISystemBroadcastService, SystemBroadcastService>();
             services.AddScoped<EduOps.Application.BackgroundJobs.NotificationJobs>();
 
-            // AI Mapping Service
-            services.AddHttpClient<IAiMappingService, MimoMappingService>();
+            // AI Mapping Service (Dynamically supports OpenAI, DeepSeek, MiMo, etc.)
+            services.AddHttpClient<IAiMappingService, DynamicAiMappingService>();
 
             // Mapping: Khuyến nghị dùng Manual Mapping bằng Extension Methods thay vì AutoMapper
             // để đảm bảo Performance và giảm Dependency theo chuẩn Clean Architecture.

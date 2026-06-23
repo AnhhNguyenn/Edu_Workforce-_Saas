@@ -4,12 +4,14 @@ import { useState, useRef, useEffect } from 'react';
 import { Bell, Check, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/components/ui/stat-card';
 import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from '@/hooks/queries/useNotifications';
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   
   const { data: notificationsData } = useNotifications(1, 10);
   const notifications = notificationsData?.items || [];
@@ -18,8 +20,12 @@ export function NotificationBell() {
   const markReadMutation = useMarkNotificationRead();
   const markAllReadMutation = useMarkAllNotificationsRead();
 
-  const markAsRead = (id: string) => {
+  const markAsRead = (id: string, actionLink?: string) => {
     markReadMutation.mutate(id);
+    if (actionLink) {
+        setIsOpen(false);
+        router.push(actionLink);
+    }
   };
   const markAllAsRead = () => {
     markAllReadMutation.mutate();
@@ -85,7 +91,13 @@ export function NotificationBell() {
                 {notifications.map((n) => (
                   <div 
                     key={n.id} 
-                    onClick={() => !n.isRead && markAsRead(n.id)}
+                    onClick={() => {
+                        if (!n.isRead) markAsRead(n.id, n.actionLink);
+                        else if (n.actionLink) {
+                            setIsOpen(false);
+                            router.push(n.actionLink);
+                        }
+                    }}
                     className={cn(
                       "p-4 border-b border-edu-border hover:bg-gray-50 cursor-pointer transition-colors relative group",
                       !n.isRead ? "bg-edu-accentLighter/30" : "opacity-80"

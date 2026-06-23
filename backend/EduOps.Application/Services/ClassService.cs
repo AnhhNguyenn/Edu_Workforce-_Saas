@@ -19,12 +19,14 @@ namespace EduOps.Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
         private readonly INotificationService _notificationService;
+        private readonly IRealtimeNotificationService _realtimeNotification;
 
-        public ClassService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, INotificationService notificationService)
+        public ClassService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, INotificationService notificationService, IRealtimeNotificationService realtimeNotification)
         {
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _notificationService = notificationService;
+            _realtimeNotification = realtimeNotification;
         }
 
         public async Task<PagedResult<ClassListResponseDto>> GetClassesAsync(Guid organizationId, GetClassListQueryDto query, Guid? teacherId)
@@ -159,6 +161,8 @@ namespace EduOps.Application.Services
                 );
             }
 
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "ClassUpdated");
+
             return newClass.ToDetailResponseDto();
         }
 
@@ -224,6 +228,8 @@ namespace EduOps.Application.Services
                     "SYSTEM"
                 );
             }
+
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "ClassUpdated");
         }
 
         public async Task DeleteAsync(Guid id, Guid organizationId)
@@ -278,6 +284,7 @@ namespace EduOps.Application.Services
             }
 
             await _unitOfWork.CommitAsync();
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "ClassUpdated");
         }
     }
 }

@@ -20,6 +20,7 @@ namespace EduOps.Application.Services
         private readonly IMemoryCache _cache;
         private readonly ICurrentUserService _currentUserService;
         private readonly Hangfire.IRecurringJobManager _recurringJobManager;
+        private readonly IRealtimeNotificationService _realtimeNotification;
 
         private const string CACHE_KEY_PREFIX = "SYS_SETTING_";
         private const string ALL_PUBLIC_SETTINGS_CACHE_KEY = "ALL_PUBLIC_SETTINGS";
@@ -29,12 +30,14 @@ namespace EduOps.Application.Services
             IUnitOfWork unitOfWork, 
             IMemoryCache cache, 
             ICurrentUserService currentUserService,
-            Hangfire.IRecurringJobManager recurringJobManager)
+            Hangfire.IRecurringJobManager recurringJobManager,
+            IRealtimeNotificationService realtimeNotification)
         {
             _unitOfWork = unitOfWork;
             _cache = cache;
             _currentUserService = currentUserService;
             _recurringJobManager = recurringJobManager;
+            _realtimeNotification = realtimeNotification;
         }
 
         public async Task<List<SystemSettingResponseDto>> GetAllSettingsAsync()
@@ -137,6 +140,8 @@ namespace EduOps.Application.Services
                     new Hangfire.RecurringJobOptions { TimeZone = System.TimeZoneInfo.Local }
                 );
             }
+
+            await _realtimeNotification.SendToAllAsync("SystemSettingUpdated");
         }
 
         public async Task<List<AuditLogResponseDto>> GetAuditLogsAsync()

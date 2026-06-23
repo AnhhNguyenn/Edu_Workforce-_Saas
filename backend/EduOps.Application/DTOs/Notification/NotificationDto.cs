@@ -11,6 +11,7 @@ namespace EduOps.Application.DTOs.Notification
         public Guid? TypeId { get; set; }
         public string TypeCode { get; set; } = string.Empty;
         public bool IsRead { get; set; }
+        public string? ActionLink { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

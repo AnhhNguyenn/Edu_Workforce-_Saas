@@ -25,7 +25,7 @@ namespace EduOps.Application.Services
             _logger = logger;
         }
 
-        public async Task<NotificationDto> CreateAndSendAsync(Guid userId, string title, string message, string type)
+        public async Task<NotificationDto> CreateAndSendAsync(Guid userId, string title, string message, string type, string? actionLink = null)
         {
             try
             {
@@ -36,7 +36,8 @@ namespace EduOps.Application.Services
                     Title = title,
                     Message = message,
                     TypeId = (await _unitOfWork.Repository<NotificationType>().FirstOrDefaultAsync(t => t.Code == type))?.Id,
-                    IsRead = false
+                    IsRead = false,
+                    ActionLink = actionLink
                 };
 
                 await repo.AddAsync(notification);
@@ -59,7 +60,8 @@ namespace EduOps.Application.Services
         public async Task<PagedResult<NotificationDto>> GetUserNotificationsAsync(Guid userId, int pageNumber, int pageSize)
         {
             var result = await _unitOfWork.Repository<Notification>()
-                .FindPagedAsync(n => n.UserId == userId, pageNumber, pageSize);
+                .FindPagedAsync(n => n.UserId == userId, pageNumber, pageSize, 
+                asNoTracking: false, includeProperties: "Type");
 
             return new PagedResult<NotificationDto>
             {
@@ -77,8 +79,27 @@ namespace EduOps.Application.Services
             if (notif == null || notif.UserId != userId) throw new NotFoundException("Notification", id);
 
             notif.IsRead = true;
+            notif.ReadAt = DateTime.UtcNow;
             repo.Update(notif);
             await _unitOfWork.CommitAsync();
+        }
+
+        public async Task MarkAllAsReadAsync(Guid userId)
+        {
+            var repo = _unitOfWork.Repository<Notification>();
+            var unreadNotifs = await repo.FindAsync(n => n.UserId == userId && !n.IsRead);
+            
+            if (unreadNotifs.Any())
+            {
+                var now = DateTime.UtcNow;
+                foreach (var notif in unreadNotifs)
+                {
+                    notif.IsRead = true;
+                    notif.ReadAt = now;
+                    repo.Update(notif);
+                }
+                await _unitOfWork.CommitAsync();
+            }
         }
     }
 }

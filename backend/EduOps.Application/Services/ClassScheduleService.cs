@@ -17,13 +17,15 @@ namespace EduOps.Application.Services
         private readonly ISessionService _sessionService;
         private readonly ICurrentUserService _currentUserService;
         private readonly INotificationService _notificationService;
+        private readonly IRealtimeNotificationService _realtimeNotification;
 
-        public ClassScheduleService(IUnitOfWork unitOfWork, ISessionService sessionService, ICurrentUserService currentUserService, INotificationService notificationService)
+        public ClassScheduleService(IUnitOfWork unitOfWork, ISessionService sessionService, ICurrentUserService currentUserService, INotificationService notificationService, IRealtimeNotificationService realtimeNotification)
         {
             _unitOfWork = unitOfWork;
             _sessionService = sessionService;
             _currentUserService = currentUserService;
             _notificationService = notificationService;
+            _realtimeNotification = realtimeNotification;
         }
 
         public async Task AddScheduleAsync(Guid classId, Guid organizationId, AddClassScheduleRequestDto request)
@@ -77,6 +79,8 @@ namespace EduOps.Application.Services
                     "SYSTEM"
                 );
             }
+
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "ScheduleUpdated");
         }
 
         public async Task EnrollStudentAsync(Guid classId, Guid organizationId, EnrollStudentRequestDto request)
@@ -122,6 +126,9 @@ namespace EduOps.Application.Services
                     "SYSTEM"
                 );
             }
+
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "StudentUpdated");
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "ClassUpdated");
         }
 
         public async Task GenerateSessionsAsync(Guid classId, Guid organizationId, GenerateSessionsRequestDto request)
@@ -199,6 +206,8 @@ namespace EduOps.Application.Services
                     "SYSTEM"
                 );
             }
+
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "SessionUpdated");
         }
     }
 }

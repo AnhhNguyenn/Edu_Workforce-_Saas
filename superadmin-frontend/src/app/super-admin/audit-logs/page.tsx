@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useAuditLogs } from '@/hooks/queries/useAuditLogs';
 import { AuditLogTable } from './_components/AuditLogTable';
+import { AiAnalyticsChart } from './_components/AiAnalyticsChart';
 import { useState, useMemo, useEffect } from 'react';
 
 import { FeatureGuard } from '@/components/ui/feature-guard';
@@ -66,6 +67,7 @@ export default function AuditLogsPage() {
               onChange={(val) => setActionFilter(val)}
               options={[
                 { value: "", label: "Tất cả loại hình" },
+                { value: "AI_USAGE_LOG", label: "Tiêu thụ AI (Tokens)" },
                 { value: "security", label: "Bảo mật" },
                 { value: "billing", label: "Thanh toán" },
                 { value: "create", label: "Tạo mới" }
@@ -76,6 +78,11 @@ export default function AuditLogsPage() {
             </Button>
           </div>
         </div>
+
+        {/* AI Analytics Chart Section */}
+        {actionFilter === '' || actionFilter === 'AI_USAGE_LOG' ? (
+          <AiAnalyticsChart logs={logs} />
+        ) : null}
 
         <AuditLogTable 
           logs={filteredLogs} 

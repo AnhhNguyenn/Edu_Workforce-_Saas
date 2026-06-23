@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { LayoutDashboard, Building2, Users, CreditCard, LineChart, Activity, Settings, Shield, BookOpen, LogOut, Tag } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, CreditCard, LineChart, Activity, Settings, Shield, BookOpen, LogOut, Tag, Megaphone } from 'lucide-react';
 import { cn } from '@/components/ui/stat-card';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -17,6 +17,7 @@ const SUPER_ADMIN_NAV = [
   { id: 'promotions', icon: Tag, label: 'Mã giảm giá', path: '/super-admin/promotions' },
   { id: 'analytics', icon: LineChart, label: 'Thống kê tổng quan', path: '/super-admin/analytics' },
   { section: 'HỆ THỐNG' },
+  { id: 'broadcasts', icon: Megaphone, label: 'Phát sóng & Thông báo', path: '/super-admin/broadcasts' },
   { id: 'roles', icon: Shield, label: 'Phân quyền & Vai trò', path: '/super-admin/roles' },
   { id: 'audit-logs', icon: Activity, label: 'Audit Logs', path: '/super-admin/audit-logs' },
   { id: 'settings', icon: Settings, label: 'Cài đặt hệ thống', path: '/super-admin/settings' }

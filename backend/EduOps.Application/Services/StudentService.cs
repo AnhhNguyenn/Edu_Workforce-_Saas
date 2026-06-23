@@ -21,12 +21,14 @@ namespace EduOps.Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
         private readonly INotificationService _notificationService;
+        private readonly IRealtimeNotificationService _realtimeNotification;
 
-        public StudentService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, INotificationService notificationService)
+        public StudentService(IUnitOfWork unitOfWork, ICurrentUserService currentUserService, INotificationService notificationService, IRealtimeNotificationService realtimeNotification)
         {
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _notificationService = notificationService;
+            _realtimeNotification = realtimeNotification;
         }
 
         public async Task<PagedResult<StudentListResponseDto>> GetStudentsAsync(Guid organizationId, GetStudentListQueryDto query)
@@ -119,6 +121,8 @@ namespace EduOps.Application.Services
                     "SYSTEM"
                 );
             }
+
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "StudentUpdated");
 
             return student.ToDetailResponseDto();
         }
@@ -218,6 +222,8 @@ namespace EduOps.Application.Services
                     "SYSTEM"
                 );
             }
+
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "StudentUpdated");
         }
 
         public async Task DeleteAsync(Guid id, Guid organizationId)
@@ -232,6 +238,7 @@ namespace EduOps.Application.Services
             student.StatusId = inactiveStatus?.Id;
             repo.Update(student);
             await _unitOfWork.CommitAsync();
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "StudentUpdated");
         }
 
         public async Task<byte[]> ExportToExcelAsync(Guid organizationId)
@@ -361,6 +368,8 @@ namespace EduOps.Application.Services
                         "SYSTEM"
                     );
                 }
+
+                await _realtimeNotification.SendToOrganizationAsync(organizationId, "StudentUpdated");
             }
 
             return result;
@@ -431,6 +440,8 @@ namespace EduOps.Application.Services
                     "SYSTEM"
                 );
             }
+
+            await _realtimeNotification.SendToOrganizationAsync(organizationId, "StudentUpdated");
         }
     }
 }

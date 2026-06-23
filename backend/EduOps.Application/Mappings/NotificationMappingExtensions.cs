@@ -18,6 +18,7 @@ namespace EduOps.Application.Mappings
                 TypeId = notif.TypeId,
                 TypeCode = notif.Type?.Code ?? string.Empty,
                 IsRead = notif.IsRead,
+                ActionLink = notif.ActionLink,
                 CreatedAt = notif.CreatedAt
             };
         }

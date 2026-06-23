@@ -8,8 +8,9 @@ namespace EduOps.Application.Interfaces
 {
     public interface INotificationService
     {
-        Task<NotificationDto> CreateAndSendAsync(Guid userId, string title, string message, string type);
+        Task<NotificationDto> CreateAndSendAsync(Guid userId, string title, string message, string type, string? actionLink = null);
         Task<PagedResult<NotificationDto>> GetUserNotificationsAsync(Guid userId, int pageNumber, int pageSize);
         Task MarkAsReadAsync(Guid id, Guid userId);
+        Task MarkAllAsReadAsync(Guid userId);
     }
 }

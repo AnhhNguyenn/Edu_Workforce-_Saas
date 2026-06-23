@@ -40,6 +40,12 @@ export function useSignalR() {
         newConnection.on('AdminUserUpdated', () => {
           queryClient.invalidateQueries({ queryKey: ['users'] });
         });
+        newConnection.on('SystemSettingUpdated', () => {
+          queryClient.invalidateQueries({ queryKey: ['settings'] });
+        });
+        newConnection.on('AuditLogUpdated', () => {
+          queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+        });
       })
       .catch(e => {
         // Bỏ qua lỗi do React 18 Strict Mode tự động unmount component khi đang connect
@@ -54,7 +60,7 @@ export function useSignalR() {
     return () => {
       newConnection.stop();
     };
-  }, [token, addNotification]);
+  }, [token, addNotification, queryClient]);
 
   return connection;
 }

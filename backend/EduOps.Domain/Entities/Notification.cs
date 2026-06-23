@@ -14,5 +14,10 @@ namespace EduOps.Domain.Entities
 
         public bool IsRead { get; set; } = false;
         public DateTime? ReadAt { get; set; }
+
+        public string? ActionLink { get; set; }
+
+        public Guid? SystemBroadcastId { get; set; }
+        public virtual SystemBroadcast? SystemBroadcast { get; set; }
     }
 }
