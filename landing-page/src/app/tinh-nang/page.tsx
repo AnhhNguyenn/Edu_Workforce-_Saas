@@ -18,7 +18,7 @@ const itemVariants: Variants = {
 
 // Mock data since it's client component now
 const features = [
-  { id: "1", title: "Quản lý học viên CRM", slug: "quan-ly-hoc-vien", content: "Quản lý toàn bộ hồ sơ, điểm số, lịch sử tương tác và tự động nhắc nhở học phí." },
+  { id: "1", title: "Quản lý học viên CRM", slug: "quan-ly-hoc-vien", content: "Quản lý toàn bộ hồ sơ, điểm số, lịch sử tương tác và tự động gửi báo cáo định kỳ." },
   { id: "2", title: "Xếp lịch AI", slug: "tu-dong-xep-lich", content: "Tự động xếp thời khóa biểu thông minh, chống trùng lặp chỉ trong 3 giây." }
 ];
 

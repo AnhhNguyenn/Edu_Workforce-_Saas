@@ -73,7 +73,7 @@ export default async function KhuVucDetailPage(props: Props) {
                   <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
                   <div>
                     <h3 className="font-semibold text-lg text-slate-900">Tối ưu hóa hành vi học viên địa phương</h3>
-                    <p className="text-slate-600 mt-1">Giao diện điểm danh và thanh toán học phí được tùy biến theo đúng thói quen của phụ huynh khu vực này.</p>
+                    <p className="text-slate-600 mt-1">Giao diện điểm danh và tương tác với phụ huynh được tùy biến theo đúng thói quen của khu vực này.</p>
                   </div>
                 </div>
               </div>

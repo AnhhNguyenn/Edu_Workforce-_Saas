@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
 import { Switch } from './switch';
+import { Portal } from './portal';
+import { DatePicker } from './date-picker';
 
 interface ImportScheduleModalProps {
   onClose: () => void;
@@ -480,26 +482,63 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
         </div>
 
         {editingSession && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-lg w-[500px] overflow-hidden">
-              <div className="px-6 py-4 border-b border-edu-border font-bold text-lg flex justify-between items-center">
-                Chỉnh sửa Ca học
-                <button onClick={() => setEditingSession(null)} className="text-edu-muted hover:text-edu-fg"><X size={20} /></button>
-              </div>
-              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+          <Portal>
+            <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="bg-white rounded-xl shadow-lg w-[500px] overflow-hidden">
+                <div className="px-6 py-4 border-b border-edu-border font-bold text-lg flex justify-between items-center">
+                  Chỉnh sửa Ca học
+                  <button onClick={() => setEditingSession(null)} className="text-edu-muted hover:text-edu-fg"><X size={20} /></button>
+                </div>
+                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1 text-slate-700">Ngày học</label>
-                    <Input type="date" value={editingSession.sessionDate ? new Date(editingSession.sessionDate).toISOString().split('T')[0] : ''} onChange={e => setEditingSession({ ...editingSession, sessionDate: new Date(e.target.value).toISOString() })} />
+                    <DatePicker 
+                      selected={editingSession.sessionDate ? new Date(editingSession.sessionDate) : null}
+                      onChange={(date: Date | null) => setEditingSession({ ...editingSession, sessionDate: date ? date.toISOString() : '' })}
+                      dateFormat="dd/MM/yyyy"
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-sm font-medium mb-1 text-slate-700">Từ giờ</label>
-                      <Input type="time" value={editingSession.startTime?.substring(0, 5)} onChange={e => setEditingSession({ ...editingSession, startTime: e.target.value + ":00" })} />
+                      <DatePicker 
+                        selected={
+                          editingSession.startTime ? (() => {
+                            const [h, m] = editingSession.startTime.split(':');
+                            const d = new Date(); d.setHours(parseInt(h), parseInt(m), 0); return d;
+                          })() : null
+                        }
+                        onChange={(date: Date | null) => {
+                          if (!date) return;
+                          setEditingSession({ ...editingSession, startTime: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:00` });
+                        }}
+                        showTimeSelect
+                        showTimeSelectOnly
+                        timeIntervals={15}
+                        dateFormat="HH:mm"
+                        placeholderText="00:00"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1 text-slate-700">Đến</label>
-                      <Input type="time" value={editingSession.endTime?.substring(0, 5)} onChange={e => setEditingSession({ ...editingSession, endTime: e.target.value + ":00" })} />
+                      <DatePicker 
+                        selected={
+                          editingSession.endTime ? (() => {
+                            const [h, m] = editingSession.endTime.split(':');
+                            const d = new Date(); d.setHours(parseInt(h), parseInt(m), 0); return d;
+                          })() : null
+                        }
+                        onChange={(date: Date | null) => {
+                          if (!date) return;
+                          setEditingSession({ ...editingSession, endTime: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:00` });
+                        }}
+                        showTimeSelect
+                        showTimeSelectOnly
+                        timeIntervals={15}
+                        dateFormat="HH:mm"
+                        placeholderText="00:00"
+                      />
                     </div>
                   </div>
                 </div>
@@ -562,6 +601,7 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
               </div>
             </div>
           </div>
+          </Portal>
         )}
 
       </div>

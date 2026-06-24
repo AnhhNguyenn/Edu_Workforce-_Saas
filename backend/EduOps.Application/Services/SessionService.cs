@@ -661,10 +661,12 @@ namespace EduOps.Application.Services
                 }
 
                 // Call AI to map headers
+                Console.WriteLine($"[AI EXCEL MAPPING] Đang gửi danh sách {headerList.Count} cột lên AI để phân tích...");
                 var aiMap = await _aiMappingService.MapExcelHeadersAsync(headerList);
 
                 if (aiMap != null && aiMap.Count > 0 && aiMap.Values.Any(v => !string.IsNullOrEmpty(v)))
                 {
+                    Console.WriteLine($"[AI EXCEL MAPPING] AI trả về kết quả thành công: {System.Text.Json.JsonSerializer.Serialize(aiMap)}");
                     // AI responded, use AI Map
                     if (aiMap.TryGetValue("Date", out var vDate) && !string.IsNullOrEmpty(vDate) && headerCellMap.ContainsKey(vDate)) columnMap["Date"] = headerCellMap[vDate];
                     if (aiMap.TryGetValue("Time", out var vTime) && !string.IsNullOrEmpty(vTime) && headerCellMap.ContainsKey(vTime)) columnMap["Time"] = headerCellMap[vTime];
@@ -710,6 +712,7 @@ namespace EduOps.Application.Services
                 }
                 else
                 {
+                    Console.WriteLine($"[AI EXCEL MAPPING] AI không trả về kết quả hoặc bị lỗi. Chuyển sang sử dụng Rule-based dự phòng.");
                     // Fallback to Rule-based Auto Mapping
                     foreach (var cell in headerRow.CellsUsed())
                     {
@@ -782,7 +785,7 @@ namespace EduOps.Application.Services
                     foreach (var kvp in customFieldsIndices)
                     {
                         var val = row.Cell(kvp.Key).GetString().Trim();
-                        if (!string.IsNullOrEmpty(val)) extraDataDict[kvp.Value] = val;
+                        extraDataDict[kvp.Value] = val; // Cho phép rỗng để UI hiển thị cột này trong form Edit
                     }
 
                     if (string.IsNullOrEmpty(dateStr) || string.IsNullOrEmpty(timeStr) || string.IsNullOrEmpty(classStr))

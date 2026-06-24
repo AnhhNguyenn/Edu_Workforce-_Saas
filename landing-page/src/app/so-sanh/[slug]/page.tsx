@@ -46,7 +46,7 @@ export default async function ComparisonDetailPage(props: Props) {
                <CheckCircle2 className="w-8 h-8 text-blue-600 shrink-0" />
                <div>
                   <h3 className="font-semibold text-lg text-slate-900">EduOps tập trung vào Tự động hóa</h3>
-                  <p className="text-slate-600 mt-1">Thay vì chỉ là nơi lưu trữ dữ liệu như {data.competitorName}, EduOps cung cấp bộ công cụ AI tự động xếp lịch và nhắc nhở học phí, tiết kiệm 80% thời gian tác vụ lặp lại.</p>
+                  <p className="text-slate-600 mt-1">Thay vì chỉ là nơi lưu trữ dữ liệu như {data.competitorName}, EduOps cung cấp bộ công cụ AI tự động xếp lịch và quản lý tiến độ, tiết kiệm 80% thời gian tác vụ lặp lại.</p>
                </div>
             </li>
             <li className="flex gap-4 items-start">

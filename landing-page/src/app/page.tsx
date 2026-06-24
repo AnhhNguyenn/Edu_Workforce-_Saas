@@ -144,7 +144,7 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-slate-900 mb-4">Sức mạnh nguyên bản</h2>
-            <p className="text-lg text-slate-500 max-w-2xl mx-auto px-2 font-medium tracking-tight">Được xây dựng dựa trên nhu cầu thực tế. Tối ưu hóa toàn diện từ lúc nhận dữ liệu đến khi gạch nợ học phí.</p>
+            <p className="text-lg text-slate-500 max-w-2xl mx-auto px-2 font-medium tracking-tight">Được xây dựng dựa trên nhu cầu thực tế. Tối ưu hóa toàn diện từ lúc nhận dữ liệu học viên đến khi báo cáo tiến độ học tập.</p>
           </motion.div>
 
           <motion.div 
@@ -206,9 +206,9 @@ export default function Home() {
                   <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <TrendingUp className="w-6 h-6" />
                   </div>
-                  <CardTitle className="text-xl font-bold text-slate-900 tracking-tight">Báo cáo tiến độ & Gạch nợ học phí</CardTitle>
+                  <CardTitle className="text-xl font-bold text-slate-900 tracking-tight">Báo cáo tiến độ & Đánh giá kết quả</CardTitle>
                   <CardDescription className="mt-2 text-base text-slate-500 font-medium">
-                    Quản lý sát sao báo cáo tiến độ học tập của từng lớp. Kết hợp tích hợp cổng thanh toán SePay giúp Center Admin tự động hóa 100% khâu gạch nợ học phí khi Phụ huynh chuyển khoản.
+                    Quản lý sát sao báo cáo tiến độ học tập của từng lớp. Tự động hóa việc tổng hợp và gửi nhận xét định kỳ cho Phụ huynh một cách chuyên nghiệp.
                   </CardDescription>
                 </CardHeader>
               </Card>
