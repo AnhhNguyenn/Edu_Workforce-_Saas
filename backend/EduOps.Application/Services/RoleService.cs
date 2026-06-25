@@ -44,12 +44,14 @@ namespace EduOps.Application.Services
 
         public async Task<IEnumerable<RoleResponseDto>> GetRolesAsync(Guid? organizationId)
         {
-            var cacheKey = $"Roles_{organizationId?.ToString() ?? "System"}";
+            var cacheKey = $"Roles_V3_{organizationId?.ToString() ?? "System"}";
             if (_cache.TryGetValue(cacheKey, out IEnumerable<RoleResponseDto>? cached)) { if (cached != null) return cached; }
 
             var repo = _unitOfWork.Repository<Role>();
             var roles = await repo.FindAsync(
-                r => r.DeletedAt == null && (r.OrganizationId == organizationId || r.OrganizationId == null),
+                r => r.DeletedAt == null && 
+                     (r.OrganizationId == organizationId || r.OrganizationId == null) &&
+                     (organizationId == null || r.Code != "SUPER_ADMIN"), // Hide SUPER_ADMIN from Center Admins
                 asNoTracking: true,
                 includeProperties: "RolePermissions,RolePermissions.Permission"
             );
@@ -105,7 +107,7 @@ namespace EduOps.Application.Services
 
             await _unitOfWork.CommitAsync();
 
-            _cache.Remove($"Roles_{organizationId?.ToString() ?? "System"}");
+            _cache.Remove($"Roles_V3_{organizationId?.ToString() ?? "System"}");
 
             // Fetch to return with permissions
             return await GetRoleByIdAsync(newRole.Id, organizationId);
@@ -152,7 +154,7 @@ namespace EduOps.Application.Services
             repo.Update(role);
             await _unitOfWork.CommitAsync();
 
-            _cache.Remove($"Roles_{organizationId?.ToString() ?? "System"}");
+            _cache.Remove($"Roles_V3_{organizationId?.ToString() ?? "System"}");
         }
 
         public async Task DeleteRoleAsync(Guid id, Guid? organizationId)
@@ -177,7 +179,7 @@ namespace EduOps.Application.Services
             repo.Update(role);
             await _unitOfWork.CommitAsync();
 
-            _cache.Remove($"Roles_{organizationId?.ToString() ?? "System"}");
+            _cache.Remove($"Roles_V3_{organizationId?.ToString() ?? "System"}");
         }
 
         private RoleResponseDto MapToDto(Role role)
@@ -243,7 +245,7 @@ namespace EduOps.Application.Services
             repo.Update(role);
             await _unitOfWork.CommitAsync();
 
-            _cache.Remove($"Roles_{organizationId?.ToString() ?? "System"}");
+            _cache.Remove($"Roles_V3_{organizationId?.ToString() ?? "System"}");
         }
     }
 }

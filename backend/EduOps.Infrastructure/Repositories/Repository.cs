@@ -36,6 +36,11 @@ namespace EduOps.Infrastructure.Repositories
             return asNoTracking ? await _dbSet.AsNoTracking().ToListAsync() : await _dbSet.ToListAsync();
         }
 
+        public IQueryable<T> GetQueryable()
+        {
+            return _dbSet.AsQueryable();
+        }
+
         public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, bool ignoreQueryFilters = false, bool asNoTracking = false, string includeProperties = "")
         {
             IQueryable<T> query = _dbSet;
@@ -119,6 +124,11 @@ namespace EduOps.Infrastructure.Repositories
         public void RemoveRange(IEnumerable<T> entities)
         {
             _dbSet.RemoveRange(entities);
+        }
+
+        public void Detach(T entity)
+        {
+            _context.Entry(entity).State = EntityState.Detached;
         }
     }
 }

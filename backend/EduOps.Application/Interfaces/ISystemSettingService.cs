@@ -11,7 +11,7 @@ namespace EduOps.Application.Interfaces
         Task<List<SystemSettingResponseDto>> GetPublicSettingsAsync();
         Task<string?> GetSettingValueAsync(string key);
         Task<bool> IsFeatureEnabledAsync(string featureKey);
-        Task UpdateSettingAsync(string key, SystemSettingUpdateRequestDto request);
-        Task<List<AuditLogResponseDto>> GetAuditLogsAsync();
+        Task UpdateSettingAsync(string key, EduOps.Application.DTOs.SystemSettings.Requests.SystemSettingUpdateRequestDto request);
+        Task<EduOps.Application.DTOs.PagedResult<AuditLogResponseDto>> GetAuditLogsAsync(int pageNumber = 1, int pageSize = 100);
     }
 }

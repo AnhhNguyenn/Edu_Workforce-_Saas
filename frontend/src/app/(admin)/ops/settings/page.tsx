@@ -23,6 +23,10 @@ export default function SettingsPage() {
   const [openAiPriceMiss, setOpenAiPriceMiss] = useState("0.15");
   const [openAiPriceOut, setOpenAiPriceOut] = useState("0.60");
 
+  const [zhipuPriceHit, setZhipuPriceHit] = useState("0.10");
+  const [zhipuPriceMiss, setZhipuPriceMiss] = useState("0.10");
+  const [zhipuPriceOut, setZhipuPriceOut] = useState("0.10");
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -45,6 +49,10 @@ export default function SettingsPage() {
         const oMiss = settings.find((s: any) => s.settingKey === "OPENAI_PRICE_INPUT_CACHE_MISS");
         const oOut = settings.find((s: any) => s.settingKey === "OPENAI_PRICE_OUTPUT");
         
+        const zHit = settings.find((s: any) => s.settingKey === "ZHIPU_PRICE_INPUT_CACHE_HIT");
+        const zMiss = settings.find((s: any) => s.settingKey === "ZHIPU_PRICE_INPUT_CACHE_MISS");
+        const zOut = settings.find((s: any) => s.settingKey === "ZHIPU_PRICE_OUTPUT");
+        
         if (baseUrlSetting) setAiBaseUrl(baseUrlSetting.settingValue);
         if (modelSetting) setAiModel(modelSetting.settingValue);
         if (keySetting) setAiApiKey(keySetting.settingValue);
@@ -56,6 +64,10 @@ export default function SettingsPage() {
         if (oHit) setOpenAiPriceHit(oHit.settingValue);
         if (oMiss) setOpenAiPriceMiss(oMiss.settingValue);
         if (oOut) setOpenAiPriceOut(oOut.settingValue);
+
+        if (zHit) setZhipuPriceHit(zHit.settingValue);
+        if (zMiss) setZhipuPriceMiss(zMiss.settingValue);
+        if (zOut) setZhipuPriceOut(zOut.settingValue);
       } catch (err) {
         console.error("Failed to load settings", err);
       } finally {
@@ -78,7 +90,10 @@ export default function SettingsPage() {
         apiClient.put('/SystemSettings/MIMO_PRICE_OUTPUT', { settingValue: mimoPriceOut }),
         apiClient.put('/SystemSettings/OPENAI_PRICE_INPUT_CACHE_HIT', { settingValue: openAiPriceHit }),
         apiClient.put('/SystemSettings/OPENAI_PRICE_INPUT_CACHE_MISS', { settingValue: openAiPriceMiss }),
-        apiClient.put('/SystemSettings/OPENAI_PRICE_OUTPUT', { settingValue: openAiPriceOut })
+        apiClient.put('/SystemSettings/OPENAI_PRICE_OUTPUT', { settingValue: openAiPriceOut }),
+        apiClient.put('/SystemSettings/ZHIPU_PRICE_INPUT_CACHE_HIT', { settingValue: zhipuPriceHit }),
+        apiClient.put('/SystemSettings/ZHIPU_PRICE_INPUT_CACHE_MISS', { settingValue: zhipuPriceMiss }),
+        apiClient.put('/SystemSettings/ZHIPU_PRICE_OUTPUT', { settingValue: zhipuPriceOut })
       ]);
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 3000);
@@ -90,7 +105,7 @@ export default function SettingsPage() {
     }
   };
   return (
-    <div className="max-w-4xl mx-auto space-y-7">
+    <div className="w-full space-y-7">
       <div className="flex justify-between items-start">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Cài đặt trung tâm</h2>
@@ -197,17 +212,17 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* MiMo Pricing */}
                   <div>
-                    <h4 className="font-semibold text-edu-fg mb-4 flex items-center gap-2 text-orange-600"><DollarSign size={16}/> Giá Xiaomi MiMo</h4>
+                    <h4 className="font-semibold text-edu-fg mb-4 flex items-center gap-2 text-orange-600"><DollarSign size={16}/> Xiaomi MiMo</h4>
                     <div className="space-y-3 bg-orange-50/30 p-4 rounded-xl border border-orange-100">
                       <div>
                         <label className="text-xs text-edu-muted block mb-1">Input Cache Hit (USD / 1M Tokens)</label>
                         <Input type="number" step="0.0001" value={mimoPriceHit} onChange={e => setMimoPriceHit(e.target.value)} className="bg-white"/>
                       </div>
                       <div>
-                        <label className="text-xs text-edu-muted block mb-1">Input Cache Miss (USD / 1M Tokens)</label>
+                        <label className="text-xs text-edu-muted block mb-1">Input Cache Miss (USD / 1M)</label>
                         <Input type="number" step="0.0001" value={mimoPriceMiss} onChange={e => setMimoPriceMiss(e.target.value)} className="bg-white"/>
                       </div>
                       <div>
@@ -219,19 +234,38 @@ export default function SettingsPage() {
 
                   {/* OpenAI / DeepSeek Pricing */}
                   <div>
-                    <h4 className="font-semibold text-edu-fg mb-4 flex items-center gap-2 text-blue-600"><DollarSign size={16}/> Giá OpenAI / DeepSeek</h4>
+                    <h4 className="font-semibold text-edu-fg mb-4 flex items-center gap-2 text-blue-600"><DollarSign size={16}/> OpenAI/DeepSeek</h4>
                     <div className="space-y-3 bg-blue-50/30 p-4 rounded-xl border border-blue-100">
                       <div>
                         <label className="text-xs text-edu-muted block mb-1">Input Cache Hit (USD / 1M Tokens)</label>
                         <Input type="number" step="0.0001" value={openAiPriceHit} onChange={e => setOpenAiPriceHit(e.target.value)} className="bg-white"/>
                       </div>
                       <div>
-                        <label className="text-xs text-edu-muted block mb-1">Input Cache Miss (USD / 1M Tokens)</label>
+                        <label className="text-xs text-edu-muted block mb-1">Input Cache Miss (USD / 1M)</label>
                         <Input type="number" step="0.0001" value={openAiPriceMiss} onChange={e => setOpenAiPriceMiss(e.target.value)} className="bg-white"/>
                       </div>
                       <div>
                         <label className="text-xs text-edu-muted block mb-1">Output (USD / 1M Tokens)</label>
                         <Input type="number" step="0.0001" value={openAiPriceOut} onChange={e => setOpenAiPriceOut(e.target.value)} className="bg-white"/>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Zhipu AI Pricing */}
+                  <div>
+                    <h4 className="font-semibold text-edu-fg mb-4 flex items-center gap-2 text-purple-600"><DollarSign size={16}/> Zhipu AI (GLM)</h4>
+                    <div className="space-y-3 bg-purple-50/30 p-4 rounded-xl border border-purple-100">
+                      <div>
+                        <label className="text-xs text-edu-muted block mb-1">Input Cache Hit (USD / 1M Tokens)</label>
+                        <Input type="number" step="0.0001" value={zhipuPriceHit} onChange={e => setZhipuPriceHit(e.target.value)} className="bg-white"/>
+                      </div>
+                      <div>
+                        <label className="text-xs text-edu-muted block mb-1">Input Cache Miss (USD / 1M)</label>
+                        <Input type="number" step="0.0001" value={zhipuPriceMiss} onChange={e => setZhipuPriceMiss(e.target.value)} className="bg-white"/>
+                      </div>
+                      <div>
+                        <label className="text-xs text-edu-muted block mb-1">Output (USD / 1M Tokens)</label>
+                        <Input type="number" step="0.0001" value={zhipuPriceOut} onChange={e => setZhipuPriceOut(e.target.value)} className="bg-white"/>
                       </div>
                     </div>
                   </div>

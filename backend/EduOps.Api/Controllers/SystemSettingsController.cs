@@ -106,9 +106,9 @@ namespace EduOps.Api.Controllers
 
         [HttpGet("audit-logs")]
         [HasPermission("SystemSettings:Manage")]
-        public async Task<ActionResult<List<AuditLogResponseDto>>> GetAuditLogs()
+        public async Task<ActionResult<EduOps.Application.DTOs.PagedResult<AuditLogResponseDto>>> GetAuditLogs([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 100)
         {
-            return Ok(await _settingService.GetAuditLogsAsync());
+            return Ok(await _settingService.GetAuditLogsAsync(pageNumber, pageSize));
         }
     }
 }

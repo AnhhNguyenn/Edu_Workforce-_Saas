@@ -16,6 +16,7 @@ using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
 using EduOps.Domain.Enums;
 using EduOps.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace EduOps.Application.Services
 {
@@ -280,15 +281,19 @@ namespace EduOps.Application.Services
 
             session.ClassId = request.ClassId;
             session.TeacherId = request.TeacherId;
-            session.AssistantId = request.AssistantIds?.FirstOrDefault();
+            session.AssistantId = request.AssistantIds != null && request.AssistantIds.Any() ? request.AssistantIds.First() : (Guid?)null;
             
-            // Update assistants
-            session.SessionAssistants.Clear();
-            if (request.AssistantIds != null && request.AssistantIds.Any())
+            if (assistantsChanged)
             {
-                foreach(var aid in request.AssistantIds)
+                // Let EF Core and the SaveChangesInterceptor handle soft deletion
+                session.SessionAssistants.Clear();
+
+                if (request.AssistantIds != null && request.AssistantIds.Any())
                 {
-                    session.SessionAssistants.Add(new SessionAssistant { AssistantId = aid });
+                    foreach(var aid in request.AssistantIds)
+                    {
+                        session.SessionAssistants.Add(new SessionAssistant { AssistantId = aid });
+                    }
                 }
             }
 
@@ -303,7 +308,7 @@ namespace EduOps.Application.Services
             session.StartTime = request.StartTime;
             session.EndTime = request.EndTime;
 
-            repo.Update(session);
+            // Do not call repo.Update(session) as it forces tracking state changes which can cause concurrency exceptions on unchanged relations.
             await _unitOfWork.CommitAsync();
             await _realtimeNotification.SendToOrganizationAsync(organizationId, "SessionUpdated");
             return session.ToDetailResponseDto();
@@ -1205,11 +1210,19 @@ namespace EduOps.Application.Services
                 if (request.AssistantId.HasValue)
                 {
                     session.SessionAssistants.Clear();
-                    session.SessionAssistants.Add(new SessionAssistant { AssistantId = request.AssistantId.Value });
-                    session.AssistantId = request.AssistantId;
+
+                    if (request.AssistantId.Value != Guid.Empty) 
+                    {
+                        session.SessionAssistants.Add(new SessionAssistant { AssistantId = request.AssistantId.Value });
+                        session.AssistantId = request.AssistantId;
+                    } 
+                    else 
+                    {
+                        session.AssistantId = null;
+                    }
                 }
 
-                repo.Update(session);
+                // repo.Update(session); // Do not force state update
                 updatedSessions.Add(session.ToDetailResponseDto());
             }
 

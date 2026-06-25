@@ -15,6 +15,7 @@ using EduOps.Domain.Enums;
 using EduOps.Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Http;
 
 namespace EduOps.Application.Services
 {
@@ -25,14 +26,16 @@ namespace EduOps.Application.Services
         private readonly IConfiguration _configuration;
         private readonly IEmailService _emailService;
         private readonly ICacheService _cacheService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public AuthService(IUnitOfWork unitOfWork, ICustomLogger logger, IConfiguration configuration, IEmailService emailService, ICacheService cacheService)
+        public AuthService(IUnitOfWork unitOfWork, ICustomLogger logger, IConfiguration configuration, IEmailService emailService, ICacheService cacheService, IHttpContextAccessor httpContextAccessor)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
             _emailService = emailService;
             _cacheService = cacheService;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request)
@@ -75,6 +78,7 @@ namespace EduOps.Application.Services
             if (user == null || !isPasswordValid)
             {
                 _logger.LogWarning($"Login failed: Invalid credentials for user {request.Email}. UserExists: {user != null}, PasswordValid: {isPasswordValid}");
+                await LogSecurityEventAsync(user, "Login Failed", request.Email);
                 throw new System.UnauthorizedAccessException("Email hoặc mật khẩu không chính xác.");
             }
 
@@ -150,7 +154,9 @@ namespace EduOps.Application.Services
 
             user.LastLoginAt = DateTime.UtcNow;
             userRepository.Update(user);
-            await _unitOfWork.CommitAsync();
+            await LogSecurityEventAsync(user, "Login Success", request.Email);
+            // CommitAsync is already called inside LogSecurityEventAsync or we can call it here.
+            // LogSecurityEventAsync calls CommitAsync so it's fine.
 
             return new LoginResponseDto
             {
@@ -452,6 +458,31 @@ namespace EduOps.Application.Services
             await _cacheService.RemoveAsync($"tenant:{orgIdStr}:user:{user.Id}:session");
 
             userRepository.Update(user);
+            await LogSecurityEventAsync(user, "Password Changed", user.Email);
+        }
+
+        private async Task LogSecurityEventAsync(User? user, string action, string? email = null)
+        {
+            var ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown";
+            var userAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString() ?? "Unknown";
+            
+            var auditLog = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = user?.Id ?? Guid.Empty,
+                OrganizationId = user?.OrganizationId,
+                Action = action,
+                EntityType = "Security",
+                EntityId = user?.Id ?? Guid.Empty,
+                OldData = null,
+                NewData = email != null ? $"{{\"Email\":\"{email}\"}}" : null,
+                IpAddress = ipAddress,
+                UserAgent = userAgent,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            
+            await _unitOfWork.Repository<AuditLog>().AddAsync(auditLog);
             await _unitOfWork.CommitAsync();
         }
     }

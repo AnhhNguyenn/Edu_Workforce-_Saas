@@ -18,16 +18,21 @@ namespace EduOps.Infrastructure
             // Interceptor N+1 Query
             services.AddSingleton<EduOps.Infrastructure.Data.Interceptors.QueryCountInterceptor>();
 
+            // Cấu hình Audit Interceptor
+            services.AddScoped<EduOps.Infrastructure.Data.Interceptors.AuditableEntityInterceptor>();
+
             // Database
             services.AddDbContext<EduOpsDbContext>((sp, options) =>
             {
                 var interceptor = sp.GetRequiredService<EduOps.Infrastructure.Data.Interceptors.QueryCountInterceptor>();
+                var auditInterceptor = sp.GetRequiredService<EduOps.Infrastructure.Data.Interceptors.AuditableEntityInterceptor>();
+                
                 options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
                 {
                     npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
                 });
                 options.ConfigureWarnings(w => w.Throw(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.MultipleCollectionIncludeWarning));
-                options.AddInterceptors(interceptor);
+                options.AddInterceptors(interceptor, auditInterceptor);
             });
 
             // IEduOpsDbContext (Clean Architecture)

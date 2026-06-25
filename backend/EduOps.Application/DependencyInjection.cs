@@ -24,6 +24,7 @@ namespace EduOps.Application
             services.AddScoped<ISubscriptionService, SubscriptionService>();
             services.AddScoped<ISePayService, SePayService>();
             services.AddScoped<ISystemSettingService, SystemSettingService>();
+            services.AddScoped<IAuditLogService, AuditLogService>();
 
             // Notifications & Background Jobs
             services.AddScoped<INotificationService, NotificationService>();

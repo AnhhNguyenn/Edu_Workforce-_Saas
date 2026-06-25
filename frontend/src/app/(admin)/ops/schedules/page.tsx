@@ -123,6 +123,8 @@ export default function SchedulesPage() {
   const { data: classes } = useClasses(activeTab === 'class' ? debouncedSearch : '', undefined, classPage, PAGE_SIZE);
   const { data: teachers } = useUsers('TEACHER', activeTab === 'teacher' ? debouncedSearch : '', teacherPage, PAGE_SIZE);
   const { data: assistants } = useUsers('ASSISTANT', activeTab === 'assistant' ? debouncedSearch : '', assistantPage, PAGE_SIZE);
+  const { data: allTeachers } = useUsers('TEACHER', '', 1, 1000);
+  const { data: allAssistants } = useUsers('ASSISTANT', '', 1, 1000);
 
   const getCurrentPage = () => {
     if (activeTab === 'class') return classPage;
@@ -294,8 +296,8 @@ export default function SchedulesPage() {
       const classInfo = classes?.items?.find((c: any) => c.id === s.classId);
       const className = classInfo?.name || s.classId?.substring(0, 8);
       const schoolName = schools?.items?.find((sch: any) => sch.id === (classInfo as any)?.schoolId)?.name || '';
-      const teacherName = teachers?.items?.find((t: any) => t.id === s.teacherId)?.fullName || 'Chưa xếp';
-      const assistantName = assistants?.items?.find((a: any) => a.id === s.assistantId)?.fullName || 'Chưa xếp';
+      const teacherName = allTeachers?.items?.find((t: any) => t.id === s.teacherId)?.fullName || 'Chưa xếp';
+      const assistantName = (s.assistantIds && s.assistantIds.length > 0) ? s.assistantIds.map((id: string) => allAssistants?.items?.find((a: any) => a.id === id)?.fullName || 'Chưa xếp').join(', ') : 'Chưa xếp';
       const theme = getClassTheme(s.classId);
 
       const targetShifts = getShiftsForSession(s.startTime, s.endTime);
@@ -352,9 +354,11 @@ export default function SchedulesPage() {
       }
       
       const teacherId = dragType === 'teacher' ? dragId : targetSession.teacherId;
-      const assistantId = dragType === 'assistant' ? dragId : targetSession.assistantId;
+      const newAssistantIds = dragType === 'assistant' 
+        ? [dragId, ...(targetSession.assistantIds || []).filter((id: string) => id !== dragId)] 
+        : targetSession.assistantIds || [];
 
-      const conflictMsg = checkConflict(targetSession.classId, teacherId, assistantId, dateStr, targetSession.startTime, targetSession.endTime, targetSession.id);
+      const conflictMsg = checkConflict(targetSession.classId, teacherId, dragType === 'assistant' ? dragId : null, dateStr, targetSession.startTime, targetSession.endTime, targetSession.id);
       if (conflictMsg) {
         toast.error(conflictMsg);
         return;
@@ -366,7 +370,7 @@ export default function SchedulesPage() {
         startTime: targetSession.startTime,
         endTime: targetSession.endTime,
         teacherId,
-        assistantId,
+        assistantIds: newAssistantIds,
         lessonTitle: targetSession.lessonTitle,
         notes: targetSession.notes
       };
@@ -425,7 +429,7 @@ export default function SchedulesPage() {
         newEnd = newEndD.toTimeString().split(' ')[0];
       }
 
-      const conflictMsg = checkConflict(sessionData.classId, sessionData.teacherId, sessionData.assistantId, dateStr, newStart, newEnd, sessionData.id);
+      const conflictMsg = checkConflict(sessionData.classId, sessionData.teacherId, null, dateStr, newStart, newEnd, sessionData.id);
       if (conflictMsg) {
         toast.error(conflictMsg);
         return;
@@ -471,7 +475,7 @@ export default function SchedulesPage() {
       toast.error('Vui lòng chọn lớp học');
       return;
     }
-    if (!sessionForm.teacherId || !sessionForm.sessionDate || !sessionForm.startTime || !sessionForm.endTime) {
+    if (!sessionForm.sessionDate || !sessionForm.startTime || !sessionForm.endTime) {
       toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
       return;
     }
@@ -1055,8 +1059,8 @@ export default function SchedulesPage() {
                              ...rawSession,
                              className,
                              schoolName,
-                             teacherName: teachers?.items?.find((t: any) => t.id === rawSession.teacherId)?.fullName || 'Chưa xếp',
-                             assistantName: assistants?.items?.find((a: any) => a.id === rawSession.assistantId)?.fullName || 'Chưa xếp',
+                             teacherName: allTeachers?.items?.find((t: any) => t.id === rawSession.teacherId)?.fullName || 'Chưa xếp',
+                             assistantName: (rawSession.assistantIds && rawSession.assistantIds.length > 0) ? rawSession.assistantIds.map((id: string) => allAssistants?.items?.find((a: any) => a.id === id)?.fullName || 'Chưa xếp').join(', ') : 'Chưa xếp',
                              theme: getClassTheme(rawSession.classId)
                            };
                            const { start, span } = getShiftIndices(s.startTime, s.endTime);
@@ -1246,7 +1250,7 @@ export default function SchedulesPage() {
                     <Users size={16} className="text-teal-500" />
                     <span className="font-bold text-slate-800 text-[15px]">
                       {selectedSessionInfo.assistantIds && selectedSessionInfo.assistantIds.length > 0 
-                        ? selectedSessionInfo.assistantIds.map((id: string) => assistants?.items?.find((a:any) => a.id === id)?.fullName || 'ID: ' + id.substring(0, 4)).join(', ') 
+                        ? selectedSessionInfo.assistantIds.map((id: string) => allAssistants?.items?.find((a:any) => a.id === id)?.fullName || 'ID: ' + id.substring(0, 4)).join(', ') 
                         : 'Chưa có'}
                     </span>
                   </div>
@@ -1388,7 +1392,7 @@ export default function SchedulesPage() {
               )}
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Giáo viên <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Giáo viên</label>
               <Select
                 options={teachers?.items?.map((t: any) => ({ value: t.id, label: t.fullName })) || []}
                 placeholder="Chọn giáo viên..."

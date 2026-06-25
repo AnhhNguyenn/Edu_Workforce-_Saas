@@ -28,8 +28,8 @@ var configuration = new ConfigurationBuilder()
     .AddJsonFile($"appsettings.{env}.json", optional: true)
     .Build();
 
-// Định dạng Log chuẩn Doanh nghiệp (Enterprise Standard)
-var outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] [CID:{CorrelationId}] [{SourceContext}] {Message:lj}{NewLine}{Exception}";
+// Định dạng Log chuẩn Doanh nghiệp (Enterprise Standard) với Context siêu chi tiết
+var outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] [CID:{CorrelationId}] [IP:{ClientIp}] [Org:{OrgId}] [User:{UserEmail}] [{SourceContext}] {Message:lj}{NewLine}{Exception}";
 
 long fileSizeLimit = configuration.GetValue<long>("SerilogSettings:FileSizeLimitBytes", 10485760);
 int retainedFileCount = configuration.GetValue<int>("SerilogSettings:RetainedFileCountLimit", 30);
@@ -40,11 +40,57 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .Enrich.WithCorrelationId()
     .WriteTo.Console(outputTemplate: outputTemplate)
-    .WriteTo.File("Logs/eduops-log-.txt",
-                  rollingInterval: RollingInterval.Day,
-                  outputTemplate: outputTemplate,
-                  fileSizeLimitBytes: fileSizeLimit,
-                  retainedFileCountLimit: retainedFileCount)
+    .WriteTo.Map(
+        evt => evt.Timestamp.ToString("yyyy-MM") + "/" + evt.Timestamp.ToString("dd"),
+        (dateFolder, wt) =>
+        {
+            // 1. System Log (Mọi thứ)
+            wt.File($"Logs/{dateFolder}/System/system-.txt",
+                rollingInterval: RollingInterval.Hour,
+                outputTemplate: outputTemplate,
+                fileSizeLimitBytes: fileSizeLimit,
+                retainedFileCountLimit: retainedFileCount);
+
+            // 2. Error/Fatal Logs
+            wt.Logger(lc => lc
+                .Filter.ByIncludingOnly(e => e.Level == Serilog.Events.LogEventLevel.Error || e.Level == Serilog.Events.LogEventLevel.Fatal)
+                .WriteTo.File($"Logs/{dateFolder}/Severity/errors-.txt",
+                    rollingInterval: RollingInterval.Hour, outputTemplate: outputTemplate, retainedFileCountLimit: retainedFileCount));
+
+            // 3. Warning Logs
+            wt.Logger(lc => lc
+                .Filter.ByIncludingOnly(e => e.Level == Serilog.Events.LogEventLevel.Warning)
+                .WriteTo.File($"Logs/{dateFolder}/Severity/warnings-.txt",
+                    rollingInterval: RollingInterval.Hour, outputTemplate: outputTemplate, retainedFileCountLimit: retainedFileCount));
+
+            // 4. Các luồng Business / Audit
+            wt.Logger(lc => lc
+                .Filter.ByIncludingOnly(e => e.Properties.ContainsKey("LogCategory"))
+                .WriteTo.Map(
+                    e => e.Properties["LogCategory"].ToString().Trim('"'),
+                    (category, subWt) =>
+                    {
+                        if (category.StartsWith("Audit_"))
+                        {
+                            var action = category.Replace("Audit_", "").ToLower();
+                            subWt.File($"Logs/{dateFolder}/Audit/{action}-.txt",
+                                rollingInterval: RollingInterval.Hour, outputTemplate: outputTemplate, retainedFileCountLimit: retainedFileCount);
+                        }
+                        else
+                        {
+                            subWt.File($"Logs/{dateFolder}/Business/{category.ToLower()}-.txt",
+                                rollingInterval: RollingInterval.Hour, outputTemplate: outputTemplate, retainedFileCountLimit: retainedFileCount);
+                        }
+                    }
+                ));
+            
+            // 5. Traffic / Requests Log
+            wt.Logger(lc => lc
+                .Filter.ByIncludingOnly(e => e.Properties.ContainsKey("SourceContext") && e.Properties["SourceContext"].ToString().Contains("Microsoft.AspNetCore.Hosting.Diagnostics"))
+                .WriteTo.File($"Logs/{dateFolder}/Traffic/requests-.txt",
+                    rollingInterval: RollingInterval.Hour, outputTemplate: outputTemplate, retainedFileCountLimit: retainedFileCount));
+        }
+    )
     .CreateLogger();
 
 try
@@ -269,6 +315,7 @@ try
 
     app.UseAuthentication();
     app.UseAuthorization();
+    app.UseMiddleware<LogEnrichmentMiddleware>();
 
     // Bật Dashboard Hangfire (Cần setup Auth cho endpoint này sau trên thực tế)
     app.UseHangfireDashboard("/hangfire");

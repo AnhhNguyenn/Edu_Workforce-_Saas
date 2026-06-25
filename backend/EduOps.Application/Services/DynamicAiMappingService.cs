@@ -133,16 +133,31 @@ Danh sách các Tên Cột trong file Excel: " + string.Join(", ", headers);
                             }
 
                             bool isMimo = model.ToLower().Contains("mimo");
-                            decimal priceHit = isMimo ? await GetPriceAsync("MIMO_PRICE_INPUT_CACHE_HIT", 0.0028m) : await GetPriceAsync("OPENAI_PRICE_INPUT_CACHE_HIT", 0.15m);
-                            decimal priceMiss = isMimo ? await GetPriceAsync("MIMO_PRICE_INPUT_CACHE_MISS", 0.14m) : await GetPriceAsync("OPENAI_PRICE_INPUT_CACHE_MISS", 0.15m);
-                            decimal priceOut = isMimo ? await GetPriceAsync("MIMO_PRICE_OUTPUT", 0.28m) : await GetPriceAsync("OPENAI_PRICE_OUTPUT", 0.60m);
+                            bool isZhipu = model.ToLower().Contains("glm");
+                            
+                            decimal priceHit = 0m, priceMiss = 0m, priceOut = 0m;
+                            string provider = "OpenAI/DeepSeek";
+                            
+                            if (isZhipu) {
+                                provider = "Zhipu AI";
+                                priceHit = await GetPriceAsync("ZHIPU_PRICE_INPUT_CACHE_HIT", 0.10m);
+                                priceMiss = await GetPriceAsync("ZHIPU_PRICE_INPUT_CACHE_MISS", 0.10m);
+                                priceOut = await GetPriceAsync("ZHIPU_PRICE_OUTPUT", 0.10m);
+                            } else if (isMimo) {
+                                provider = "MiMo";
+                                priceHit = await GetPriceAsync("MIMO_PRICE_INPUT_CACHE_HIT", 0.0028m);
+                                priceMiss = await GetPriceAsync("MIMO_PRICE_INPUT_CACHE_MISS", 0.14m);
+                                priceOut = await GetPriceAsync("MIMO_PRICE_OUTPUT", 0.28m);
+                            } else {
+                                priceHit = await GetPriceAsync("OPENAI_PRICE_INPUT_CACHE_HIT", 0.15m);
+                                priceMiss = await GetPriceAsync("OPENAI_PRICE_INPUT_CACHE_MISS", 0.15m);
+                                priceOut = await GetPriceAsync("OPENAI_PRICE_OUTPUT", 0.60m);
+                            }
 
                             decimal costHit = (cacheHitTokens / 1_000_000m) * priceHit;
                             decimal costMiss = (cacheMissTokens / 1_000_000m) * priceMiss;
                             decimal costOut = (completionTokens / 1_000_000m) * priceOut;
                             decimal totalCost = costHit + costMiss + costOut;
-
-                            string provider = isMimo ? "MiMo" : "OpenAI/DeepSeek";
                             _logger.LogInformation(
                                 "AI Usage Report | Provider: {Provider} | Model: {Model}\n" +
                                 "- Cache Hit Tokens: {HitTokens} (Cost: ${CostHit} USD)\n" +

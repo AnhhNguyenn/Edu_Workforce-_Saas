@@ -3,6 +3,7 @@ using System;
 using EduOps.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EduOps.Infrastructure.Migrations
 {
     [DbContext(typeof(EduOpsDbContext))]
-    partial class EduOpsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260625075759_OptimizeAuditLogAndAiPricing")]
+    partial class OptimizeAuditLogAndAiPricing
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

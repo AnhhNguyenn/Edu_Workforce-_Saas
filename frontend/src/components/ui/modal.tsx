@@ -48,15 +48,14 @@ export function Modal({ isOpen, onClose, title, children, footer, className, zIn
           onClick={onClose}
         />
         
-        {/* Modal Content */}
         <div
           className={cn(
-            "bg-white rounded-2xl shadow-xl w-[95vw] md:w-full max-w-[520px] md:max-w-2xl max-h-[90vh] overflow-y-auto relative z-10 transition-all duration-300 ease-out",
+            "bg-white rounded-2xl shadow-xl w-[95vw] md:w-full max-w-[520px] md:max-w-2xl max-h-[90vh] flex flex-col relative z-10 transition-all duration-300 ease-out",
             isOpen ? "translate-y-0 scale-100 opacity-100" : "translate-y-8 scale-[0.95] opacity-0",
             className
           )}
         >
-          <div className="px-6 py-5 flex justify-between items-center border-b border-transparent">
+          <div className="px-6 py-5 flex justify-between items-center border-b border-gray-100 shrink-0">
             <h3 className="text-[1.15rem] font-bold text-edu-fg">{title}</h3>
             <button 
               onClick={onClose}
@@ -66,12 +65,12 @@ export function Modal({ isOpen, onClose, title, children, footer, className, zIn
             </button>
           </div>
           
-          <div className="px-6 py-5">
+          <div className="px-6 py-5 overflow-y-auto custom-scrollbar">
             {children}
           </div>
 
           {footer && (
-            <div className="px-6 py-5 flex justify-end gap-2.5 border-t border-transparent">
+            <div className="px-6 py-4 flex justify-end gap-2.5 border-t border-gray-100 shrink-0 bg-gray-50/30 rounded-b-2xl">
               {footer}
             </div>
           )}

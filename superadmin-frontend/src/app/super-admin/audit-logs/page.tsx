@@ -12,7 +12,13 @@ import { useState, useMemo, useEffect } from 'react';
 import { FeatureGuard } from '@/components/ui/feature-guard';
 
 export default function AuditLogsPage() {
-  const { data: logs = [], isLoading } = useAuditLogs();
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+  const { data: logData, isLoading } = useAuditLogs(page, pageSize);
+  
+  const logs = logData?.items || [];
+  const totalPages = logData ? Math.ceil(logData.totalCount / pageSize) : 0;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('');
@@ -29,7 +35,7 @@ export default function AuditLogsPage() {
       const matchSearch = debouncedSearch === '' || 
         log.userEmail?.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
         log.action?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        log.details?.toLowerCase().includes(debouncedSearch.toLowerCase());
+        log.organizationName?.toLowerCase().includes(debouncedSearch.toLowerCase());
       
       const matchAction = actionFilter === '' || log.module === actionFilter || log.action?.toLowerCase().includes(actionFilter.toLowerCase());
       
@@ -89,6 +95,9 @@ export default function AuditLogsPage() {
           isLoading={isLoading} 
           hasFilter={!!searchTerm || !!actionFilter}
           onClearFilter={() => { setSearchTerm(''); setActionFilter(''); }}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
         />
       </div>
     </FeatureGuard>

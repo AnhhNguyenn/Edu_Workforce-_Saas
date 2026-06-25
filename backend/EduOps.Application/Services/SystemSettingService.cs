@@ -11,6 +11,7 @@ using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using Hangfire;
+using Microsoft.EntityFrameworkCore;
 
 namespace EduOps.Application.Services
 {
@@ -144,23 +145,36 @@ namespace EduOps.Application.Services
             await _realtimeNotification.SendToAllAsync("SystemSettingUpdated");
         }
 
-        public async Task<List<AuditLogResponseDto>> GetAuditLogsAsync()
+        public async Task<EduOps.Application.DTOs.PagedResult<AuditLogResponseDto>> GetAuditLogsAsync(int pageNumber = 1, int pageSize = 100)
         {
             if (_currentUserService.Role != "SUPER_ADMIN")
                 throw new UnauthorizedAccessException("Chỉ SUPER_ADMIN mới được xem Audit Logs.");
 
-            var logs = await _unitOfWork.Repository<AuditLog>().FindAsync(x => true, ignoreQueryFilters: true);
+            var query = _unitOfWork.Repository<AuditLog>().GetQueryable().IgnoreQueryFilters();
+            var totalCount = await query.CountAsync();
+            
+            var logs = await query.OrderByDescending(x => x.CreatedAt)
+                            .Skip((pageNumber - 1) * pageSize)
+                            .Take(pageSize)
+                            .ToListAsync();
+                            
             var userIds = logs.Select(x => x.UserId).Distinct().ToList();
             var users = await _unitOfWork.Repository<User>().FindAsync(u => userIds.Contains(u.Id), ignoreQueryFilters: true);
             var userDict = users.ToDictionary(u => u.Id, u => u);
 
-            // Sort by CreatedAt Desc and limit to 100 for now to prevent massive payloads
-            return logs.OrderByDescending(x => x.CreatedAt).Take(100).Select(x => new AuditLogResponseDto
+            var orgIds = logs.Where(x => x.OrganizationId.HasValue).Select(x => x.OrganizationId!.Value).Distinct().ToList();
+            var orgs = await _unitOfWork.Repository<Organization>().FindAsync(o => orgIds.Contains(o.Id), ignoreQueryFilters: true);
+            var orgDict = orgs.ToDictionary(o => o.Id, o => o);
+
+            var items = logs.Select(x => new AuditLogResponseDto
             {
                 Id = x.Id,
                 UserId = x.UserId,
                 UserEmail = userDict.ContainsKey(x.UserId) ? userDict[x.UserId].Email : "Unknown",
                 UserName = userDict.ContainsKey(x.UserId) ? userDict[x.UserId].FullName : "Unknown",
+                OrganizationName = x.OrganizationId.HasValue && orgDict.ContainsKey(x.OrganizationId.Value) 
+                    ? orgDict[x.OrganizationId.Value].Name 
+                    : "Hệ thống (System)",
                 Action = x.Action,
                 EntityType = x.EntityType,
                 EntityId = x.EntityId,
@@ -170,6 +184,14 @@ namespace EduOps.Application.Services
                 UserAgent = x.UserAgent,
                 CreatedAt = x.CreatedAt
             }).ToList();
+
+            return new EduOps.Application.DTOs.PagedResult<AuditLogResponseDto> 
+            {
+                Items = items, 
+                TotalCount = totalCount, 
+                PageNumber = pageNumber, 
+                PageSize = pageSize 
+            };
         }
     }
 }

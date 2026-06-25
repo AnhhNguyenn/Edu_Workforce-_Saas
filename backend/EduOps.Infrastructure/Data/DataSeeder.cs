@@ -166,6 +166,46 @@ namespace EduOps.Infrastructure.Data
                 }
             }
 
+            // Gán quyền cơ bản cho TEACHER
+            var teacherRole = await context.Roles.IgnoreQueryFilters().FirstOrDefaultAsync(r => r.Code == "TEACHER");
+            if (teacherRole != null)
+            {
+                var teacherPerms = new[] {
+                    "Students:READ", "Classes:READ", 
+                    "Schedules:Manage", "Attendances:Manage", "Reports:Manage"
+                };
+                var allPerms = await context.Permissions.IgnoreQueryFilters().ToListAsync();
+                foreach (var pStr in teacherPerms)
+                {
+                    var parts = pStr.Split(':');
+                    var p = allPerms.FirstOrDefault(x => x.Module == parts[0] && x.Action == parts[1]);
+                    if (p != null && !context.RolePermissions.IgnoreQueryFilters().Any(rp => rp.RoleId == teacherRole.Id && rp.PermissionId == p.Id))
+                    {
+                        context.RolePermissions.Add(new RolePermission { RoleId = teacherRole.Id, PermissionId = p.Id });
+                    }
+                }
+            }
+
+            // Gán quyền cơ bản cho ASSISTANT
+            var assistantRole = await context.Roles.IgnoreQueryFilters().FirstOrDefaultAsync(r => r.Code == "ASSISTANT");
+            if (assistantRole != null)
+            {
+                var assistantPerms = new[] {
+                    "Students:READ", "Classes:READ", 
+                    "Schedules:Manage", "Attendances:Manage"
+                };
+                var allPerms = await context.Permissions.IgnoreQueryFilters().ToListAsync();
+                foreach (var pStr in assistantPerms)
+                {
+                    var parts = pStr.Split(':');
+                    var p = allPerms.FirstOrDefault(x => x.Module == parts[0] && x.Action == parts[1]);
+                    if (p != null && !context.RolePermissions.IgnoreQueryFilters().Any(rp => rp.RoleId == assistantRole.Id && rp.PermissionId == p.Id))
+                    {
+                        context.RolePermissions.Add(new RolePermission { RoleId = assistantRole.Id, PermissionId = p.Id });
+                    }
+                }
+            }
+
             // Account Statuses
             var accStatuses = new[] { "ACTIVE", "INACTIVE", "SUSPENDED", "DROPPED_OUT" };
             foreach (var s in accStatuses)

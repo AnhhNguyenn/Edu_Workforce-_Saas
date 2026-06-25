@@ -22,10 +22,13 @@ namespace EduOps.Api.Authorization
         {
             if (context.User.Identity == null || !context.User.Identity.IsAuthenticated) return;
 
-            var roles = context.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
+            var roles = context.User.Claims
+                .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+                .Select(c => c.Value)
+                .ToList();
             if (!roles.Any()) return;
 
-            if (roles.Contains("SUPER_ADMIN"))
+            if (roles.Contains("SUPER_ADMIN") || roles.Contains("CENTER_ADMIN"))
             {
                 context.Succeed(requirement);
                 return;
