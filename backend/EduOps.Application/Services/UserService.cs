@@ -192,6 +192,25 @@ namespace EduOps.Application.Services
                     throw new BadRequestException("Bạn không thể tự thay đổi chức vụ của chính mình.");
 
                 var newRole = await _unitOfWork.Repository<EduOps.Domain.Entities.Role>().FirstOrDefaultAsync(r => r.Code == request.Role);
+                
+                if (newRole != null && user.RoleId != newRole.Id)
+                {
+                    // Validation: Cannot change role if they are scheduled in future classes with their old role
+                    var today = DateTime.UtcNow.Date;
+                    if (user.Role?.Code == "ASSISTANT" && newRole.Code == "TEACHER")
+                    {
+                        var futureAsAssistant = await _unitOfWork.Repository<Session>().AnyAsync(s => s.AssistantId == user.Id && s.SessionDate >= today, ignoreQueryFilters: true);
+                        if (futureAsAssistant)
+                            throw new BadRequestException("Nhân sự này đang được phân công làm Trợ giảng cho một số buổi học ở hiện tại hoặc tương lai. Vui lòng gỡ phân công trước khi đổi vai trò thành Giáo viên.");
+                    }
+                    else if (user.Role?.Code == "TEACHER" && newRole.Code == "ASSISTANT")
+                    {
+                        var futureAsTeacher = await _unitOfWork.Repository<Session>().AnyAsync(s => s.TeacherId == user.Id && s.SessionDate >= today, ignoreQueryFilters: true);
+                        if (futureAsTeacher)
+                            throw new BadRequestException("Nhân sự này đang được phân công làm Giáo viên cho một số buổi học ở hiện tại hoặc tương lai. Vui lòng gỡ phân công trước khi đổi vai trò thành Trợ giảng.");
+                    }
+                }
+                
                 user.RoleId = newRole?.Id;
             }
 

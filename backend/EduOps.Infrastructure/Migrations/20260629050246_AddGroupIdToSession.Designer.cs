@@ -3,6 +3,7 @@ using System;
 using EduOps.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EduOps.Infrastructure.Migrations
 {
     [DbContext(typeof(EduOpsDbContext))]
-    partial class EduOpsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260629050246_AddGroupIdToSession")]
+    partial class AddGroupIdToSession
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -388,9 +391,6 @@ namespace EduOps.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<string>("AcademicYear")
-                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2618,7 +2618,7 @@ namespace EduOps.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("OrganizationId");
 
-                    b.HasOne("EduOps.Domain.Entities.School", "School")
+                    b.HasOne("EduOps.Domain.Entities.School", null)
                         .WithMany("Classes")
                         .HasForeignKey("SchoolId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2635,8 +2635,6 @@ namespace EduOps.Infrastructure.Migrations
                     b.Navigation("Grade");
 
                     b.Navigation("Organization");
-
-                    b.Navigation("School");
 
                     b.Navigation("Status");
 

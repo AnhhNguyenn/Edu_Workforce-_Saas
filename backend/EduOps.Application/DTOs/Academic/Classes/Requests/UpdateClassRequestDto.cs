@@ -10,6 +10,7 @@ namespace EduOps.Application.DTOs.Academic.Classes.Requests
 
         public string? Grade { get; set; }
         public string? Subject { get; set; }
+        public string? AcademicYear { get; set; }
         public string? Description { get; set; }
         public string? StatusCode { get; set; }
     }

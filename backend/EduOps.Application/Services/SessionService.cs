@@ -52,7 +52,7 @@ namespace EduOps.Application.Services
                 (!query.StartDate.HasValue || s.SessionDate >= query.StartDate.Value.Date.ToUniversalTime()) &&
                 (!query.EndDate.HasValue || s.SessionDate <= query.EndDate.Value.Date.ToUniversalTime()) &&
                 (string.IsNullOrEmpty(query.SearchKeyword) || s.LessonTitle.ToLower().Contains(query.SearchKeyword.ToLower())),
-                query.PageNumber, query.PageSize, includeProperties: "Status");
+                query.PageNumber, query.PageSize, includeProperties: "Status,SessionAssistants");
 
             return new PagedResult<SessionListResponseDto>
             {
@@ -85,7 +85,7 @@ namespace EduOps.Application.Services
                 (!excludeSessionId.HasValue || s.Id != excludeSessionId.Value) &&
                 s.SessionDate == targetDate &&
                 s.Status != null && s.Status.Code != "CANCELLED" &&
-                ((teacherId.HasValue && s.TeacherId == teacherId.Value) || 
+                ((teacherId.HasValue && s.TeacherId == teacherId.Value) ||
                  (assistantIds != null && assistantIds.Any() && s.SessionAssistants.Any(sa => assistantIds.Contains(sa.AssistantId))) ||
                  (assistantIds != null && assistantIds.Any() && s.AssistantId.HasValue && assistantIds.Contains(s.AssistantId.Value))) &&
                 ((startTime >= s.StartTime && startTime < s.EndTime) ||
@@ -108,7 +108,7 @@ namespace EduOps.Application.Services
                 var classEntity = await _unitOfWork.Repository<Class>().FirstOrDefaultAsync(c => c.Id == request.ClassId && c.OrganizationId == organizationId);
                 if (classEntity == null)
                     throw new BadRequestException("Lớp học không tồn tại hoặc đã bị xóa.");
-                    
+
                 var schoolId = request.SchoolId != Guid.Empty ? request.SchoolId : classEntity.SchoolId;
 
                 if (!await _unitOfWork.Repository<School>().AnyAsync(s => s.Id == schoolId && s.OrganizationId == organizationId))
@@ -139,6 +139,7 @@ namespace EduOps.Application.Services
                 {
                     OrganizationId = organizationId,
                     ClassId = request.ClassId,
+                    GroupId = request.GroupId,
                     SchoolId = schoolId,
                     TeacherId = request.TeacherId,
                     AssistantId = request.AssistantIds?.FirstOrDefault(),
@@ -210,7 +211,7 @@ namespace EduOps.Application.Services
                         datesToCreate.Add(date);
                     }
                 }
-                
+
                 if (!datesToCreate.Any())
                 {
                     throw new BadRequestException("Không có ngày nào hợp lệ trong khoảng thời gian lặp lại.");
@@ -224,11 +225,13 @@ namespace EduOps.Application.Services
             var createdSessions = new List<SessionDetailResponseDto>();
             foreach (var date in datesToCreate)
             {
+                Guid? groupId = request.ClassIds.Count > 1 ? Guid.NewGuid() : null;
                 foreach (var classId in request.ClassIds)
                 {
                     var singleRequest = new CreateSessionRequestDto
                     {
                         ClassId = classId,
+                        GroupId = groupId,
                         SchoolId = request.SchoolId ?? Guid.Empty,
                         TeacherId = request.TeacherId,
                         AssistantIds = request.AssistantIds,
@@ -243,75 +246,199 @@ namespace EduOps.Application.Services
                         StartTime = request.StartTime,
                         EndTime = request.EndTime
                     };
-                    
+
                     var createdSession = await CreateSessionAsync(organizationId, singleRequest);
                     createdSessions.Add(createdSession);
                 }
             }
-            
+
             return createdSessions;
         }
 
         public async Task<SessionDetailResponseDto> UpdateSessionAsync(Guid id, Guid organizationId, EduOps.Application.DTOs.Academic.SessionRequestDto request)
         {
+            // Làm sạch dữ liệu từ Frontend: Loại bỏ Guid.Empty nếu có (Frontend thường gửi 00000000-0000-0000-0000-000000000000 thay vì null)
+            if (request.TeacherId == Guid.Empty) request.TeacherId = null;
+            if (request.AssistantIds != null)
+            {
+                request.AssistantIds = request.AssistantIds.Where(aid => aid != Guid.Empty).ToList();
+            }
+
+            var userRepo = _unitOfWork.Repository<User>();
+
+            // Validate Giáo viên
+            if (request.TeacherId.HasValue)
+            {
+                var teacher = await userRepo.FirstOrDefaultAsync(u => u.Id == request.TeacherId.Value, includeProperties: "Role");
+                if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role?.Code != "TEACHER")
+                    throw new BadRequestException("Giáo viên không hợp lệ hoặc không tồn tại.");
+            }
+
+            // Validate Trợ giảng
+            if (request.AssistantIds != null && request.AssistantIds.Any())
+            {
+                foreach (var aId in request.AssistantIds)
+                {
+                    var assistant = await userRepo.FirstOrDefaultAsync(u => u.Id == aId, includeProperties: "Role");
+                    if (assistant == null || assistant.OrganizationId != organizationId || assistant.Role?.Code != "ASSISTANT")
+                        throw new BadRequestException("Trợ giảng không hợp lệ hoặc không tồn tại.");
+                }
+            }
+
             var repo = _unitOfWork.Repository<Session>();
-            var session = await repo.FirstOrDefaultAsync(s => s.Id == id && s.OrganizationId == organizationId, includeProperties: "SessionAssistants");
-            if (session == null) throw new NotFoundException("Session", id);
+            
+            // Lấy Session gốc
+            var originalSession = await repo.FirstOrDefaultAsync(s => s.Id == id && s.OrganizationId == organizationId);
+            if (originalSession == null) throw new NotFoundException("Session", id);
 
-            // Ignore conflict check if Teacher/Assistant didn't change and time didn't change
+            if (request.ClassIds == null || !request.ClassIds.Any())
+                throw new BadRequestException("Phải chọn ít nhất 1 lớp học.");
+
+            // Lấy danh sách các Session trong cùng Group (nếu có)
+            var groupSessions = new List<Session> { originalSession };
+            if (originalSession.GroupId.HasValue)
+            {
+                groupSessions = (await repo.FindAsync(s => s.GroupId == originalSession.GroupId && s.OrganizationId == organizationId)).ToList();
+            }
+
+            // Tạo GroupId mới nếu từ 1 lớp mở rộng thành nhiều lớp và chưa có GroupId
+            Guid? currentGroupId = originalSession.GroupId;
+            if (!currentGroupId.HasValue && request.ClassIds.Count > 1)
+            {
+                currentGroupId = Guid.NewGuid();
+            }
+            else if (request.ClassIds.Count <= 1)
+            {
+                // Nếu chỉ còn 1 lớp thì có thể xóa GroupId
+                currentGroupId = null;
+            }
+
+            var assistantRepo = _unitOfWork.Repository<SessionAssistant>();
+            var sessionStatusRepo = _unitOfWork.Repository<EduOps.Domain.Entities.SessionStatus>();
+            var scheduledStatus = await sessionStatusRepo.FirstOrDefaultAsync(s => s.Code == "SCHEDULED");
+
+            var currentClassIds = groupSessions.Select(s => s.ClassId).ToList();
+            var classesToAdd = request.ClassIds.Except(currentClassIds).ToList();
+            var classesToRemove = currentClassIds.Except(request.ClassIds).ToList();
+
+            // Xóa các session không còn trong danh sách lớp
+            foreach (var classIdToRemove in classesToRemove)
+            {
+                var sessionToRemove = groupSessions.FirstOrDefault(s => s.ClassId == classIdToRemove);
+                if (sessionToRemove != null)
+                {
+                    repo.Remove(sessionToRemove);
+                    groupSessions.Remove(sessionToRemove);
+                }
+            }
+
+            // Lấy danh sách trợ giảng của session gốc (nếu có) để sync cho các session mới
+            var originalAssistants = (await assistantRepo.FindAsync(sa => sa.SessionId == id)).ToList();
+            var originalAssistantIds = originalAssistants.Where(sa => sa.DeletedAt == null).Select(sa => sa.AssistantId).ToList();
+
             bool assistantsChanged = false;
-            var currentAssistantIds = session.SessionAssistants.Select(sa => sa.AssistantId).ToList();
-            if (request.AssistantIds == null)
+            if (request.AssistantIds != null)
             {
-                assistantsChanged = currentAssistantIds.Any();
+                assistantsChanged = originalAssistantIds.Count != request.AssistantIds.Count || originalAssistantIds.Except(request.AssistantIds).Any();
             }
-            else
-            {
-                assistantsChanged = currentAssistantIds.Count != request.AssistantIds.Count || currentAssistantIds.Except(request.AssistantIds).Any();
-            }
+            var assistantIdsToUse = request.AssistantIds ?? originalAssistantIds;
 
-            bool timeOrStaffChanged = session.TeacherId != request.TeacherId || assistantsChanged || 
-                                      session.SessionDate.Date != request.SessionDate.Date || 
-                                      session.StartTime != request.StartTime || session.EndTime != request.EndTime;
+            bool timeOrStaffChanged = originalSession.TeacherId != request.TeacherId || assistantsChanged ||
+                                      originalSession.SessionDate.Date != request.SessionDate.Date ||
+                                      originalSession.StartTime != request.StartTime || originalSession.EndTime != request.EndTime;
 
             if (timeOrStaffChanged)
             {
-                await CheckConflictAsync(organizationId, request.TeacherId, request.AssistantIds, request.SessionDate, request.StartTime, request.EndTime, id);
+                await CheckConflictAsync(organizationId, request.TeacherId, assistantIdsToUse, request.SessionDate, request.StartTime, request.EndTime, id);
             }
 
-            session.ClassId = request.ClassId;
-            session.TeacherId = request.TeacherId;
-            session.AssistantId = request.AssistantIds != null && request.AssistantIds.Any() ? request.AssistantIds.First() : (Guid?)null;
-            
-            if (assistantsChanged)
+            // Cập nhật các session hiện tại
+            foreach (var session in groupSessions)
             {
-                // Let EF Core and the SaveChangesInterceptor handle soft deletion
-                session.SessionAssistants.Clear();
-
-                if (request.AssistantIds != null && request.AssistantIds.Any())
+                session.GroupId = currentGroupId;
+                session.TeacherId = request.TeacherId;
+                session.LessonTitle = request.LessonTitle;
+                session.RoomName = request.RoomName;
+                session.Notes = request.Notes;
+                session.ActualStudentCount = request.ActualStudentCount;
+                session.LocalTeachingAssistant = request.LocalTeachingAssistant;
+                session.LessonProgress = request.LessonProgress;
+                session.ExtraData = request.ExtraData;
+                session.SessionDate = request.SessionDate.Date.ToUniversalTime();
+                session.StartTime = request.StartTime;
+                session.EndTime = request.EndTime;
+                
+                if (request.AssistantIds != null)
                 {
-                    foreach(var aid in request.AssistantIds)
+                    session.AssistantId = request.AssistantIds.Any() ? request.AssistantIds.First() : (Guid?)null;
+                    
+                    // Cập nhật SessionAssistants cho từng session hiện tại
+                    var sessionAssistants = (await assistantRepo.FindAsync(sa => sa.SessionId == session.Id)).ToList();
+                    foreach (var sa in sessionAssistants.Where(sa => sa.DeletedAt == null))
                     {
-                        session.SessionAssistants.Add(new SessionAssistant { AssistantId = aid });
+                        sa.DeletedAt = DateTime.UtcNow;
+                    }
+                    if (request.AssistantIds.Any())
+                    {
+                        var newAssistants = request.AssistantIds.Select(aid => new SessionAssistant 
+                        { 
+                            SessionId = session.Id, 
+                            AssistantId = aid,
+                            OrganizationId = organizationId 
+                        }).ToList();
+                        await assistantRepo.AddRangeAsync(newAssistants);
                     }
                 }
             }
 
-            session.LessonTitle = request.LessonTitle;
-            session.RoomName = request.RoomName;
-            session.Notes = request.Notes;
-            session.ActualStudentCount = request.ActualStudentCount;
-            session.LocalTeachingAssistant = request.LocalTeachingAssistant;
-            session.LessonProgress = request.LessonProgress;
-            session.ExtraData = request.ExtraData;
-            session.SessionDate = request.SessionDate.Date.ToUniversalTime();
-            session.StartTime = request.StartTime;
-            session.EndTime = request.EndTime;
+            // Tạo session mới cho các lớp được thêm vào
+            foreach (var classIdToAdd in classesToAdd)
+            {
+                var newSession = new Session
+                {
+                    ClassId = classIdToAdd,
+                    SchoolId = request.SchoolId,
+                    TeacherId = request.TeacherId,
+                    GroupId = currentGroupId,
+                    LessonTitle = request.LessonTitle,
+                    RoomName = request.RoomName,
+                    Notes = request.Notes,
+                    ActualStudentCount = request.ActualStudentCount,
+                    LocalTeachingAssistant = request.LocalTeachingAssistant,
+                    LessonProgress = request.LessonProgress,
+                    ExtraData = request.ExtraData,
+                    SessionDate = request.SessionDate.Date.ToUniversalTime(),
+                    StartTime = request.StartTime,
+                    EndTime = request.EndTime,
+                    OrganizationId = organizationId,
+                    StatusId = scheduledStatus?.Id
+                };
+                
+                if (request.AssistantIds != null && request.AssistantIds.Any())
+                {
+                    newSession.AssistantId = request.AssistantIds.First();
+                }
 
-            // Do not call repo.Update(session) as it forces tracking state changes which can cause concurrency exceptions on unchanged relations.
+                await repo.AddAsync(newSession);
+
+                if (assistantIdsToUse.Any())
+                {
+                    foreach (var aid in assistantIdsToUse)
+                    {
+                        newSession.SessionAssistants.Add(new SessionAssistant
+                        {
+                            AssistantId = aid,
+                            OrganizationId = organizationId
+                        });
+                    }
+                }
+            }
+
             await _unitOfWork.CommitAsync();
             await _realtimeNotification.SendToOrganizationAsync(organizationId, "SessionUpdated");
-            return session.ToDetailResponseDto();
+            
+            // Trả về session gốc (có thể đã bị update GroupId)
+            return originalSession.ToDetailResponseDto();
         }
 
         public async Task DeleteSessionAsync(Guid id, Guid organizationId)
@@ -346,266 +473,266 @@ namespace EduOps.Application.Services
                 using var stream = file.OpenReadStream();
                 using var workbook = new XLWorkbook(stream);
 
-            foreach (var worksheet in workbook.Worksheets)
-            {
-                var schoolName = worksheet.Name.Trim();
-                var school = await schoolRepo.FirstOrDefaultAsync(s => s.Name.ToLower() == schoolName.ToLower() && s.OrganizationId == organizationId);
-                
-                if (school == null)
+                foreach (var worksheet in workbook.Worksheets)
                 {
-                    if (!request.AutoCreateSchools) continue;
-                    
-                    school = new School { OrganizationId = organizationId, Name = schoolName };
-                    await schoolRepo.AddAsync(school);
-                    await _unitOfWork.CommitAsync(); // Commit immediately so we have an Id
-                }
+                    var schoolName = worksheet.Name.Trim();
+                    var school = await schoolRepo.FirstOrDefaultAsync(s => s.Name.ToLower() == schoolName.ToLower() && s.OrganizationId == organizationId);
 
-                var rows = worksheet.RowsUsed();
-                if (!rows.Any()) continue;
-
-                var headerRow = rows.First();
-                var dataRows = rows.Skip(1);
-
-                var columnMap = new Dictionary<string, int>();
-                var customFieldsIndices = new Dictionary<int, string>();
-
-                foreach (var cell in headerRow.CellsUsed())
-                {
-                    var headerText = cell.GetString().Trim();
-                    var headerNormalized = headerText.ToLower().Replace(" ", "");
-
-                    if (headerNormalized.Contains("ngày") || headerNormalized.Contains("date")) columnMap["Date"] = cell.Address.ColumnNumber;
-                    else if (headerNormalized.Contains("thờigian") || headerNormalized.Contains("time") || headerNormalized.Contains("giờ")) columnMap["Time"] = cell.Address.ColumnNumber;
-                    else if (headerNormalized.Contains("lớp") || headerNormalized.Contains("class")) columnMap["Class"] = cell.Address.ColumnNumber;
-                    else if (headerNormalized.Contains("sĩsố") || headerNormalized.Contains("count") || headerNormalized.Contains("sốlượng")) columnMap["StudentCount"] = cell.Address.ColumnNumber;
-                    else if (headerNormalized.Contains("trợgiảngtạimn") || headerNormalized.Contains("local") || headerNormalized.Contains("trợgiảngphụ")) columnMap["LocalAssistant"] = cell.Address.ColumnNumber;
-                    else if (headerNormalized.Contains("trợgiảng") || headerNormalized.Contains("assistant") || headerNormalized.Contains("trợgiảng")) columnMap["Assistant"] = cell.Address.ColumnNumber;
-                    else if (headerNormalized.Contains("tiếnđộ") || headerNormalized.Contains("progress") || headerNormalized.Contains("bàigiảng")) columnMap["LessonProgress"] = cell.Address.ColumnNumber;
-                    else if (headerNormalized.Contains("nhậnxét") || headerNormalized.Contains("ghi") || headerNormalized.Contains("note")) columnMap["Notes"] = cell.Address.ColumnNumber;
-                    else if (headerNormalized.Contains("giáoviên") || headerNormalized.Contains("gv") || headerNormalized.Contains("teacher")) columnMap["Teacher"] = cell.Address.ColumnNumber;
-                    else 
+                    if (school == null)
                     {
-                        if (!string.IsNullOrEmpty(headerText))
-                        {
-                            var lower = headerText.ToLower().Trim();
-                            bool isGarbage = false;
-                            if (System.Text.RegularExpressions.Regex.IsMatch(lower, @"^cột\s*\d*$") || System.Text.RegularExpressions.Regex.IsMatch(lower, @"^column\s*\d*$"))
-                            {
-                                bool hasData = false;
-                                foreach(var r in dataRows)
-                                {
-                                    if(!string.IsNullOrWhiteSpace(r.Cell(cell.Address.ColumnNumber).GetString()))
-                                    {
-                                        hasData = true;
-                                        break;
-                                    }
-                                }
-                                if(!hasData) isGarbage = true;
-                            }
-                            if (!isGarbage)
-                            {
-                                customFieldsIndices[cell.Address.ColumnNumber] = headerText;
-                            }
-                        }
-                    }
-                }
+                        if (!request.AutoCreateSchools) continue;
 
-
-                foreach (var kvp in customFieldsIndices)
-                {
-                    var fieldName = kvp.Value;
-                    if (request.AutoCreateCustomFields)
-                    {
-                        var existingCf = await customFieldRepo.FirstOrDefaultAsync(cf => cf.OrganizationId == organizationId && cf.FieldName.ToLower() == fieldName.ToLower());
-                        if (existingCf == null)
-                        {
-                            await customFieldRepo.AddAsync(new TenantCustomField
-                            {
-                                OrganizationId = organizationId,
-                                EntityName = "Session",
-                                FieldName = fieldName,
-                                FieldType = "Text"
-                            });
-                        }
-                    }
-                }
-                await _unitOfWork.CommitAsync();
-
-                foreach (var row in dataRows)
-                {
-                    var dateStr = columnMap.ContainsKey("Date") ? row.Cell(columnMap["Date"]).GetString().Trim() : "";
-                    var timeStr = columnMap.ContainsKey("Time") ? row.Cell(columnMap["Time"]).GetString().Trim() : "";
-                    var classStr = columnMap.ContainsKey("Class") ? row.Cell(columnMap["Class"]).GetString().Trim() : "";
-                    var studentCountStr = columnMap.ContainsKey("StudentCount") ? row.Cell(columnMap["StudentCount"]).GetString().Trim() : "";
-                    var teacherStr = columnMap.ContainsKey("Teacher") ? row.Cell(columnMap["Teacher"]).GetString().Trim() : "";
-                    var assistantStr = columnMap.ContainsKey("Assistant") ? row.Cell(columnMap["Assistant"]).GetString().Trim() : "";
-                    var localAssistantStr = columnMap.ContainsKey("LocalAssistant") ? row.Cell(columnMap["LocalAssistant"]).GetString().Trim() : "";
-                    var progressStr = columnMap.ContainsKey("LessonProgress") ? row.Cell(columnMap["LessonProgress"]).GetString().Trim() : "";
-                    var notesStr = columnMap.ContainsKey("Notes") ? row.Cell(columnMap["Notes"]).GetString().Trim() : "";
-
-                    var extraDataDict = new Dictionary<string, string>();
-                    foreach (var kvp in customFieldsIndices)
-                    {
-                        var val = row.Cell(kvp.Key).GetString().Trim();
-                        if (!string.IsNullOrEmpty(val))
-                        {
-                            extraDataDict[kvp.Value] = val;
-                        }
-                    }
-                    string? extraDataJson = extraDataDict.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(extraDataDict) : null;
-
-                    if (string.IsNullOrEmpty(dateStr) || string.IsNullOrEmpty(timeStr) || string.IsNullOrEmpty(classStr))
-                        continue;
-
-                    // Parse Date
-                    if (!DateTime.TryParseExact(dateStr, new[] {"dd/MM/yyyy", "d/M/yyyy"}, null, System.Globalization.DateTimeStyles.None, out var sessionDate))
-                    {
-                        if (DateTime.TryParse(dateStr, out var d)) sessionDate = d;
-                        else continue;
+                        school = new School { OrganizationId = organizationId, Name = schoolName };
+                        await schoolRepo.AddAsync(school);
+                        await _unitOfWork.CommitAsync(); // Commit immediately so we have an Id
                     }
 
-                    // Parse Time
-                    var timeParts = timeStr.Split(new string[] { "-", "đến" }, StringSplitOptions.RemoveEmptyEntries);
-                    TimeSpan startTime = TimeSpan.Zero, endTime = TimeSpan.Zero;
-                    if (timeParts.Length >= 2)
-                    {
-                        startTime = ParseTimeSpan(timeParts[0]);
-                        endTime = ParseTimeSpan(timeParts[1]);
-                    }
+                    var rows = worksheet.RowsUsed();
+                    if (!rows.Any()) continue;
 
-                    // Parse Student Count
-                    int? totalStudentCount = int.TryParse(studentCountStr, out var count) ? count : (int?)null;
+                    var headerRow = rows.First();
+                    var dataRows = rows.Skip(1);
 
-                    // Parse Classes
-                    var rawClassNames = classStr.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(c => c.Trim()).ToList();
-                    var classNames = new List<string>();
-                    string currentPrefix = "";
-                    foreach (var rawName in rawClassNames)
+                    var columnMap = new Dictionary<string, int>();
+                    var customFieldsIndices = new Dictionary<int, string>();
+
+                    foreach (var cell in headerRow.CellsUsed())
                     {
-                        if (string.IsNullOrEmpty(rawName)) continue;
-                        if (char.IsLetter(rawName[0]))
-                        {
-                            int firstDigit = rawName.ToList().FindIndex(char.IsDigit);
-                            if (firstDigit > 0) currentPrefix = rawName.Substring(0, firstDigit).TrimEnd() + " ";
-                            else currentPrefix = "";
-                            classNames.Add(rawName);
-                        }
-                        else if (char.IsDigit(rawName[0]) && !string.IsNullOrEmpty(currentPrefix))
-                        {
-                            classNames.Add(currentPrefix + rawName);
-                        }
+                        var headerText = cell.GetString().Trim();
+                        var headerNormalized = headerText.ToLower().Replace(" ", "");
+
+                        if (headerNormalized.Contains("ngày") || headerNormalized.Contains("date")) columnMap["Date"] = cell.Address.ColumnNumber;
+                        else if (headerNormalized.Contains("thờigian") || headerNormalized.Contains("time") || headerNormalized.Contains("giờ")) columnMap["Time"] = cell.Address.ColumnNumber;
+                        else if (headerNormalized.Contains("lớp") || headerNormalized.Contains("class")) columnMap["Class"] = cell.Address.ColumnNumber;
+                        else if (headerNormalized.Contains("sĩsố") || headerNormalized.Contains("count") || headerNormalized.Contains("sốlượng")) columnMap["StudentCount"] = cell.Address.ColumnNumber;
+                        else if (headerNormalized.Contains("trợgiảngtạicơsở") || headerNormalized.Contains("local") || headerNormalized.Contains("trợgiảngphụ")) columnMap["LocalAssistant"] = cell.Address.ColumnNumber;
+                        else if (headerNormalized.Contains("trợgiảng") || headerNormalized.Contains("assistant") || headerNormalized.Contains("trợgiảng")) columnMap["Assistant"] = cell.Address.ColumnNumber;
+                        else if (headerNormalized.Contains("tiếnđộ") || headerNormalized.Contains("progress") || headerNormalized.Contains("bàigiảng")) columnMap["LessonProgress"] = cell.Address.ColumnNumber;
+                        else if (headerNormalized.Contains("nhậnxét") || headerNormalized.Contains("ghi") || headerNormalized.Contains("note")) columnMap["Notes"] = cell.Address.ColumnNumber;
+                        else if (headerNormalized.Contains("giáoviên") || headerNormalized.Contains("gv") || headerNormalized.Contains("teacher")) columnMap["Teacher"] = cell.Address.ColumnNumber;
                         else
                         {
-                            classNames.Add(rawName);
+                            if (!string.IsNullOrEmpty(headerText))
+                            {
+                                var lower = headerText.ToLower().Trim();
+                                bool isGarbage = false;
+                                if (System.Text.RegularExpressions.Regex.IsMatch(lower, @"^cột\s*\d*$") || System.Text.RegularExpressions.Regex.IsMatch(lower, @"^column\s*\d*$"))
+                                {
+                                    bool hasData = false;
+                                    foreach (var r in dataRows)
+                                    {
+                                        if (!string.IsNullOrWhiteSpace(r.Cell(cell.Address.ColumnNumber).GetString()))
+                                        {
+                                            hasData = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!hasData) isGarbage = true;
+                                }
+                                if (!isGarbage)
+                                {
+                                    customFieldsIndices[cell.Address.ColumnNumber] = headerText;
+                                }
+                            }
                         }
                     }
 
-                    int? studentsPerClass = classNames.Count > 0 && totalStudentCount.HasValue ? totalStudentCount.Value / classNames.Count : (int?)null;
 
-                    var classEntities = new List<Class>();
-                    foreach (var cName in classNames)
+                    foreach (var kvp in customFieldsIndices)
                     {
-                        var cls = await classRepo.FirstOrDefaultAsync(c => c.Name.ToLower() == cName.ToLower() && c.SchoolId == school.Id);
-                        if (cls == null)
+                        var fieldName = kvp.Value;
+                        if (request.AutoCreateCustomFields)
                         {
-                            if (!request.AutoCreateClasses) continue;
-                            cls = new Class { OrganizationId = organizationId, SchoolId = school.Id, Name = cName };
-                            await classRepo.AddAsync(cls);
-                            await _unitOfWork.CommitAsync();
+                            var existingCf = await customFieldRepo.FirstOrDefaultAsync(cf => cf.OrganizationId == organizationId && cf.FieldName.ToLower() == fieldName.ToLower());
+                            if (existingCf == null)
+                            {
+                                await customFieldRepo.AddAsync(new TenantCustomField
+                                {
+                                    OrganizationId = organizationId,
+                                    EntityName = "Session",
+                                    FieldName = fieldName,
+                                    FieldType = "Text"
+                                });
+                            }
                         }
-                        classEntities.Add(cls);
                     }
+                    await _unitOfWork.CommitAsync();
 
-                    if (classEntities.Count == 0) continue;
-
-                    // Parse Assistants
-                    var assistantNames = assistantStr.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(a => a.Trim()).ToList();
-                    var assistantUsers = new List<User>();
-                    
-                    foreach (var aName in assistantNames)
+                    foreach (var row in dataRows)
                     {
-                        var email = GenerateEmailFromName(aName);
-                        var user = await userRepo.FirstOrDefaultAsync(u => u.Email == email && u.OrganizationId == organizationId);
-                        
-                        if (user == null)
+                        var dateStr = columnMap.ContainsKey("Date") ? row.Cell(columnMap["Date"]).GetString().Trim() : "";
+                        var timeStr = columnMap.ContainsKey("Time") ? row.Cell(columnMap["Time"]).GetString().Trim() : "";
+                        var classStr = columnMap.ContainsKey("Class") ? row.Cell(columnMap["Class"]).GetString().Trim() : "";
+                        var studentCountStr = columnMap.ContainsKey("StudentCount") ? row.Cell(columnMap["StudentCount"]).GetString().Trim() : "";
+                        var teacherStr = columnMap.ContainsKey("Teacher") ? row.Cell(columnMap["Teacher"]).GetString().Trim() : "";
+                        var assistantStr = columnMap.ContainsKey("Assistant") ? row.Cell(columnMap["Assistant"]).GetString().Trim() : "";
+                        var localAssistantStr = columnMap.ContainsKey("LocalAssistant") ? row.Cell(columnMap["LocalAssistant"]).GetString().Trim() : "";
+                        var progressStr = columnMap.ContainsKey("LessonProgress") ? row.Cell(columnMap["LessonProgress"]).GetString().Trim() : "";
+                        var notesStr = columnMap.ContainsKey("Notes") ? row.Cell(columnMap["Notes"]).GetString().Trim() : "";
+
+                        var extraDataDict = new Dictionary<string, string>();
+                        foreach (var kvp in customFieldsIndices)
                         {
-                            if (!request.AutoCreateUsers) continue;
-                            user = new User
+                            var val = row.Cell(kvp.Key).GetString().Trim();
+                            if (!string.IsNullOrEmpty(val))
+                            {
+                                extraDataDict[kvp.Value] = val;
+                            }
+                        }
+                        string? extraDataJson = extraDataDict.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(extraDataDict) : null;
+
+                        if (string.IsNullOrEmpty(dateStr) || string.IsNullOrEmpty(timeStr) || string.IsNullOrEmpty(classStr))
+                            continue;
+
+                        // Parse Date
+                        if (!DateTime.TryParseExact(dateStr, new[] { "dd/MM/yyyy", "d/M/yyyy" }, null, System.Globalization.DateTimeStyles.None, out var sessionDate))
+                        {
+                            if (DateTime.TryParse(dateStr, out var d)) sessionDate = d;
+                            else continue;
+                        }
+
+                        // Parse Time
+                        var timeParts = timeStr.Split(new string[] { "-", "đến" }, StringSplitOptions.RemoveEmptyEntries);
+                        TimeSpan startTime = TimeSpan.Zero, endTime = TimeSpan.Zero;
+                        if (timeParts.Length >= 2)
+                        {
+                            startTime = ParseTimeSpan(timeParts[0]);
+                            endTime = ParseTimeSpan(timeParts[1]);
+                        }
+
+                        // Parse Student Count
+                        int? totalStudentCount = int.TryParse(studentCountStr, out var count) ? count : (int?)null;
+
+                        // Parse Classes
+                        var rawClassNames = classStr.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(c => c.Trim()).ToList();
+                        var classNames = new List<string>();
+                        string currentPrefix = "";
+                        foreach (var rawName in rawClassNames)
+                        {
+                            if (string.IsNullOrEmpty(rawName)) continue;
+                            if (char.IsLetter(rawName[0]))
+                            {
+                                int firstDigit = rawName.ToList().FindIndex(char.IsDigit);
+                                if (firstDigit > 0) currentPrefix = rawName.Substring(0, firstDigit).TrimEnd() + " ";
+                                else currentPrefix = "";
+                                classNames.Add(rawName);
+                            }
+                            else if (char.IsDigit(rawName[0]) && !string.IsNullOrEmpty(currentPrefix))
+                            {
+                                classNames.Add(currentPrefix + rawName);
+                            }
+                            else
+                            {
+                                classNames.Add(rawName);
+                            }
+                        }
+
+                        int? studentsPerClass = classNames.Count > 0 && totalStudentCount.HasValue ? totalStudentCount.Value / classNames.Count : (int?)null;
+
+                        var classEntities = new List<Class>();
+                        foreach (var cName in classNames)
+                        {
+                            var cls = await classRepo.FirstOrDefaultAsync(c => c.Name.ToLower() == cName.ToLower() && c.SchoolId == school.Id);
+                            if (cls == null)
+                            {
+                                if (!request.AutoCreateClasses) continue;
+                                cls = new Class { OrganizationId = organizationId, SchoolId = school.Id, Name = cName };
+                                await classRepo.AddAsync(cls);
+                                await _unitOfWork.CommitAsync();
+                            }
+                            classEntities.Add(cls);
+                        }
+
+                        if (classEntities.Count == 0) continue;
+
+                        // Parse Assistants
+                        var assistantNames = assistantStr.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(a => a.Trim()).ToList();
+                        var assistantUsers = new List<User>();
+
+                        foreach (var aName in assistantNames)
+                        {
+                            var email = GenerateEmailFromName(aName);
+                            var user = await userRepo.FirstOrDefaultAsync(u => u.Email == email && u.OrganizationId == organizationId);
+
+                            if (user == null)
+                            {
+                                if (!request.AutoCreateUsers) continue;
+                                user = new User
+                                {
+                                    OrganizationId = organizationId,
+                                    FullName = aName,
+                                    Email = email,
+                                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
+                                    RoleId = assistantRole?.Id
+                                };
+                                await userRepo.AddAsync(user);
+                                await _unitOfWork.CommitAsync();
+                            }
+                            assistantUsers.Add(user);
+                        }
+
+                        // Parse Teacher
+                        Guid? assignedTeacherId = null;
+                        if (!string.IsNullOrEmpty(teacherStr))
+                        {
+                            var email = GenerateEmailFromName(teacherStr);
+                            var user = await userRepo.FirstOrDefaultAsync(u => u.Email == email && u.OrganizationId == organizationId);
+
+                            if (user == null && request.AutoCreateUsers)
+                            {
+                                user = new User
+                                {
+                                    OrganizationId = organizationId,
+                                    FullName = teacherStr,
+                                    Email = email,
+                                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
+                                    RoleId = teacherRole?.Id
+                                };
+                                await userRepo.AddAsync(user);
+                                await _unitOfWork.CommitAsync();
+                            }
+                            assignedTeacherId = user?.Id;
+                        }
+
+                        // Create Sessions
+                        foreach (var cls in classEntities)
+                        {
+                            var session = new Session
                             {
                                 OrganizationId = organizationId,
-                                FullName = aName,
-                                Email = email,
-                                PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
-                                RoleId = assistantRole?.Id
+                                SchoolId = school.Id,
+                                ClassId = cls.Id,
+                                TeacherId = assignedTeacherId,
+                                SessionDate = sessionDate.ToUniversalTime(),
+                                StartTime = startTime,
+                                EndTime = endTime,
+                                ActualStudentCount = studentsPerClass,
+                                LocalTeachingAssistant = localAssistantStr,
+                                LessonProgress = progressStr,
+                                Notes = notesStr,
+                                ExtraData = extraDataJson,
+                                StatusId = (await _unitOfWork.Repository<EduOps.Domain.Entities.SessionStatus>().FirstOrDefaultAsync(s => s.Code == "SCHEDULED"))?.Id
                             };
-                            await userRepo.AddAsync(user);
-                            await _unitOfWork.CommitAsync();
-                        }
-                        assistantUsers.Add(user);
-                    }
 
-                    // Parse Teacher
-                    Guid? assignedTeacherId = null;
-                    if (!string.IsNullOrEmpty(teacherStr))
-                    {
-                        var email = GenerateEmailFromName(teacherStr);
-                        var user = await userRepo.FirstOrDefaultAsync(u => u.Email == email && u.OrganizationId == organizationId);
-                        
-                        if (user == null && request.AutoCreateUsers)
-                        {
-                            user = new User
+                            // Add assistants
+                            foreach (var au in assistantUsers)
                             {
-                                OrganizationId = organizationId,
-                                FullName = teacherStr,
-                                Email = email,
-                                PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
-                                RoleId = teacherRole?.Id
-                            };
-                            await userRepo.AddAsync(user);
-                            await _unitOfWork.CommitAsync();
+                                session.SessionAssistants.Add(new SessionAssistant
+                                {
+                                    OrganizationId = organizationId,
+                                    AssistantId = au.Id
+                                });
+                            }
+
+                            // Set the first assistant as the primary AssistantId for backward compatibility
+                            if (assistantUsers.Count > 0) session.AssistantId = assistantUsers.First().Id;
+
+                            await sessionRepo.AddAsync(session);
                         }
-                        assignedTeacherId = user?.Id;
-                    }
-
-                    // Create Sessions
-                    foreach (var cls in classEntities)
-                    {
-                        var session = new Session
-                        {
-                            OrganizationId = organizationId,
-                            SchoolId = school.Id,
-                            ClassId = cls.Id,
-                            TeacherId = assignedTeacherId,
-                            SessionDate = sessionDate.ToUniversalTime(),
-                            StartTime = startTime,
-                            EndTime = endTime,
-                            ActualStudentCount = studentsPerClass,
-                            LocalTeachingAssistant = localAssistantStr,
-                            LessonProgress = progressStr,
-                            Notes = notesStr,
-                            ExtraData = extraDataJson,
-                            StatusId = (await _unitOfWork.Repository<EduOps.Domain.Entities.SessionStatus>().FirstOrDefaultAsync(s => s.Code == "SCHEDULED"))?.Id
-                        };
-
-                        // Add assistants
-                        foreach (var au in assistantUsers)
-                        {
-                            session.SessionAssistants.Add(new SessionAssistant
-                            {
-                                OrganizationId = organizationId,
-                                AssistantId = au.Id
-                            });
-                        }
-                        
-                        // Set the first assistant as the primary AssistantId for backward compatibility
-                        if (assistantUsers.Count > 0) session.AssistantId = assistantUsers.First().Id;
-
-                        await sessionRepo.AddAsync(session);
-                    }
                     }
                 }
             }
-            
+
             await _unitOfWork.CommitAsync();
             await _realtimeNotification.SendToOrganizationAsync(organizationId, "SessionUpdated");
             return createdSessions;
@@ -625,313 +752,313 @@ namespace EduOps.Application.Services
                 using var stream = file.OpenReadStream();
                 using var workbook = new XLWorkbook(stream);
 
-            foreach (var worksheet in workbook.Worksheets)
-            {
-                var schoolName = worksheet.Name.Trim();
-                var school = await schoolRepo.FirstOrDefaultAsync(s => s.Name.ToLower() == schoolName.ToLower() && s.OrganizationId == organizationId);
-                
-                string? currentSchoolTempId = null;
-                if (school == null && request.AutoCreateSchools)
+                foreach (var worksheet in workbook.Worksheets)
                 {
-                    // Check if already in preview to avoid duplicates
-                    var existingPreviewSchool = preview.SchoolsToCreate.FirstOrDefault(s => s.Name.ToLower() == schoolName.ToLower());
-                    if (existingPreviewSchool == null)
+                    var schoolName = worksheet.Name.Trim();
+                    var school = await schoolRepo.FirstOrDefaultAsync(s => s.Name.ToLower() == schoolName.ToLower() && s.OrganizationId == organizationId);
+
+                    string? currentSchoolTempId = null;
+                    if (school == null && request.AutoCreateSchools)
                     {
-                        existingPreviewSchool = new EduOps.Application.DTOs.Academic.Sessions.Responses.NewSchoolPreviewDto { Name = schoolName };
-                        preview.SchoolsToCreate.Add(existingPreviewSchool);
-                    }
-                    currentSchoolTempId = existingPreviewSchool.TempId;
-                }
-
-                var rows = worksheet.RowsUsed();
-                if (!rows.Any()) continue;
-
-                var headerRow = rows.First();
-                var dataRows = rows.Skip(1);
-
-                var columnMap = new Dictionary<string, int>();
-                var customFieldsIndices = new Dictionary<int, string>();
-
-                var headerList = new List<string>();
-                var headerCellMap = new Dictionary<string, int>();
-
-                foreach (var cell in headerRow.CellsUsed())
-                {
-                    var headerText = cell.GetString().Trim();
-                    if (!string.IsNullOrEmpty(headerText))
-                    {
-                        headerList.Add(headerText);
-                        headerCellMap[headerText] = cell.Address.ColumnNumber;
-                    }
-                }
-
-                // Call AI to map headers
-                Console.WriteLine($"[AI EXCEL MAPPING] Đang gửi danh sách {headerList.Count} cột lên AI để phân tích...");
-                var aiMap = await _aiMappingService.MapExcelHeadersAsync(headerList);
-
-                if (aiMap != null && aiMap.Count > 0 && aiMap.Values.Any(v => !string.IsNullOrEmpty(v)))
-                {
-                    Console.WriteLine($"[AI EXCEL MAPPING] AI trả về kết quả thành công: {System.Text.Json.JsonSerializer.Serialize(aiMap)}");
-                    // AI responded, use AI Map
-                    if (aiMap.TryGetValue("Date", out var vDate) && !string.IsNullOrEmpty(vDate) && headerCellMap.ContainsKey(vDate)) columnMap["Date"] = headerCellMap[vDate];
-                    if (aiMap.TryGetValue("Time", out var vTime) && !string.IsNullOrEmpty(vTime) && headerCellMap.ContainsKey(vTime)) columnMap["Time"] = headerCellMap[vTime];
-                    if (aiMap.TryGetValue("Class", out var vClass) && !string.IsNullOrEmpty(vClass) && headerCellMap.ContainsKey(vClass)) columnMap["Class"] = headerCellMap[vClass];
-                    if (aiMap.TryGetValue("StudentCount", out var vStudentCount) && !string.IsNullOrEmpty(vStudentCount) && headerCellMap.ContainsKey(vStudentCount)) columnMap["StudentCount"] = headerCellMap[vStudentCount];
-                    if (aiMap.TryGetValue("Teacher", out var vTeacher) && !string.IsNullOrEmpty(vTeacher) && headerCellMap.ContainsKey(vTeacher)) columnMap["Teacher"] = headerCellMap[vTeacher];
-                    if (aiMap.TryGetValue("LocalAssistant", out var vLocalAssistant) && !string.IsNullOrEmpty(vLocalAssistant) && headerCellMap.ContainsKey(vLocalAssistant)) columnMap["LocalAssistant"] = headerCellMap[vLocalAssistant];
-                    if (aiMap.TryGetValue("Assistant", out var vAssistant) && !string.IsNullOrEmpty(vAssistant) && headerCellMap.ContainsKey(vAssistant)) columnMap["Assistant"] = headerCellMap[vAssistant];
-                    if (aiMap.TryGetValue("LessonProgress", out var vLessonProgress) && !string.IsNullOrEmpty(vLessonProgress) && headerCellMap.ContainsKey(vLessonProgress)) columnMap["LessonProgress"] = headerCellMap[vLessonProgress];
-                    if (aiMap.TryGetValue("Notes", out var vNotes) && !string.IsNullOrEmpty(vNotes) && headerCellMap.ContainsKey(vNotes)) columnMap["Notes"] = headerCellMap[vNotes];
-
-                    // Remaining headers go to Custom Fields
-                    var mappedColumns = new HashSet<int>(columnMap.Values);
-                    foreach (var cell in headerRow.CellsUsed())
-                    {
-                        if (!mappedColumns.Contains(cell.Address.ColumnNumber))
+                        // Check if already in preview to avoid duplicates
+                        var existingPreviewSchool = preview.SchoolsToCreate.FirstOrDefault(s => s.Name.ToLower() == schoolName.ToLower());
+                        if (existingPreviewSchool == null)
                         {
-                            var headerText = cell.GetString().Trim();
-                            if (!string.IsNullOrEmpty(headerText))
-                            {
-                                var lower = headerText.ToLower().Trim();
-                                bool isGarbage = false;
-                                if (System.Text.RegularExpressions.Regex.IsMatch(lower, @"^cột\s*\d*$") || System.Text.RegularExpressions.Regex.IsMatch(lower, @"^column\s*\d*$"))
-                                {
-                                    bool hasData = false;
-                                    foreach(var r in dataRows)
-                                    {
-                                        if(!string.IsNullOrWhiteSpace(r.Cell(cell.Address.ColumnNumber).GetString()))
-                                        {
-                                            hasData = true;
-                                            break;
-                                        }
-                                    }
-                                    if(!hasData) isGarbage = true;
-                                }
-                                if (!isGarbage)
-                                {
-                                    customFieldsIndices[cell.Address.ColumnNumber] = headerText;
-                                }
-                            }
+                            existingPreviewSchool = new EduOps.Application.DTOs.Academic.Sessions.Responses.NewSchoolPreviewDto { Name = schoolName };
+                            preview.SchoolsToCreate.Add(existingPreviewSchool);
                         }
+                        currentSchoolTempId = existingPreviewSchool.TempId;
                     }
-                }
-                else
-                {
-                    Console.WriteLine($"[AI EXCEL MAPPING] AI không trả về kết quả hoặc bị lỗi. Chuyển sang sử dụng Rule-based dự phòng.");
-                    // Fallback to Rule-based Auto Mapping
+
+                    var rows = worksheet.RowsUsed();
+                    if (!rows.Any()) continue;
+
+                    var headerRow = rows.First();
+                    var dataRows = rows.Skip(1);
+
+                    var columnMap = new Dictionary<string, int>();
+                    var customFieldsIndices = new Dictionary<int, string>();
+
+                    var headerList = new List<string>();
+                    var headerCellMap = new Dictionary<string, int>();
+
                     foreach (var cell in headerRow.CellsUsed())
                     {
                         var headerText = cell.GetString().Trim();
-                        var headerNormalized = headerText.ToLower().Replace(" ", "");
-
-                        if (headerNormalized.Contains("ngày") || headerNormalized.Contains("date")) columnMap["Date"] = cell.Address.ColumnNumber;
-                        else if (headerNormalized.Contains("thờigian") || headerNormalized.Contains("time") || headerNormalized.Contains("giờ")) columnMap["Time"] = cell.Address.ColumnNumber;
-                        else if (headerNormalized.Contains("lớp") || headerNormalized.Contains("class")) columnMap["Class"] = cell.Address.ColumnNumber;
-                        else if (headerNormalized.Contains("sĩsố") || headerNormalized.Contains("count") || headerNormalized.Contains("sốlượng")) columnMap["StudentCount"] = cell.Address.ColumnNumber;
-                        else if (headerNormalized.Contains("giáoviên") || headerNormalized == "gv" || headerNormalized.Contains("teacher")) columnMap["Teacher"] = cell.Address.ColumnNumber;
-                        else if (headerNormalized.Contains("trợgiảngtạimn") || headerNormalized.Contains("trợgiảngmn") || headerNormalized.Contains("local") || headerNormalized.EndsWith("tgmn")) columnMap["LocalAssistant"] = cell.Address.ColumnNumber;
-                        else if (headerNormalized.Contains("trợgiảng") || headerNormalized.Contains("assistant") || headerNormalized == "tg") columnMap["Assistant"] = cell.Address.ColumnNumber;
-                        else if (headerNormalized.Contains("tiếnđộ") || headerNormalized.Contains("progress") || headerNormalized.Contains("bàigiảng")) columnMap["LessonProgress"] = cell.Address.ColumnNumber;
-                        else if (headerNormalized.Contains("nhậnxét") || headerNormalized.Contains("ghi") || headerNormalized.Contains("note")) columnMap["Notes"] = cell.Address.ColumnNumber;
-                        else 
+                        if (!string.IsNullOrEmpty(headerText))
                         {
-                            if (!string.IsNullOrEmpty(headerText))
+                            headerList.Add(headerText);
+                            headerCellMap[headerText] = cell.Address.ColumnNumber;
+                        }
+                    }
+
+                    // Call AI to map headers
+                    Console.WriteLine($"[AI EXCEL MAPPING] Đang gửi danh sách {headerList.Count} cột lên AI để phân tích...");
+                    var aiMap = await _aiMappingService.MapExcelHeadersAsync(headerList);
+
+                    if (aiMap != null && aiMap.Count > 0 && aiMap.Values.Any(v => !string.IsNullOrEmpty(v)))
+                    {
+                        Console.WriteLine($"[AI EXCEL MAPPING] AI trả về kết quả thành công: {System.Text.Json.JsonSerializer.Serialize(aiMap)}");
+                        // AI responded, use AI Map
+                        if (aiMap.TryGetValue("Date", out var vDate) && !string.IsNullOrEmpty(vDate) && headerCellMap.ContainsKey(vDate)) columnMap["Date"] = headerCellMap[vDate];
+                        if (aiMap.TryGetValue("Time", out var vTime) && !string.IsNullOrEmpty(vTime) && headerCellMap.ContainsKey(vTime)) columnMap["Time"] = headerCellMap[vTime];
+                        if (aiMap.TryGetValue("Class", out var vClass) && !string.IsNullOrEmpty(vClass) && headerCellMap.ContainsKey(vClass)) columnMap["Class"] = headerCellMap[vClass];
+                        if (aiMap.TryGetValue("StudentCount", out var vStudentCount) && !string.IsNullOrEmpty(vStudentCount) && headerCellMap.ContainsKey(vStudentCount)) columnMap["StudentCount"] = headerCellMap[vStudentCount];
+                        if (aiMap.TryGetValue("Teacher", out var vTeacher) && !string.IsNullOrEmpty(vTeacher) && headerCellMap.ContainsKey(vTeacher)) columnMap["Teacher"] = headerCellMap[vTeacher];
+                        if (aiMap.TryGetValue("LocalAssistant", out var vLocalAssistant) && !string.IsNullOrEmpty(vLocalAssistant) && headerCellMap.ContainsKey(vLocalAssistant)) columnMap["LocalAssistant"] = headerCellMap[vLocalAssistant];
+                        if (aiMap.TryGetValue("Assistant", out var vAssistant) && !string.IsNullOrEmpty(vAssistant) && headerCellMap.ContainsKey(vAssistant)) columnMap["Assistant"] = headerCellMap[vAssistant];
+                        if (aiMap.TryGetValue("LessonProgress", out var vLessonProgress) && !string.IsNullOrEmpty(vLessonProgress) && headerCellMap.ContainsKey(vLessonProgress)) columnMap["LessonProgress"] = headerCellMap[vLessonProgress];
+                        if (aiMap.TryGetValue("Notes", out var vNotes) && !string.IsNullOrEmpty(vNotes) && headerCellMap.ContainsKey(vNotes)) columnMap["Notes"] = headerCellMap[vNotes];
+
+                        // Remaining headers go to Custom Fields
+                        var mappedColumns = new HashSet<int>(columnMap.Values);
+                        foreach (var cell in headerRow.CellsUsed())
+                        {
+                            if (!mappedColumns.Contains(cell.Address.ColumnNumber))
                             {
-                                var lower = headerText.ToLower().Trim();
-                                bool isGarbage = false;
-                                if (System.Text.RegularExpressions.Regex.IsMatch(lower, @"^cột\s*\d*$") || System.Text.RegularExpressions.Regex.IsMatch(lower, @"^column\s*\d*$"))
+                                var headerText = cell.GetString().Trim();
+                                if (!string.IsNullOrEmpty(headerText))
                                 {
-                                    bool hasData = false;
-                                    foreach(var r in dataRows)
+                                    var lower = headerText.ToLower().Trim();
+                                    bool isGarbage = false;
+                                    if (System.Text.RegularExpressions.Regex.IsMatch(lower, @"^cột\s*\d*$") || System.Text.RegularExpressions.Regex.IsMatch(lower, @"^column\s*\d*$"))
                                     {
-                                        if(!string.IsNullOrWhiteSpace(r.Cell(cell.Address.ColumnNumber).GetString()))
+                                        bool hasData = false;
+                                        foreach (var r in dataRows)
                                         {
-                                            hasData = true;
-                                            break;
+                                            if (!string.IsNullOrWhiteSpace(r.Cell(cell.Address.ColumnNumber).GetString()))
+                                            {
+                                                hasData = true;
+                                                break;
+                                            }
                                         }
+                                        if (!hasData) isGarbage = true;
                                     }
-                                    if(!hasData) isGarbage = true;
-                                }
-                                if (!isGarbage)
-                                {
-                                    customFieldsIndices[cell.Address.ColumnNumber] = headerText;
+                                    if (!isGarbage)
+                                    {
+                                        customFieldsIndices[cell.Address.ColumnNumber] = headerText;
+                                    }
                                 }
                             }
                         }
                     }
-                }
-
-                if (request.AutoCreateCustomFields)
-                {
-                    foreach (var kvp in customFieldsIndices)
+                    else
                     {
-                        var fieldName = kvp.Value;
-                        var existingCf = await customFieldRepo.FirstOrDefaultAsync(cf => cf.OrganizationId == organizationId && cf.FieldName.ToLower() == fieldName.ToLower());
-                        if (existingCf == null && !preview.CustomFieldsToCreate.Any(cf => cf.FieldName.ToLower() == fieldName.ToLower()))
+                        Console.WriteLine($"[AI EXCEL MAPPING] AI không trả về kết quả hoặc bị lỗi. Chuyển sang sử dụng Rule-based dự phòng.");
+                        // Fallback to Rule-based Auto Mapping
+                        foreach (var cell in headerRow.CellsUsed())
                         {
-                            preview.CustomFieldsToCreate.Add(new EduOps.Application.DTOs.Academic.Sessions.Responses.NewCustomFieldPreviewDto { FieldName = fieldName });
-                        }
-                    }
-                }
+                            var headerText = cell.GetString().Trim();
+                            var headerNormalized = headerText.ToLower().Replace(" ", "");
 
-                foreach (var row in dataRows)
-                {
-                    var dateStr = columnMap.ContainsKey("Date") ? row.Cell(columnMap["Date"]).GetString().Trim() : "";
-                    var timeStr = columnMap.ContainsKey("Time") ? row.Cell(columnMap["Time"]).GetString().Trim() : "";
-                    var classStr = columnMap.ContainsKey("Class") ? row.Cell(columnMap["Class"]).GetString().Trim() : "";
-                    var studentCountStr = columnMap.ContainsKey("StudentCount") ? row.Cell(columnMap["StudentCount"]).GetString().Trim() : "";
-                    var teacherStr = columnMap.ContainsKey("Teacher") ? row.Cell(columnMap["Teacher"]).GetString().Trim() : "";
-                    var assistantStr = columnMap.ContainsKey("Assistant") ? row.Cell(columnMap["Assistant"]).GetString().Trim() : "";
-                    var localAssistantStr = columnMap.ContainsKey("LocalAssistant") ? row.Cell(columnMap["LocalAssistant"]).GetString().Trim() : "";
-                    var progressStr = columnMap.ContainsKey("LessonProgress") ? row.Cell(columnMap["LessonProgress"]).GetString().Trim() : "";
-                    var notesStr = columnMap.ContainsKey("Notes") ? row.Cell(columnMap["Notes"]).GetString().Trim() : "";
-
-                    var extraDataDict = new Dictionary<string, string>();
-                    foreach (var kvp in customFieldsIndices)
-                    {
-                        var val = row.Cell(kvp.Key).GetString().Trim();
-                        extraDataDict[kvp.Value] = val; // Cho phép rỗng để UI hiển thị cột này trong form Edit
-                    }
-
-                    if (string.IsNullOrEmpty(dateStr) || string.IsNullOrEmpty(timeStr) || string.IsNullOrEmpty(classStr))
-                        continue;
-
-                    var errors = new List<string>();
-
-                    if (!DateTime.TryParseExact(dateStr, new[] {"dd/MM/yyyy", "d/M/yyyy"}, null, System.Globalization.DateTimeStyles.None, out var sessionDate))
-                    {
-                        if (DateTime.TryParse(dateStr, out var d)) sessionDate = d;
-                        else { errors.Add($"Ngày không hợp lệ: {dateStr}"); sessionDate = DateTime.Today; }
-                    }
-
-                    var timeParts = timeStr.Split(new string[] { "-", "đến" }, StringSplitOptions.RemoveEmptyEntries);
-                    TimeSpan startTime = TimeSpan.Zero, endTime = TimeSpan.Zero;
-                    if (timeParts.Length >= 2)
-                    {
-                        startTime = ParseTimeSpan(timeParts[0]);
-                        endTime = ParseTimeSpan(timeParts[1]);
-                    }
-                    else { errors.Add($"Giờ không hợp lệ: {timeStr}"); }
-
-                    int? totalStudentCount = int.TryParse(studentCountStr, out var count) ? count : (int?)null;
-
-                    var rawClassNames = classStr.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(c => c.Trim()).ToList();
-                    var classNames = new List<string>();
-                    string currentPrefix = "";
-                    foreach (var rawName in rawClassNames)
-                    {
-                        if (string.IsNullOrEmpty(rawName)) continue;
-                        if (char.IsLetter(rawName[0]))
-                        {
-                            int firstDigit = rawName.ToList().FindIndex(char.IsDigit);
-                            if (firstDigit > 0) currentPrefix = rawName.Substring(0, firstDigit).TrimEnd() + " ";
-                            else currentPrefix = "";
-                            classNames.Add(rawName);
-                        }
-                        else if (char.IsDigit(rawName[0]) && !string.IsNullOrEmpty(currentPrefix))
-                            classNames.Add(currentPrefix + rawName);
-                        else
-                            classNames.Add(rawName);
-                    }
-
-                    int? studentsPerClass = classNames.Count > 0 && totalStudentCount.HasValue ? totalStudentCount.Value / classNames.Count : (int?)null;
-
-                    var classPreviewDtos = new List<EduOps.Application.DTOs.Academic.Sessions.Responses.NewClassPreviewDto>();
-                    foreach (var cName in classNames)
-                    {
-                        EduOps.Domain.Entities.Class? cls = null;
-                        if (school != null)
-                        {
-                            cls = await classRepo.FirstOrDefaultAsync(c => c.Name.ToLower() == cName.ToLower() && c.SchoolId == school.Id && c.OrganizationId == organizationId);
-                        }
-                        string? currentClassTempId = null;
-                        
-                        if (cls == null)
-                        {
-                            if (request.AutoCreateClasses)
-                            {
-                                var existingPreviewClass = preview.ClassesToCreate.FirstOrDefault(c => c.Name.ToLower() == cName.ToLower() && c.SchoolName.ToLower() == schoolName.ToLower());
-                                if (existingPreviewClass == null)
-                                {
-                                    existingPreviewClass = new EduOps.Application.DTOs.Academic.Sessions.Responses.NewClassPreviewDto { Name = cName, SchoolName = schoolName, SchoolTempId = currentSchoolTempId };
-                                    preview.ClassesToCreate.Add(existingPreviewClass);
-                                }
-                                currentClassTempId = existingPreviewClass.TempId;
-                            }
+                            if (headerNormalized.Contains("ngày") || headerNormalized.Contains("date")) columnMap["Date"] = cell.Address.ColumnNumber;
+                            else if (headerNormalized.Contains("thờigian") || headerNormalized.Contains("time") || headerNormalized.Contains("giờ")) columnMap["Time"] = cell.Address.ColumnNumber;
+                            else if (headerNormalized.Contains("lớp") || headerNormalized.Contains("class")) columnMap["Class"] = cell.Address.ColumnNumber;
+                            else if (headerNormalized.Contains("sĩsố") || headerNormalized.Contains("count") || headerNormalized.Contains("sốlượng")) columnMap["StudentCount"] = cell.Address.ColumnNumber;
+                            else if (headerNormalized.Contains("giáoviên") || headerNormalized == "gv" || headerNormalized.Contains("teacher")) columnMap["Teacher"] = cell.Address.ColumnNumber;
+                            else if (headerNormalized.Contains("trợgiảngtạimn") || headerNormalized.Contains("trợgiảngmn") || headerNormalized.Contains("local") || headerNormalized.EndsWith("tgmn")) columnMap["LocalAssistant"] = cell.Address.ColumnNumber;
+                            else if (headerNormalized.Contains("trợgiảng") || headerNormalized.Contains("assistant") || headerNormalized == "tg") columnMap["Assistant"] = cell.Address.ColumnNumber;
+                            else if (headerNormalized.Contains("tiếnđộ") || headerNormalized.Contains("progress") || headerNormalized.Contains("bàigiảng")) columnMap["LessonProgress"] = cell.Address.ColumnNumber;
+                            else if (headerNormalized.Contains("nhậnxét") || headerNormalized.Contains("ghi") || headerNormalized.Contains("note")) columnMap["Notes"] = cell.Address.ColumnNumber;
                             else
                             {
-                                errors.Add($"Không tìm thấy lớp: {cName}");
-                            }
-                        }
-                        
-                        classPreviewDtos.Add(new EduOps.Application.DTOs.Academic.Sessions.Responses.NewClassPreviewDto { Name = cName, TempId = currentClassTempId });
-                    }
-
-                    // Process Teacher
-                    string? teacherTempId = null;
-                    if (!string.IsNullOrEmpty(teacherStr))
-                    {
-                        var email = GenerateEmailFromName(teacherStr);
-                        var user = await userRepo.FirstOrDefaultAsync(u => u.Email == email && u.OrganizationId == organizationId);
-                        if (user == null && request.AutoCreateUsers)
-                        {
-                            var existingPreviewTeacher = preview.UsersToCreate.FirstOrDefault(u => u.Email == email);
-                            if (existingPreviewTeacher == null)
-                            {
-                                existingPreviewTeacher = new EduOps.Application.DTOs.Academic.Sessions.Responses.NewUserPreviewDto { FullName = teacherStr, Email = email, RoleCode = "TEACHER" };
-                                preview.UsersToCreate.Add(existingPreviewTeacher);
-                            }
-                            teacherTempId = existingPreviewTeacher.TempId;
-                        }
-                    }
-
-                    // Process Assistants
-                    var assistantNames = assistantStr.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(a => a.Trim()).ToList();
-                    var assistantTempIds = new List<string>();
-                    
-                    foreach (var aName in assistantNames)
-                    {
-                        var email = GenerateEmailFromName(aName);
-                        var user = await userRepo.FirstOrDefaultAsync(u => u.Email == email && u.OrganizationId == organizationId);
-                        if (user == null && request.AutoCreateUsers)
-                        {
-                            var existingPreviewAsst = preview.UsersToCreate.FirstOrDefault(u => u.Email == email);
-                            if (existingPreviewAsst == null)
-                            {
-                                existingPreviewAsst = new EduOps.Application.DTOs.Academic.Sessions.Responses.NewUserPreviewDto { FullName = aName, Email = email, RoleCode = "ASSISTANT" };
-                                preview.UsersToCreate.Add(existingPreviewAsst);
-                            }
-                            if (!string.IsNullOrEmpty(existingPreviewAsst.TempId))
-                            {
-                                assistantTempIds.Add(existingPreviewAsst.TempId);
+                                if (!string.IsNullOrEmpty(headerText))
+                                {
+                                    var lower = headerText.ToLower().Trim();
+                                    bool isGarbage = false;
+                                    if (System.Text.RegularExpressions.Regex.IsMatch(lower, @"^cột\s*\d*$") || System.Text.RegularExpressions.Regex.IsMatch(lower, @"^column\s*\d*$"))
+                                    {
+                                        bool hasData = false;
+                                        foreach (var r in dataRows)
+                                        {
+                                            if (!string.IsNullOrWhiteSpace(r.Cell(cell.Address.ColumnNumber).GetString()))
+                                            {
+                                                hasData = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!hasData) isGarbage = true;
+                                    }
+                                    if (!isGarbage)
+                                    {
+                                        customFieldsIndices[cell.Address.ColumnNumber] = headerText;
+                                    }
+                                }
                             }
                         }
                     }
 
-                    foreach (var cls in classPreviewDtos)
+                    if (request.AutoCreateCustomFields)
                     {
-                        preview.Sessions.Add(new EduOps.Application.DTOs.Academic.Sessions.Responses.SessionPreviewDto
+                        foreach (var kvp in customFieldsIndices)
                         {
-                            SessionDate = sessionDate,
-                            StartTime = startTime,
-                            EndTime = endTime,
-                            ClassName = cls.Name,
-                            ClassTempId = cls.TempId,
-                            SchoolName = schoolName,
-                            SchoolTempId = currentSchoolTempId,
-                            TeacherName = string.IsNullOrEmpty(teacherStr) ? null : teacherStr,
-                            TeacherTempId = teacherTempId,
-                            AssistantNames = assistantNames,
-                            AssistantTempIds = assistantTempIds,
-                            ActualStudentCount = studentsPerClass,
-                            LocalTeachingAssistant = localAssistantStr,
-                            LessonProgress = progressStr,
-                            Notes = notesStr,
-                            ExtraData = extraDataDict,
-                            Errors = errors.ToList()
-                        });
+                            var fieldName = kvp.Value;
+                            var existingCf = await customFieldRepo.FirstOrDefaultAsync(cf => cf.OrganizationId == organizationId && cf.FieldName.ToLower() == fieldName.ToLower());
+                            if (existingCf == null && !preview.CustomFieldsToCreate.Any(cf => cf.FieldName.ToLower() == fieldName.ToLower()))
+                            {
+                                preview.CustomFieldsToCreate.Add(new EduOps.Application.DTOs.Academic.Sessions.Responses.NewCustomFieldPreviewDto { FieldName = fieldName });
+                            }
+                        }
                     }
-                }
+
+                    foreach (var row in dataRows)
+                    {
+                        var dateStr = columnMap.ContainsKey("Date") ? row.Cell(columnMap["Date"]).GetString().Trim() : "";
+                        var timeStr = columnMap.ContainsKey("Time") ? row.Cell(columnMap["Time"]).GetString().Trim() : "";
+                        var classStr = columnMap.ContainsKey("Class") ? row.Cell(columnMap["Class"]).GetString().Trim() : "";
+                        var studentCountStr = columnMap.ContainsKey("StudentCount") ? row.Cell(columnMap["StudentCount"]).GetString().Trim() : "";
+                        var teacherStr = columnMap.ContainsKey("Teacher") ? row.Cell(columnMap["Teacher"]).GetString().Trim() : "";
+                        var assistantStr = columnMap.ContainsKey("Assistant") ? row.Cell(columnMap["Assistant"]).GetString().Trim() : "";
+                        var localAssistantStr = columnMap.ContainsKey("LocalAssistant") ? row.Cell(columnMap["LocalAssistant"]).GetString().Trim() : "";
+                        var progressStr = columnMap.ContainsKey("LessonProgress") ? row.Cell(columnMap["LessonProgress"]).GetString().Trim() : "";
+                        var notesStr = columnMap.ContainsKey("Notes") ? row.Cell(columnMap["Notes"]).GetString().Trim() : "";
+
+                        var extraDataDict = new Dictionary<string, string>();
+                        foreach (var kvp in customFieldsIndices)
+                        {
+                            var val = row.Cell(kvp.Key).GetString().Trim();
+                            extraDataDict[kvp.Value] = val; // Cho phép rỗng để UI hiển thị cột này trong form Edit
+                        }
+
+                        if (string.IsNullOrEmpty(dateStr) || string.IsNullOrEmpty(timeStr) || string.IsNullOrEmpty(classStr))
+                            continue;
+
+                        var errors = new List<string>();
+
+                        if (!DateTime.TryParseExact(dateStr, new[] { "dd/MM/yyyy", "d/M/yyyy" }, null, System.Globalization.DateTimeStyles.None, out var sessionDate))
+                        {
+                            if (DateTime.TryParse(dateStr, out var d)) sessionDate = d;
+                            else { errors.Add($"Ngày không hợp lệ: {dateStr}"); sessionDate = DateTime.Today; }
+                        }
+
+                        var timeParts = timeStr.Split(new string[] { "-", "đến" }, StringSplitOptions.RemoveEmptyEntries);
+                        TimeSpan startTime = TimeSpan.Zero, endTime = TimeSpan.Zero;
+                        if (timeParts.Length >= 2)
+                        {
+                            startTime = ParseTimeSpan(timeParts[0]);
+                            endTime = ParseTimeSpan(timeParts[1]);
+                        }
+                        else { errors.Add($"Giờ không hợp lệ: {timeStr}"); }
+
+                        int? totalStudentCount = int.TryParse(studentCountStr, out var count) ? count : (int?)null;
+
+                        var rawClassNames = classStr.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(c => c.Trim()).ToList();
+                        var classNames = new List<string>();
+                        string currentPrefix = "";
+                        foreach (var rawName in rawClassNames)
+                        {
+                            if (string.IsNullOrEmpty(rawName)) continue;
+                            if (char.IsLetter(rawName[0]))
+                            {
+                                int firstDigit = rawName.ToList().FindIndex(char.IsDigit);
+                                if (firstDigit > 0) currentPrefix = rawName.Substring(0, firstDigit).TrimEnd() + " ";
+                                else currentPrefix = "";
+                                classNames.Add(rawName);
+                            }
+                            else if (char.IsDigit(rawName[0]) && !string.IsNullOrEmpty(currentPrefix))
+                                classNames.Add(currentPrefix + rawName);
+                            else
+                                classNames.Add(rawName);
+                        }
+
+                        int? studentsPerClass = classNames.Count > 0 && totalStudentCount.HasValue ? totalStudentCount.Value / classNames.Count : (int?)null;
+
+                        var classPreviewDtos = new List<EduOps.Application.DTOs.Academic.Sessions.Responses.NewClassPreviewDto>();
+                        foreach (var cName in classNames)
+                        {
+                            EduOps.Domain.Entities.Class? cls = null;
+                            if (school != null)
+                            {
+                                cls = await classRepo.FirstOrDefaultAsync(c => c.Name.ToLower() == cName.ToLower() && c.SchoolId == school.Id && c.OrganizationId == organizationId);
+                            }
+                            string? currentClassTempId = null;
+
+                            if (cls == null)
+                            {
+                                if (request.AutoCreateClasses)
+                                {
+                                    var existingPreviewClass = preview.ClassesToCreate.FirstOrDefault(c => c.Name.ToLower() == cName.ToLower() && c.SchoolName.ToLower() == schoolName.ToLower());
+                                    if (existingPreviewClass == null)
+                                    {
+                                        existingPreviewClass = new EduOps.Application.DTOs.Academic.Sessions.Responses.NewClassPreviewDto { Name = cName, SchoolName = schoolName, SchoolTempId = currentSchoolTempId };
+                                        preview.ClassesToCreate.Add(existingPreviewClass);
+                                    }
+                                    currentClassTempId = existingPreviewClass.TempId;
+                                }
+                                else
+                                {
+                                    errors.Add($"Không tìm thấy lớp: {cName}");
+                                }
+                            }
+
+                            classPreviewDtos.Add(new EduOps.Application.DTOs.Academic.Sessions.Responses.NewClassPreviewDto { Name = cName, TempId = currentClassTempId });
+                        }
+
+                        // Process Teacher
+                        string? teacherTempId = null;
+                        if (!string.IsNullOrEmpty(teacherStr))
+                        {
+                            var email = GenerateEmailFromName(teacherStr);
+                            var user = await userRepo.FirstOrDefaultAsync(u => u.Email == email && u.OrganizationId == organizationId);
+                            if (user == null && request.AutoCreateUsers)
+                            {
+                                var existingPreviewTeacher = preview.UsersToCreate.FirstOrDefault(u => u.Email == email);
+                                if (existingPreviewTeacher == null)
+                                {
+                                    existingPreviewTeacher = new EduOps.Application.DTOs.Academic.Sessions.Responses.NewUserPreviewDto { FullName = teacherStr, Email = email, RoleCode = "TEACHER" };
+                                    preview.UsersToCreate.Add(existingPreviewTeacher);
+                                }
+                                teacherTempId = existingPreviewTeacher.TempId;
+                            }
+                        }
+
+                        // Process Assistants
+                        var assistantNames = assistantStr.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(a => a.Trim()).ToList();
+                        var assistantTempIds = new List<string>();
+
+                        foreach (var aName in assistantNames)
+                        {
+                            var email = GenerateEmailFromName(aName);
+                            var user = await userRepo.FirstOrDefaultAsync(u => u.Email == email && u.OrganizationId == organizationId);
+                            if (user == null && request.AutoCreateUsers)
+                            {
+                                var existingPreviewAsst = preview.UsersToCreate.FirstOrDefault(u => u.Email == email);
+                                if (existingPreviewAsst == null)
+                                {
+                                    existingPreviewAsst = new EduOps.Application.DTOs.Academic.Sessions.Responses.NewUserPreviewDto { FullName = aName, Email = email, RoleCode = "ASSISTANT" };
+                                    preview.UsersToCreate.Add(existingPreviewAsst);
+                                }
+                                if (!string.IsNullOrEmpty(existingPreviewAsst.TempId))
+                                {
+                                    assistantTempIds.Add(existingPreviewAsst.TempId);
+                                }
+                            }
+                        }
+
+                        foreach (var cls in classPreviewDtos)
+                        {
+                            preview.Sessions.Add(new EduOps.Application.DTOs.Academic.Sessions.Responses.SessionPreviewDto
+                            {
+                                SessionDate = sessionDate,
+                                StartTime = startTime,
+                                EndTime = endTime,
+                                ClassName = cls.Name,
+                                ClassTempId = cls.TempId,
+                                SchoolName = schoolName,
+                                SchoolTempId = currentSchoolTempId,
+                                TeacherName = string.IsNullOrEmpty(teacherStr) ? null : teacherStr,
+                                TeacherTempId = teacherTempId,
+                                AssistantNames = assistantNames,
+                                AssistantTempIds = assistantTempIds,
+                                ActualStudentCount = studentsPerClass,
+                                LocalTeachingAssistant = localAssistantStr,
+                                LessonProgress = progressStr,
+                                Notes = notesStr,
+                                ExtraData = extraDataDict,
+                                Errors = errors.ToList()
+                            });
+                        }
+                    }
                 }
             }
 
@@ -941,7 +1068,7 @@ namespace EduOps.Application.Services
         public async Task<List<SessionDetailResponseDto>> ConfirmImportSessionsAsync(Guid organizationId, EduOps.Application.DTOs.Academic.Sessions.Responses.SessionImportPreviewResponseDto request)
         {
             var createdSessions = new List<SessionDetailResponseDto>();
-            
+
             var schoolRepo = _unitOfWork.Repository<School>();
             var classRepo = _unitOfWork.Repository<Class>();
             var userRepo = _unitOfWork.Repository<User>();
@@ -1127,7 +1254,7 @@ namespace EduOps.Application.Services
                             }
                         }
                     }
-                    
+
                     if (newSession.SessionAssistants.Count > 0) newSession.AssistantId = newSession.SessionAssistants.First().AssistantId;
 
                     await sessionRepo.AddAsync(newSession);
@@ -1162,7 +1289,7 @@ namespace EduOps.Application.Services
             var cleanName = RemoveDiacritics(fullName);
             var parts = cleanName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 1) return parts[0].ToLower() + "@eduops.vn";
-            
+
             var last = parts.Last().ToLower();
             var initials = string.Join("", parts.Take(parts.Length - 1).Select(p => p.Substring(0, 1).ToLower()));
             return $"{last}{initials}@eduops.vn";
@@ -1189,7 +1316,7 @@ namespace EduOps.Application.Services
             var repo = _unitOfWork.Repository<Session>();
             var sessionsResult = await repo.FindAsync(s => s.OrganizationId == organizationId && request.SessionIds.Contains(s.Id), includeProperties: "SessionAssistants");
             var sessions = sessionsResult.ToList();
-            
+
             var updatedSessions = new List<SessionDetailResponseDto>();
 
             foreach (var session in sessions)
@@ -1211,12 +1338,12 @@ namespace EduOps.Application.Services
                 {
                     session.SessionAssistants.Clear();
 
-                    if (request.AssistantId.Value != Guid.Empty) 
+                    if (request.AssistantId.Value != Guid.Empty)
                     {
                         session.SessionAssistants.Add(new SessionAssistant { AssistantId = request.AssistantId.Value });
                         session.AssistantId = request.AssistantId;
-                    } 
-                    else 
+                    }
+                    else
                     {
                         session.AssistantId = null;
                     }
@@ -1236,7 +1363,7 @@ namespace EduOps.Application.Services
             var repo = _unitOfWork.Repository<TenantCustomField>();
             var fieldsResult = await repo.FindAsync(f => f.OrganizationId == organizationId && f.EntityName == "Session");
             var fields = fieldsResult.OrderBy(f => f.OrderIndex).ToList();
-            
+
             return fields.Select(f => new TenantCustomFieldDto
             {
                 Id = f.Id,

@@ -14,5 +14,6 @@ namespace EduOps.Application.DTOs.Academic.Students.Requests
         public string ParentEmail { get; set; } = string.Empty;
 
         public Guid? ClassId { get; set; }
+        public string? StatusCode { get; set; }
     }
 }

@@ -48,6 +48,15 @@ namespace EduOps.Api.Controllers
             return Ok(result);
         }
 
+        [HttpGet("today")]
+        [HasPermission("Attendances:Manage")]
+        public async Task<IActionResult> GetTodayAttendances()
+        {
+            var orgId = _currentUserService.OrganizationId ?? Guid.Empty;
+            var result = await _attendanceService.GetTodayAttendancesAsync(orgId);
+            return Ok(result);
+        }
+
         [HttpPost("sessions/{sessionId}/students")]
         [HasPermission("Attendances:Manage")]
         public async Task<IActionResult> SubmitStudentAttendances(Guid sessionId, [FromBody] StudentAttendanceSubmitDto request)

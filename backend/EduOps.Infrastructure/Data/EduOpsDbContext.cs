@@ -221,9 +221,16 @@ namespace EduOps.Infrastructure.Data
                             if (userId != Guid.Empty) baseEntity.UpdatedBy = userId;
                             break;
                         case EntityState.Deleted:
-                            entry.State = EntityState.Modified;
+                            entry.State = EntityState.Unchanged;
                             baseEntity.DeletedAt = DateTime.UtcNow;
-                            if (userId != Guid.Empty) baseEntity.DeletedBy = userId;
+                            entry.Property("DeletedAt").IsModified = true;
+                            if (userId != Guid.Empty)
+                            {
+                                baseEntity.DeletedBy = userId;
+                                entry.Property("DeletedBy").IsModified = true;
+                            }
+                            baseEntity.UpdatedAt = DateTime.UtcNow;
+                            entry.Property("UpdatedAt").IsModified = true;
                             break;
                     }
                 }

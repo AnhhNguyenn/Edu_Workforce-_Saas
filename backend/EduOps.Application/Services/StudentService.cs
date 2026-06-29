@@ -37,9 +37,12 @@ namespace EduOps.Application.Services
 
             System.Linq.Expressions.Expression<Func<Student, bool>> predicate = s =>
                 s.OrganizationId == organizationId &&
-                (string.IsNullOrEmpty(query.SearchKeyword) || s.FullName.ToLower().Contains(query.SearchKeyword.ToLower()) || s.StudentCode.ToLower().Contains(query.SearchKeyword.ToLower()) || (s.StudentDetail != null && s.StudentDetail.ParentPhone != null && s.StudentDetail.ParentPhone.ToLower().Contains(query.SearchKeyword.ToLower())));
+                (string.IsNullOrEmpty(query.SearchKeyword) || s.FullName.ToLower().Contains(query.SearchKeyword.ToLower()) || s.StudentCode.ToLower().Contains(query.SearchKeyword.ToLower()) || (s.StudentDetail != null && s.StudentDetail.ParentPhone != null && s.StudentDetail.ParentPhone.ToLower().Contains(query.SearchKeyword.ToLower()))) &&
+                (!query.ClassId.HasValue || s.Enrollments.Any(e => e.ClassId == query.ClassId.Value && e.Status != null && e.Status.Code == "ACTIVE")) &&
+                (!query.SchoolId.HasValue || s.Enrollments.Any(e => e.Class != null && e.Class.SchoolId == query.SchoolId.Value && e.Status != null && e.Status.Code == "ACTIVE")) &&
+                (string.IsNullOrEmpty(query.StatusCode) || (s.Status != null && s.Status.Code == query.StatusCode));
 
-            var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Status,StudentDetail,Enrollments,Enrollments.Status,Enrollments.Class");
+            var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Status,StudentDetail,Enrollments,Enrollments.Status,Enrollments.Class,Enrollments.Class.School");
 
             return new PagedResult<StudentListResponseDto>
             {
@@ -52,7 +55,7 @@ namespace EduOps.Application.Services
 
         public async Task<StudentDetailResponseDto> GetByIdAsync(Guid id, Guid organizationId)
         {
-            var student = await _unitOfWork.Repository<Student>().FirstOrDefaultAsync(s => s.Id == id, includeProperties: "Status,StudentDetail,Enrollments,Enrollments.Status,Enrollments.Class");
+            var student = await _unitOfWork.Repository<Student>().FirstOrDefaultAsync(s => s.Id == id, includeProperties: "Status,StudentDetail,Enrollments,Enrollments.Status,Enrollments.Class,Enrollments.Class.School");
             if (student == null || student.OrganizationId != organizationId)
                 throw new NotFoundException("Student", id);
 
@@ -146,7 +149,14 @@ namespace EduOps.Application.Services
             student.StudentDetail.ParentPhone = request.ParentPhone ?? "";
             student.StudentDetail.ParentEmail = request.ParentEmail ?? "";
 
-            // student.Status = request.Status;
+            if (!string.IsNullOrEmpty(request.StatusCode))
+            {
+                var newStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AccountStatus>().FirstOrDefaultAsync(s => s.Code == request.StatusCode);
+                if (newStatus != null)
+                {
+                    student.StatusId = newStatus.Id;
+                }
+            }
 
             repo.Update(student);
 

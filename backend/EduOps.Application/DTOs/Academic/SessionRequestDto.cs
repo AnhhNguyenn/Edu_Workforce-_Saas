@@ -4,7 +4,7 @@ namespace EduOps.Application.DTOs.Academic
 {
     public class SessionRequestDto
     {
-        public Guid ClassId { get; set; }
+        public List<Guid> ClassIds { get; set; } = new List<Guid>();
         public Guid SchoolId { get; set; }
         public Guid? TeacherId { get; set; }
         public List<Guid>? AssistantIds { get; set; }

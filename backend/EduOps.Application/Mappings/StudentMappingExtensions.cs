@@ -21,7 +21,8 @@ namespace EduOps.Application.Mappings
                 Email = student.StudentDetail?.ParentEmail ?? string.Empty,
                 StatusId = student.StatusId,
                 StatusCode = student.Status?.Code ?? string.Empty,
-                CurrentClass = activeEnrollment?.Class?.Name ?? string.Empty
+                CurrentClass = activeEnrollment?.Class?.Name ?? string.Empty,
+                CurrentSchool = activeEnrollment?.Class?.School?.Name ?? string.Empty
             };
         }
 
@@ -44,7 +45,9 @@ namespace EduOps.Application.Mappings
                 StatusCode = student.Status?.Code ?? string.Empty,
                 CreatedAt = student.CreatedAt,
                 ClassId = activeEnrollment?.ClassId,
-                CurrentClass = activeEnrollment?.Class?.Name ?? string.Empty
+                SchoolId = activeEnrollment?.Class?.SchoolId,
+                CurrentClass = activeEnrollment?.Class?.Name ?? string.Empty,
+                CurrentSchool = activeEnrollment?.Class?.School?.Name ?? string.Empty
             };
         }
     }

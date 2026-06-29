@@ -14,10 +14,9 @@ namespace EduOps.Application.Mappings
             {
                 Id = s.Id,
                 ClassId = s.ClassId,
+                GroupId = s.GroupId,
                 TeacherId = s.TeacherId,
-                AssistantIds = s.SessionAssistants != null && s.SessionAssistants.Any() 
-                                ? s.SessionAssistants.Select(sa => sa.AssistantId).ToList() 
-                                : (s.AssistantId.HasValue ? new System.Collections.Generic.List<System.Guid> { s.AssistantId.Value } : null),
+                AssistantIds = s.SessionAssistants?.Where(sa => sa.DeletedAt == null).Select(sa => sa.AssistantId).ToList(),
                 LessonTitle = s.LessonTitle,
                 RoomName = s.RoomName,
                 Notes = s.Notes,
@@ -41,10 +40,9 @@ namespace EduOps.Application.Mappings
             {
                 Id = s.Id,
                 ClassId = s.ClassId,
+                GroupId = s.GroupId,
                 TeacherId = s.TeacherId,
-                AssistantIds = s.SessionAssistants != null && s.SessionAssistants.Any() 
-                                ? s.SessionAssistants.Select(sa => sa.AssistantId).ToList() 
-                                : (s.AssistantId.HasValue ? new System.Collections.Generic.List<System.Guid> { s.AssistantId.Value } : null),
+                AssistantIds = s.SessionAssistants?.Where(sa => sa.DeletedAt == null).Select(sa => sa.AssistantId).ToList(),
                 LessonTitle = s.LessonTitle,
                 RoomName = s.RoomName,
                 Notes = s.Notes,

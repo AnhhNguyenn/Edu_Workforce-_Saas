@@ -11,9 +11,12 @@ namespace EduOps.Domain.Entities
         public Guid? TeacherId { get; set; }
         public Guid? AssistantId { get; set; }
 
+        // Bổ sung: Liên kết nhóm cho gộp lớp
+        public Guid? GroupId { get; set; }
+
         // Bổ sung: Liên kết tới lịch định kỳ gốc nếu có
         public Guid? ClassScheduleId { get; set; }
-        public string LessonTitle { get; set; } = string.Empty;
+        public string LessonTitle { get; set; } = string.Empty;
         public string? RoomName { get; set; }
         public string? Notes { get; set; }
         

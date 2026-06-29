@@ -186,6 +186,15 @@ namespace EduOps.Application.Services
             };
         }
 
+        public async Task<List<AttendanceDto>> GetTodayAttendancesAsync(Guid organizationId)
+        {
+            var todayUtc = DateTime.UtcNow.Date;
+            var repo = _unitOfWork.Repository<Attendance>();
+            var attendances = await repo.FindAsync(a => a.OrganizationId == organizationId && a.CheckinTime >= todayUtc, includeProperties: "Status");
+
+            return attendances.Select(a => a.ToDto()).ToList();
+        }
+
         public async Task SubmitStudentAttendancesAsync(Guid sessionId, Guid organizationId, Guid userId, string role, StudentAttendanceSubmitDto request)
         {
             var sessionRepo = _unitOfWork.Repository<Session>();

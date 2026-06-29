@@ -6,9 +6,11 @@ namespace EduOps.Application.DTOs.Academic.Classes.Responses
     {
         public Guid Id { get; set; }
         public Guid SchoolId { get; set; }
+        public string SchoolName { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public Guid? GradeId { get; set; }
         public string? GradeCode { get; set; }
+        public string? AcademicYear { get; set; }
         public Guid? SubjectId { get; set; }
         public string? SubjectCode { get; set; }
         public string? Description { get; set; }

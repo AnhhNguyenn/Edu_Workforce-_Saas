@@ -13,9 +13,11 @@ namespace EduOps.Application.Mappings
             {
                 Id = c.Id,
                 SchoolId = c.SchoolId,
+                SchoolName = c.School?.Name ?? string.Empty,
                 Name = c.Name,
                 GradeId = c.GradeId,
                 GradeCode = c.Grade?.Code,
+                AcademicYear = c.AcademicYear,
                 SubjectId = c.SubjectId,
                 SubjectCode = c.Subject?.Code,
                 StatusId = c.StatusId,
@@ -32,9 +34,11 @@ namespace EduOps.Application.Mappings
             {
                 Id = c.Id,
                 SchoolId = c.SchoolId,
+                SchoolName = c.School?.Name ?? string.Empty,
                 Name = c.Name,
                 GradeId = c.GradeId,
                 GradeCode = c.Grade?.Code,
+                AcademicYear = c.AcademicYear,
                 SubjectId = c.SubjectId,
                 SubjectCode = c.Subject?.Code,
                 Description = c.ClassDetail?.Description,

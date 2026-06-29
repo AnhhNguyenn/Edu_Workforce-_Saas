@@ -5,6 +5,7 @@ namespace EduOps.Application.DTOs.Academic.Sessions.Requests
     public class CreateSessionRequestDto
     {
         public Guid ClassId { get; set; }
+        public Guid? GroupId { get; set; }
         public Guid SchoolId { get; set; }
         public Guid? TeacherId { get; set; }
 

@@ -56,7 +56,7 @@ namespace EduOps.Application.Services
                     allTeacherClassIds.Contains(c.Id);
             }
 
-            var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "Grade,Subject,Status,Enrollments,Enrollments.Status");
+            var result = await repo.FindPagedAsync(predicate, query.PageNumber, query.PageSize, includeProperties: "School,Grade,Subject,Status,Enrollments,Enrollments.Status");
 
             return new PagedResult<ClassListResponseDto>
             {
@@ -69,7 +69,7 @@ namespace EduOps.Application.Services
 
         public async Task<ClassDetailResponseDto> GetByIdAsync(Guid id, Guid organizationId, Guid? teacherId = null)
         {
-            var classEntity = await _unitOfWork.Repository<Class>().FirstOrDefaultAsync(c => c.Id == id, includeProperties: "Grade,Subject,Status,ClassDetail");
+            var classEntity = await _unitOfWork.Repository<Class>().FirstOrDefaultAsync(c => c.Id == id, includeProperties: "School,Grade,Subject,Status,ClassDetail");
             if (classEntity == null || classEntity.OrganizationId != organizationId)
                 throw new NotFoundException("Class", id);
 
@@ -101,17 +101,10 @@ namespace EduOps.Application.Services
             var studentRepo = _unitOfWork.Repository<Student>();
             var students = await studentRepo.FindAsync(
                 s => studentIds.Contains(s.Id),
-                includeProperties: "Status"
+                includeProperties: "Status,StudentDetail"
             );
 
-            // Manual mapping because ToListResponseDto is typically in StudentMapping extension
-            return students.Select(s => new EduOps.Application.DTOs.Academic.Students.Responses.StudentListResponseDto
-            {
-                Id = s.Id,
-                StudentCode = s.StudentCode,
-                FullName = s.FullName,
-                StatusCode = s.Status != null ? s.Status.Code : ""
-            }).ToList();
+            return students.Select(s => s.ToListResponseDto()).ToList();
         }
 
         public async Task<ClassDetailResponseDto> CreateAsync(Guid organizationId, CreateClassRequestDto request)
@@ -144,6 +137,7 @@ namespace EduOps.Application.Services
                 Name = request.Name,
                 GradeId = grade?.Id,
                 SubjectId = subject?.Id,
+                AcademicYear = request.AcademicYear,
                 ClassDetail = new ClassDetail { Description = request.Description },
                 StatusId = activeStatus?.Id
             };
@@ -207,6 +201,7 @@ namespace EduOps.Application.Services
             classEntity.Name = request.Name;
             classEntity.GradeId = grade?.Id;
             classEntity.SubjectId = subject?.Id;
+            classEntity.AcademicYear = request.AcademicYear;
             
             if (classEntity.ClassDetail == null)
             {

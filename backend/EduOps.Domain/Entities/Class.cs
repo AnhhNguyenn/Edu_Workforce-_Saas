@@ -7,9 +7,12 @@ namespace EduOps.Domain.Entities
     public class Class : TenantEntity
     {
         public Guid SchoolId { get; set; }
+        public virtual School? School { get; set; }
         public string Name { get; set; } = string.Empty;
         public Guid? GradeId { get; set; }
         public virtual Grade? Grade { get; set; }
+
+        public string? AcademicYear { get; set; }
 
         public Guid? SubjectId { get; set; }
         public virtual Subject? Subject { get; set; }
