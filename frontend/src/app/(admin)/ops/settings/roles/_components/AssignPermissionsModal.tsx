@@ -5,7 +5,7 @@ import { Loader2, Shield, Check } from "lucide-react";
 import apiClient from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 
-interface Permission {
+export interface Permission {
   id: string;
   module: string;
   action: string;

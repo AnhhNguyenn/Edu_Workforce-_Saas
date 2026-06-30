@@ -19,7 +19,7 @@ namespace EduOps.Application.Interfaces
         Task<SessionDetailResponseDto> UpdateSessionAsync(Guid id, Guid organizationId, EduOps.Application.DTOs.Academic.SessionRequestDto request);
         Task<System.Collections.Generic.List<SessionDetailResponseDto>> BatchUpdateStaffAsync(Guid organizationId, BatchUpdateStaffRequestDto request);
         Task DeleteSessionAsync(Guid id, Guid organizationId);
-        Task CheckConflictAsync(Guid organizationId, Guid? teacherId, System.Collections.Generic.List<Guid>? assistantIds, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime, Guid? excludeSessionId = null);
+        Task CheckConflictAsync(Guid organizationId, Guid? teacherId, System.Collections.Generic.List<Guid>? assistantIds, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime, Guid? excludeSessionId = null, Guid? excludeGroupId = null);
         Task<System.Collections.Generic.List<TenantCustomFieldDto>> GetSessionCustomFieldsAsync(Guid organizationId);
     }
 }

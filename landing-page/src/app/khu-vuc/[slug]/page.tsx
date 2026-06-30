@@ -1,4 +1,4 @@
-import { Metadata } from "next";
+            import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MapPin, CheckCircle2, PhoneCall } from "lucide-react";
 import { Button } from "@/components/ui/button";

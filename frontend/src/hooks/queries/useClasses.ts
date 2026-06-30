@@ -10,6 +10,7 @@ export interface ClassDto {
   maxStudents?: number;
   status?: string;
   statusCode?: string;
+  schoolId?: string;
 }
 
 export interface PagedResult<T> {
@@ -19,14 +20,15 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export const useClasses = (searchKeyword?: string, schoolId?: string, pageNumber: number = 1, pageSize: number = 20) => {
+export const useClasses = (searchKeyword?: string, schoolId?: string, academicYear?: string, pageNumber: number = 1, pageSize: number = 20) => {
   return useQuery({
-    queryKey: ['classes', searchKeyword, schoolId, pageNumber, pageSize],
+    queryKey: ['classes', searchKeyword, schoolId, academicYear, pageNumber, pageSize],
     queryFn: async () => {
       const response = await apiClient.get<PagedResult<ClassDto>>('/classes', {
         params: { 
           searchKeyword: searchKeyword || undefined,
           schoolId: schoolId || undefined,
+          academicYear: academicYear || undefined,
           pageNumber,
           pageSize
         }
@@ -61,7 +63,7 @@ export const useClassStudents = (id: string | null) => {
 export const useCreateClass = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; schoolId: string; description?: string }) => {
+    mutationFn: async (data: any) => {
       const response = await apiClient.post('/classes', data);
       return response.data;
     },

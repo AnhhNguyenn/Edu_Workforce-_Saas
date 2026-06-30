@@ -5,14 +5,18 @@ import { useSchools } from '@/hooks/queries/useSchools';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useUsers } from '@/hooks/queries/useUsers';
 import { useSessions } from '@/hooks/queries/useSessions';
-import { Search, ChevronDown, ChevronRight, Building2, GraduationCap, User, Calendar, ClipboardCheck, AlertCircle, Users, Loader2 } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Building2, GraduationCap, User, Calendar, ClipboardCheck, AlertCircle, Users, Loader2, BookOpen, UserCheck, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from '@/components/ui/button';
+import { ReportModal } from './_components/ReportModal';
 
 export default function CenterAdminReportsPage() {
   const [activeTab, setActiveTab] = useState<'day' | 'week' | 'discipline'>('day');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSession, setSelectedSession] = useState<any | null>(null);
   
   // States for accordion expansion
   const [expandedSchools, setExpandedSchools] = useState<Record<string, boolean>>({});
@@ -21,7 +25,7 @@ export default function CenterAdminReportsPage() {
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
 
   const { data: schools, isLoading: isLoadingSchools } = useSchools();
-  const { data: classes, isLoading: isLoadingClasses } = useClasses(undefined, undefined, 1, 1000);
+  const { data: classes, isLoading: isLoadingClasses } = useClasses(undefined, undefined, undefined, 1, 1000);
   const { data: teachers, isLoading: isLoadingTeachers } = useUsers('TEACHER', '', 1, 1000);
   const { data: assistants, isLoading: isLoadingAssistants } = useUsers('ASSISTANT', '', 1, 1000);
   const { data: sessions, isLoading: isLoadingSessions } = useSessions();
@@ -69,75 +73,47 @@ export default function CenterAdminReportsPage() {
       filteredSessions = [];
     }
 
-    // Map Sessions to Classes
-    const classSessionMap: Record<string, any[]> = {};
+    // Apply Real Time Status
+    const getRealTimeStatus = (s: any) => {
+      if (s.statusCode === 'CANCELED') return 'CANCELED';
+      if (s.statusCode === 'COMPLETED') return 'COMPLETED';
+      const sDate = new Date(s.sessionDate).toLocaleDateString('en-CA');
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      if (sDate !== todayStr) return s.statusCode;
+      const now = new Date();
+      const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+      const startParts = (s.startTime || '00:00').split(':');
+      const startMinutes = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
+      const endParts = (s.endTime || '23:59').split(':');
+      const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
+      if (currentTotalMinutes < startMinutes) return 'SCHEDULED';
+      if (currentTotalMinutes > endMinutes) return 'MISSING';
+      return 'ONGOING';
+    };
+
+    // 1. Group sessions by GroupId
+    const groupedSessions: any[] = [];
+    const groupsMap = new Map<string, any>();
     filteredSessions.forEach(s => {
-      if (!classSessionMap[s.classId]) classSessionMap[s.classId] = [];
-      classSessionMap[s.classId].push(s);
+      const sWithStatus = { ...s, computedStatus: getRealTimeStatus(s) };
+      if (sWithStatus.groupId) {
+        if (!groupsMap.has(sWithStatus.groupId)) {
+          groupsMap.set(sWithStatus.groupId, { ...sWithStatus, classIds: [sWithStatus.classId] });
+        } else {
+          const g = groupsMap.get(sWithStatus.groupId);
+          if (!g.classIds.includes(sWithStatus.classId)) g.classIds.push(sWithStatus.classId);
+        }
+      } else {
+        groupedSessions.push({ ...sWithStatus, classIds: [sWithStatus.classId] });
+      }
     });
+    groupsMap.forEach(g => groupedSessions.push(g));
 
-    // Map Classes to Schools
-    const schoolNodes = schools.items.map(school => {
-      const schoolClasses = classes.items.filter((c: any) => c.schoolId === school.id);
-      
-      const classNodes = schoolClasses.map((cls: any) => {
-        const clsSessions = classSessionMap[cls.id] || [];
-        
-        // Group sessions by role and user
-        const teacherSessionsMap: Record<string, any[]> = {};
-        const assistantSessionsMap: Record<string, any[]> = {};
-        
-        clsSessions.forEach(s => {
-          if (s.teacherId) {
-            if (!teacherSessionsMap[s.teacherId]) teacherSessionsMap[s.teacherId] = [];
-            teacherSessionsMap[s.teacherId].push(s);
-          }
-          if (s.assistantId) {
-            if (!assistantSessionsMap[s.assistantId]) assistantSessionsMap[s.assistantId] = [];
-            assistantSessionsMap[s.assistantId].push(s);
-          }
-        });
-
-        const teacherNodes = Object.entries(teacherSessionsMap).map(([teacherId, tSessions]) => {
-          const teacherInfo = teachers?.items?.find((t: any) => t.id === teacherId);
-          return {
-            id: teacherId,
-            name: teacherInfo?.fullName || 'Không xác định',
-            sessions: tSessions
-          };
-        });
-
-        const assistantNodes = Object.entries(assistantSessionsMap).map(([assistantId, aSessions]) => {
-          const assistantInfo = assistants?.items?.find((a: any) => a.id === assistantId);
-          return {
-            id: assistantId,
-            name: assistantInfo?.fullName || 'Không xác định',
-            sessions: aSessions
-          };
-        });
-
-        return {
-          id: cls.id,
-          name: cls.name,
-          teacherNodes,
-          assistantNodes,
-          totalSessions: clsSessions.length
-        };
-      }).filter(c => c.totalSessions > 0); // Only show classes with sessions
-
-      return {
-        id: school.id,
-        name: school.name,
-        classNodes,
-        totalSessions: classNodes.reduce((acc, c) => acc + c.totalSessions, 0)
-      };
-    }).filter(s => s.totalSessions > 0); // Only show schools with sessions
-
-    return schoolNodes;
+    return groupedSessions.sort((a: any, b: any) => (a.startTime || '').localeCompare(b.startTime || ''));
   }, [schools, classes, sessions, teachers, assistants, activeTab]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="w-full h-full space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Báo cáo buổi học (Admin)</h2>
@@ -178,7 +154,7 @@ export default function CenterAdminReportsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden p-4 min-h-[400px]">
+      <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden p-4 min-h-[calc(100vh-220px)]">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64">
             <Loader2 className="animate-spin text-edu-accent mb-4 h-8 w-8" />
@@ -187,149 +163,128 @@ export default function CenterAdminReportsPage() {
         ) : hierarchy.length === 0 ? (
           <EmptyState description={activeTab === 'discipline' ? "Chưa có báo cáo kỷ luật nào." : "Không có ca học nào trong khoảng thời gian này."} />
         ) : (
-          <div className="space-y-4">
-            {hierarchy.map(school => (
-              <div key={school.id} className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/30">
-                <div 
-                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-50 transition-colors"
-                  onClick={() => toggleSchool(school.id)}
-                >
-                  <div className="flex items-center gap-3">
-                    {expandedSchools[school.id] ? <ChevronDown size={18} className="text-slate-400" /> : <ChevronRight size={18} className="text-slate-400" />}
-                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
-                      <Building2 size={16} />
-                    </div>
-                    <span className="font-bold text-slate-800 text-base">{school.name}</span>
-                  </div>
-                  <Badge variant="muted" className="bg-white border-slate-200 text-slate-600">{school.totalSessions} ca học</Badge>
-                </div>
-
-                {expandedSchools[school.id] && (
-                  <div className="pl-4 pr-3 pb-3 pt-1 space-y-3 border-t border-slate-100 bg-white">
-                    {school.classNodes.map((cls: any) => (
-                      <div key={cls.id} className="border border-slate-100 rounded-lg overflow-hidden shadow-sm">
-                        <div 
-                          className="flex items-center justify-between p-2.5 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-colors"
-                          onClick={() => toggleClass(cls.id)}
-                        >
-                          <div className="flex items-center gap-2">
-                            {expandedClasses[cls.id] ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
-                            <GraduationCap size={16} className="text-orange-500" />
-                            <span className="font-semibold text-slate-700 text-sm">{cls.name}</span>
+          <div className="overflow-x-auto w-full">
+            <Table className="w-full whitespace-nowrap">
+              <TableHeader>
+                <TableRow className="bg-slate-50 border-b-slate-200">
+                  <TableHead className="text-sm font-semibold text-slate-500 h-11">Mã Lớp / Cơ sở</TableHead>
+                  <TableHead className="text-sm font-semibold text-slate-500 h-11">Giáo viên / Trợ giảng</TableHead>
+                  <TableHead className="text-sm font-semibold text-slate-500 h-11">Giờ học</TableHead>
+                  <TableHead className="text-sm font-semibold text-slate-500 h-11">Chủ đề & Tiến độ</TableHead>
+                  <TableHead className="text-sm font-semibold text-slate-500 h-11">Ghi chú</TableHead>
+                  <TableHead className="text-sm font-semibold text-slate-500 h-11">Trạng thái</TableHead>
+                  <TableHead className="text-sm font-semibold text-slate-500 h-11 text-right">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {hierarchy.map((s: any) => {
+                  const classNames = s.classIds?.map((cid: string) => {
+                    const classObj = classes?.items?.find((c: any) => c.id === cid);
+                    return classObj?.name || `${cid.substring(0, 8)}...`;
+                  }).join(' + ') || '';
+                  
+                  const firstClass = classes?.items?.find((c: any) => s.classIds?.includes(c.id));
+                  const schoolName = schools?.items?.find((sch: any) => sch.id === firstClass?.schoolId)?.name || '---';
+                  const teacherName = teachers?.items?.find((t: any) => t.id === s.teacherId)?.fullName || 'Chưa xếp giáo viên';
+                  const assistantName = (s.assistantIds && s.assistantIds.length > 0) ? s.assistantIds.map((id: string) => assistants?.items?.find((a: any) => a.id === id)?.fullName || 'Chưa xếp').join(', ') : null;
+                  
+                  return (
+                    <TableRow key={s.id} className="hover:bg-slate-50/70 transition-all duration-200 border-b-slate-100">
+                      <TableCell className="py-3">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="inline-flex items-center justify-center px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-700 font-bold text-sm rounded-md shadow-sm w-fit">
+                            {classNames}
                           </div>
-                          <span className="text-xs font-medium text-slate-500">{cls.totalSessions} ca học</span>
+                          <div className="flex items-center gap-1.5 text-slate-600 text-sm font-medium ml-1">
+                            <Building2 size={12} className="text-indigo-400" />
+                            <span className="capitalize">{schoolName}</span>
+                          </div>
                         </div>
-
-                        {expandedClasses[cls.id] && (
-                          <div className="pl-6 pr-3 pb-3 pt-2 space-y-3 bg-white border-t border-slate-100">
-                            
-                            {/* Teachers Section */}
-                            {cls.teacherNodes.length > 0 && (
-                              <div>
-                                <div 
-                                  className="flex items-center gap-2 mb-2 cursor-pointer group"
-                                  onClick={() => toggleRole(`teacher_${cls.id}`)}
-                                >
-                                  {expandedRoles[`teacher_${cls.id}`] ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
-                                  <span className="text-xs font-bold text-edu-muted uppercase group-hover:text-edu-fg transition-colors">Giáo viên</span>
-                                </div>
-                                {expandedRoles[`teacher_${cls.id}`] && (
-                                  <div className="pl-5 space-y-2">
-                                    {cls.teacherNodes.map((teacher: any) => (
-                                      <div key={teacher.id} className="border border-slate-100 rounded-lg bg-slate-50/30 overflow-hidden">
-                                        <div 
-                                          className="flex items-center gap-2 p-2 cursor-pointer hover:bg-slate-50"
-                                          onClick={() => toggleUser(`t_${cls.id}_${teacher.id}`)}
-                                        >
-                                          {expandedUsers[`t_${cls.id}_${teacher.id}`] ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
-                                          <User size={14} className="text-blue-500" />
-                                          <span className="font-semibold text-sm text-slate-700">{teacher.name}</span>
-                                          <span className="text-[11px] text-slate-400 ml-auto">{teacher.sessions.length} ca</span>
-                                        </div>
-                                        {expandedUsers[`t_${cls.id}_${teacher.id}`] && (
-                                          <div className="p-3 pt-1 border-t border-slate-100 bg-white grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            {teacher.sessions.map((s: any) => (
-                                              <div key={s.id} className="p-3 border border-slate-200 rounded-lg hover:border-blue-300 transition-colors shadow-sm">
-                                                <div className="flex justify-between items-start mb-2">
-                                                  <div className="font-bold text-sm text-slate-800">{s.lessonTitle || 'Lý thuyết'}</div>
-                                                  <Badge variant={s.statusCode === 'COMPLETED' ? 'success' : 'warn'}>{s.statusCode}</Badge>
-                                                </div>
-                                                <div className="text-xs text-slate-500 space-y-1">
-                                                  <div><span className="font-medium">Giờ:</span> {s.startTime.substring(0,5)} - {s.endTime.substring(0,5)}</div>
-                                                  {s.localTeachingAssistant && <div><span className="font-medium">Trợ giảng CS:</span> {s.localTeachingAssistant}</div>}
-                                                  {s.lessonProgress && <div><span className="font-medium">Tiến độ:</span> {s.lessonProgress}</div>}
-                                                  {s.notes && <div><span className="font-medium">Nhận xét:</span> <span className="text-slate-700">{s.notes}</span></div>}
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Assistants Section */}
-                            {cls.assistantNodes.length > 0 && (
-                              <div className="mt-3">
-                                <div 
-                                  className="flex items-center gap-2 mb-2 cursor-pointer group"
-                                  onClick={() => toggleRole(`assistant_${cls.id}`)}
-                                >
-                                  {expandedRoles[`assistant_${cls.id}`] ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
-                                  <span className="text-xs font-bold text-edu-muted uppercase group-hover:text-edu-fg transition-colors">Trợ giảng</span>
-                                </div>
-                                {expandedRoles[`assistant_${cls.id}`] && (
-                                  <div className="pl-5 space-y-2">
-                                    {cls.assistantNodes.map((assistant: any) => (
-                                      <div key={assistant.id} className="border border-slate-100 rounded-lg bg-slate-50/30 overflow-hidden">
-                                        <div 
-                                          className="flex items-center gap-2 p-2 cursor-pointer hover:bg-slate-50"
-                                          onClick={() => toggleUser(`a_${cls.id}_${assistant.id}`)}
-                                        >
-                                          {expandedUsers[`a_${cls.id}_${assistant.id}`] ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
-                                          <Users size={14} className="text-teal-500" />
-                                          <span className="font-semibold text-sm text-slate-700">{assistant.name}</span>
-                                          <span className="text-[11px] text-slate-400 ml-auto">{assistant.sessions.length} ca</span>
-                                        </div>
-                                        {expandedUsers[`a_${cls.id}_${assistant.id}`] && (
-                                          <div className="p-3 pt-1 border-t border-slate-100 bg-white grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            {assistant.sessions.map((s: any) => (
-                                              <div key={s.id} className="p-3 border border-slate-200 rounded-lg hover:border-teal-300 transition-colors shadow-sm">
-                                                <div className="flex justify-between items-start mb-2">
-                                                  <div className="font-bold text-sm text-slate-800">{s.lessonTitle || 'Lý thuyết'}</div>
-                                                  <Badge variant={s.statusCode === 'COMPLETED' ? 'success' : 'warn'}>{s.statusCode}</Badge>
-                                                </div>
-                                                <div className="text-xs text-slate-500 space-y-1">
-                                                  <div><span className="font-medium">Giờ:</span> {s.startTime.substring(0,5)} - {s.endTime.substring(0,5)}</div>
-                                                  {s.localTeachingAssistant && <div><span className="font-medium">Trợ giảng CS:</span> {s.localTeachingAssistant}</div>}
-                                                  {s.lessonProgress && <div><span className="font-medium">Tiến độ:</span> {s.lessonProgress}</div>}
-                                                  {s.notes && <div><span className="font-medium">Nhận xét:</span> <span className="text-slate-700">{s.notes}</span></div>}
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
+                      </TableCell>
+                      
+                      <TableCell className="py-3">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5 text-slate-700 text-sm font-semibold">
+                            <User size={14} className="text-blue-500" />
+                            {teacherName}
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+                          {assistantName ? (
+                            <div className="flex items-center gap-1.5 text-slate-600 text-sm">
+                              <Users size={12} className="text-teal-500" />
+                              {assistantName}
+                            </div>
+                          ) : s.localTeachingAssistant ? (
+                            <div className="flex items-center gap-1.5 text-slate-600 text-sm">
+                              <Users size={12} className="text-teal-500" />
+                              TA: {s.localTeachingAssistant}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic text-sm ml-5">Chưa xếp trợ giảng</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="py-3">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-md shadow-sm font-bold text-sm">
+                          <Clock size={13} className="text-blue-500" />
+                          {s.startTime?.substring(0, 5)} - {s.endTime?.substring(0, 5)}
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="py-3">
+                        <div className="flex flex-col gap-1.5 max-w-[220px]">
+                          <div className="flex items-start gap-1.5 text-slate-700 text-sm">
+                            <BookOpen size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                            <span className="font-medium whitespace-normal line-clamp-2">{s.lessonTitle || <span className="text-slate-400 italic">Chưa cập nhật chủ đề</span>}</span>
+                          </div>
+                          {s.lessonProgress && (
+                            <div className="text-sm text-slate-600 bg-slate-50 border border-slate-100 px-2 py-1 rounded ml-5 whitespace-normal line-clamp-2">
+                              {s.lessonProgress}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="py-3">
+                        <div className="max-w-[200px] whitespace-normal">
+                          {s.notes ? (
+                            <span className="text-[13px] text-slate-600 line-clamp-3">{s.notes}</span>
+                          ) : (
+                            <span className="text-[13px] text-slate-400 italic">---</span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge variant={s.computedStatus === 'COMPLETED' ? 'success' : s.computedStatus === 'ONGOING' ? 'warn' : s.computedStatus === 'MISSING' ? 'secondary' : 'info'} className="shadow-sm">
+                          {s.computedStatus === 'COMPLETED' ? 'Đã xong' : s.computedStatus === 'ONGOING' ? 'Đang diễn ra' : s.computedStatus === 'MISSING' ? 'Chưa báo cáo' : 'Sắp tới'}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="bg-white text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 font-semibold transition-all h-8 px-3 shadow-sm"
+                          onClick={() => setSelectedSession(s)}
+                        >
+                          Chi tiết
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
+
+      <ReportModal 
+        isOpen={!!selectedSession} 
+        onClose={() => setSelectedSession(null)} 
+        session={selectedSession} 
+      />
     </div>
   );
 }

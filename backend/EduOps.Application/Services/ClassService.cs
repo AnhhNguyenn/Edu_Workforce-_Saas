@@ -36,6 +36,7 @@ namespace EduOps.Application.Services
             System.Linq.Expressions.Expression<Func<Class, bool>> predicate = c =>
                 c.OrganizationId == organizationId &&
                 (!query.SchoolId.HasValue || c.SchoolId == query.SchoolId) &&
+                (string.IsNullOrEmpty(query.AcademicYear) || c.AcademicYear == query.AcademicYear) &&
                 (string.IsNullOrEmpty(query.SearchKeyword) || c.Name.ToLower().Contains(query.SearchKeyword.ToLower()) || (c.Subject != null && c.Subject.Code.ToLower().Contains(query.SearchKeyword.ToLower())));
 
             // Nếu có teacherId, lọc ra những Class mà teacher đó đang dạy (thông qua ClassSchedule hoặc Session)
@@ -52,6 +53,7 @@ namespace EduOps.Application.Services
                 predicate = c =>
                     c.OrganizationId == organizationId &&
                     (!query.SchoolId.HasValue || c.SchoolId == query.SchoolId) &&
+                    (string.IsNullOrEmpty(query.AcademicYear) || c.AcademicYear == query.AcademicYear) &&
                     (string.IsNullOrEmpty(query.SearchKeyword) || c.Name.ToLower().Contains(query.SearchKeyword.ToLower()) || (c.Subject != null && c.Subject.Code.ToLower().Contains(query.SearchKeyword.ToLower()))) &&
                     allTeacherClassIds.Contains(c.Id);
             }

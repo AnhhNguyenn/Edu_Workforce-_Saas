@@ -132,7 +132,7 @@ export default function TeachersPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-7">
+    <div className="w-full h-full space-y-7">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Giáo viên & Trợ giảng</h2>
@@ -225,8 +225,8 @@ export default function TeachersPage() {
                 </TableCell>
                 <TableCell className="text-sm text-edu-muted" title={t.email}>{t.email ?? 'Chưa cập nhật'}</TableCell>
                 <TableCell>
-                  <Badge variant={(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE') ? 'success' : (t.statusCode === 'INACTIVE' || t.status === 'INACTIVE') ? 'danger' : 'warn'}>
-                    {(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE') ? 'Đang làm' : 'Đã nghỉ'}
+                  <Badge variant={(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE') ? 'success' : (t.statusCode === 'INACTIVE' || t.status === 'INACTIVE') ? 'danger' : (t.statusCode === 'SUSPENDED' || t.status === 'SUSPENDED') ? 'warn' : 'muted'}>
+                    {(t.statusCode === 'ACTIVE' || t.status === 'ACTIVE') ? 'Đang làm' : (t.statusCode === 'INACTIVE' || t.status === 'INACTIVE') ? 'Đã nghỉ' : (t.statusCode === 'SUSPENDED' || t.status === 'SUSPENDED') ? 'Bị khóa' : 'Chưa cập nhật'}
                   </Badge>
                 </TableCell>
                   <TableCell>
@@ -259,6 +259,7 @@ export default function TeachersPage() {
         isOpen={isCreateOpen} 
         onClose={() => setIsCreateOpen(false)} 
         title="Thêm nhân sự mới"
+        overflowVisible={true}
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Hủy</Button>
@@ -339,6 +340,7 @@ export default function TeachersPage() {
         isOpen={isEditOpen} 
         onClose={() => setIsEditOpen(false)} 
         title="Sửa thông tin nhân sự"
+        overflowVisible={true}
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsEditOpen(false)}>Hủy</Button>

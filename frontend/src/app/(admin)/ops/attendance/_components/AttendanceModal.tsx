@@ -1,13 +1,7 @@
-import { useState, useEffect } from 'react';
-import { X, Check, X as XIcon } from 'lucide-react';
+import { X, CheckCircle2, XCircle, MapPin, Image as ImageIcon } from 'lucide-react';
 import { Portal } from '@/components/ui/portal';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useStudents } from '@/hooks/queries/useStudents';
-import { useSubmitAttendance } from '@/hooks/queries/useSessions';
-import { toast } from 'react-hot-toast';
-import { Loader2 } from 'lucide-react';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { useTodayAttendances } from '@/hooks/queries/useAttendances';
+import { useUsers } from '@/hooks/queries/useUsers';
 
 interface AttendanceModalProps {
   session: any;
@@ -15,101 +9,77 @@ interface AttendanceModalProps {
 }
 
 export function AttendanceModal({ session, onClose }: AttendanceModalProps) {
-  const { data: studentsData, isLoading } = useStudents();
-  const submitAttendance = useSubmitAttendance();
-  const [attendance, setAttendance] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    if (studentsData?.items) {
-      const initial: Record<string, boolean> = {};
-      studentsData.items.forEach((s: any) => {
-        initial[s.id] = true; // Mặc định có mặt
-      });
-      setAttendance(initial);
-    }
-  }, [studentsData]);
-
-  const toggleAttendance = (id: string) => {
-    setAttendance(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleSubmit = async () => {
-    const records = Object.keys(attendance).map(studentId => ({
-      studentId,
-      isPresent: attendance[studentId],
-      note: ''
-    }));
-
-    try {
-      await submitAttendance.mutateAsync({
-        sessionId: session.id,
-        data: { records }
-      });
-      toast.success('Đã lưu điểm danh thành công!');
-      onClose();
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || 'Lỗi lưu điểm danh');
-    }
-  };
+  const { data: attendances } = useTodayAttendances();
+  const { data: teachers } = useUsers('TEACHER');
+  
+  const teacherAttendance = attendances?.find((a: any) => a.sessionId === session.id && a.userId === session.teacherId);
+  const teacherObj = teachers?.items?.find((t: any) => t.id === session.teacherId);
+  
+  const formatTime = (timeStr?: string) => timeStr ? new Date(timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---';
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl animate-in zoom-in-95 duration-200">
-          <div className="p-6 border-b border-edu-border flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
+        <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-auto overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex items-center justify-between p-4 sm:p-5 lg:p-6 border-b border-slate-100">
             <div>
-              <h2 className="text-xl font-bold text-edu-fg">Điểm danh lớp {session.classId?.substring(0,8)}</h2>
-              <p className="text-sm text-edu-muted">Ca học: {session.startTime?.substring(0,5)} - {session.endTime?.substring(0,5)}</p>
+              <h2 className="text-xl font-bold text-slate-800">Chi tiết Check-in Nhân sự</h2>
+              <p className="text-sm text-slate-500 mt-1">Ca học: {session.startTime?.substring(0, 5)} - {session.endTime?.substring(0, 5)}</p>
             </div>
-            <button onClick={onClose} className="p-2 text-edu-muted hover:text-edu-fg rounded-full hover:bg-gray-200 transition-colors">
-              <X size={24} />
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+              <X size={20} />
             </button>
           </div>
           
-          <div className="p-6 max-h-[60vh] overflow-y-auto">
-            {isLoading ? (
-              <div className="text-center py-4 text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải danh sách học viên...</div>
-            ) : !studentsData?.items || studentsData.items.length === 0 ? (
-              <EmptyState description="Lớp này chưa có học viên nào." />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Học viên</TableHead>
-                    <TableHead className="text-center">Trạng thái</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {studentsData?.items?.slice(0, 10).map((s: any) => ( // Demo: lấy 10 học sinh
-                    <TableRow key={s.id}>
-                      <TableCell className="font-medium text-edu-fg truncate max-w-[200px]" title={s.fullName}>{s.fullName ?? 'Chưa cập nhật'}</TableCell>
-                      <TableCell className="text-center">
-                        <Button 
-                          size="sm" 
-                          variant={attendance[s.id] ? "primary" : "outline"}
-                          className={attendance[s.id] ? "bg-green-600 hover:bg-green-700 text-white w-28" : "text-red-500 border-red-500 hover:bg-red-50 w-28"}
-                          onClick={() => toggleAttendance(s.id)}
-                        >
-                          {attendance[s.id] ? <><Check size={16} className="mr-1"/> Có mặt</> : <><XIcon size={16} className="mr-1"/> Vắng</>}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-
-          <div className="p-6 border-t border-edu-border bg-gray-50/50 rounded-b-2xl flex justify-end gap-3">
-            <Button variant="outline" onClick={onClose}>Hủy</Button>
-            <Button 
-              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white gap-2" 
-              onClick={handleSubmit}
-              disabled={submitAttendance.isPending}
-            >
-              {submitAttendance.isPending && <Loader2 size={16} className="animate-spin" />}
-              {submitAttendance.isPending ? 'Đang lưu...' : 'Chốt điểm danh'}
-            </Button>
+          <div className="p-4 sm:p-5 lg:p-6 bg-slate-50">
+            {/* Giảng viên */}
+            <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm mb-4">
+              <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm">GV</span>
+                {teacherObj?.fullName || 'Chưa phân công'}
+              </h3>
+              
+              {!teacherAttendance ? (
+                <div className="text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                  <XCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-slate-500 font-medium">Chưa ghi nhận Check-in</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-green-50/50 rounded-lg border border-green-100">
+                      <p className="text-xs text-green-600 font-medium mb-1">Check-in lúc</p>
+                      <p className="text-lg font-bold text-green-700">{formatTime(teacherAttendance.checkinTime)}</p>
+                      {teacherAttendance.lateMinutes > 0 && <span className="text-xs text-red-500 block mt-1">Đi trễ {teacherAttendance.lateMinutes} phút</span>}
+                    </div>
+                    <div className="p-3 bg-orange-50/50 rounded-lg border border-orange-100">
+                      <p className="text-xs text-orange-600 font-medium mb-1">Check-out lúc</p>
+                      <p className="text-lg font-bold text-orange-700">{formatTime(teacherAttendance.checkoutTime)}</p>
+                      {teacherAttendance.earlyCheckoutMinutes > 0 && <span className="text-xs text-red-500 block mt-1">Về sớm {teacherAttendance.earlyCheckoutMinutes} phút</span>}
+                    </div>
+                  </div>
+                  
+                  {teacherAttendance.checkinImageUrl && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+                        <ImageIcon size={16} /> Ảnh Selfie Check-in
+                      </p>
+                      <img src={teacherAttendance.checkinImageUrl} alt="Check-in Selfie" className="w-full h-48 object-cover rounded-lg border border-slate-200 shadow-sm" />
+                    </div>
+                  )}
+                  
+                  {teacherAttendance.checkinLatitude && teacherAttendance.checkinLongitude && (
+                    <div className="text-xs flex items-center gap-1 text-slate-500">
+                      <MapPin size={12} />
+                      Tọa độ: {teacherAttendance.checkinLatitude}, {teacherAttendance.checkinLongitude}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {/* Bạn có thể bổ sung block tương tự cho Trợ giảng nếu cần */}
           </div>
         </div>
       </div>

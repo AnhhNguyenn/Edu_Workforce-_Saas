@@ -8,12 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { RoleModal } from "./_components/RoleModal";
-import { AssignPermissionsModal } from "./_components/AssignPermissionsModal";
+import { AssignPermissionsModal, Permission } from "./_components/AssignPermissionsModal";
 import { ConfirmActionModal } from "@/components/ui/ConfirmActionModal";
 
 export default function RolesSettingsPage() {
   const [roles, setRoles] = useState<any[]>([]);
-  const [allPermissions, setAllPermissions] = useState<string[]>([]);
+  const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useStudents, useExportStudents, useImportStudents, useDeleteStudent, useBulkAssignClass } from '@/hooks/queries/useStudents';
 import { useClasses } from '@/hooks/queries/useClasses';
+import { useSchools } from '@/hooks/queries/useSchools';
 import { useDebounce } from '@/hooks/useDebounce';
 import { StudentTable } from './_components/StudentTable';
 import { StudentToolbar } from './_components/StudentToolbar';
@@ -13,6 +14,7 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/providers/ConfirmProvider';
+import { ApiErrorState } from '@/components/ui/ApiErrorState';
 import { Users, Loader2 } from 'lucide-react';
 
 // Áp dụng Lazy Load cho Modal
@@ -41,12 +43,22 @@ export default function StudentsPage() {
   const [showBulkAssign, setShowBulkAssign] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState('');
   
+  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterClassId, setFilterClassId] = useState<string>('');
+  const [filterSchoolId, setFilterSchoolId] = useState<string>('');
+  
   const { confirm } = useConfirm();
   const debouncedSearch = useDebounce(searchTerm, 500);
 
-  const { data = {}, isLoading } = useStudents(debouncedSearch);
+  const { data = {}, isLoading, isError, refetch } = useStudents(
+    debouncedSearch, 
+    filterClassId === 'ALL' ? '' : filterClassId, 
+    filterSchoolId === 'ALL' ? '' : filterSchoolId, 
+    filterStatus === 'ALL' ? '' : filterStatus
+  );
   const students = data.items || [];
   const { data: classesData } = useClasses('', '');
+  const { data: schoolsData } = useSchools();
 
   const { data: profile } = useProfile();
   const isAuthorized = profile?.role === 'SUPER_ADMIN' || profile?.role === 'CENTER_ADMIN';
@@ -131,7 +143,7 @@ export default function StudentsPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-7 relative pb-20">
+    <div className="w-full h-full space-y-7 relative pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Quản lý Học sinh</h2>
@@ -150,17 +162,21 @@ export default function StudentsPage() {
         onOpenFilter={() => setIsFilterOpen(true)}
         isAuthorized={isAuthorized}
       />
-      <StudentTable 
-        students={students} 
-        isLoading={isLoading} 
-        onView={(student) => setViewingStudentId(student.id)}
-        onEdit={(student) => setEditingStudentId(student.id)}
-        onDelete={handleDeleteClick}
-        isAuthorized={isAuthorized}
-        selectedIds={selectedStudentIds}
-        onSelectAll={handleSelectAll}
-        onSelectRow={handleSelectRow}
-      />
+      {isError ? (
+        <ApiErrorState onRetry={() => refetch()} />
+      ) : (
+        <StudentTable 
+          students={students} 
+          isLoading={isLoading} 
+          onView={(student) => setViewingStudentId(student.id)}
+          onEdit={(student) => setEditingStudentId(student.id)}
+          onDelete={handleDeleteClick}
+          isAuthorized={isAuthorized}
+          selectedIds={selectedStudentIds}
+          onSelectAll={handleSelectAll}
+          onSelectRow={handleSelectRow}
+        />
+      )}
 
       {selectedStudentIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white px-6 py-4 rounded-full shadow-2xl border border-edu-border flex items-center space-x-6 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
@@ -229,9 +245,10 @@ export default function StudentsPage() {
         isOpen={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}
         title="Bộ lọc Tìm kiếm"
+        overflowVisible={true}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setIsFilterOpen(false)}>Bỏ lọc</Button>
+            <Button variant="secondary" onClick={() => { setFilterStatus(''); setFilterClassId(''); setFilterSchoolId(''); setIsFilterOpen(false); }}>Bỏ lọc</Button>
             <Button className="bg-white text-[#2563EB] border border-gray-200 hover:border-[#2563EB] hover:bg-blue-50 active:scale-95 transition-all" onClick={() => setIsFilterOpen(false)}>Áp dụng</Button>
           </>
         }
@@ -245,7 +262,35 @@ export default function StudentsPage() {
                 { value: 'ACTIVE', label: 'Đang học' },
                 { value: 'INACTIVE', label: 'Bảo lưu / Đã nghỉ' }
               ]}
+              value={filterStatus}
+              onChange={setFilterStatus}
               placeholder="Chọn trạng thái..."
+              className="focus:border-[#2563EB] focus:ring-[#2563EB]/30"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Cơ sở</label>
+            <Select 
+              options={[
+                { value: 'ALL', label: 'Tất cả cơ sở' },
+                ...(schoolsData?.items?.map((s: any) => ({ value: s.id, label: s.name })) || [])
+              ]}
+              value={filterSchoolId}
+              onChange={setFilterSchoolId}
+              placeholder="Chọn cơ sở..."
+              className="focus:border-[#2563EB] focus:ring-[#2563EB]/30"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Lớp học</label>
+            <Select 
+              options={[
+                { value: 'ALL', label: 'Tất cả lớp học' },
+                ...(classesData?.items?.map((c: any) => ({ value: c.id, label: c.name })) || [])
+              ]}
+              value={filterClassId}
+              onChange={setFilterClassId}
+              placeholder="Chọn lớp học..."
               className="focus:border-[#2563EB] focus:ring-[#2563EB]/30"
             />
           </div>

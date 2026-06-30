@@ -20,6 +20,9 @@ export interface SessionListResponseDto {
   lessonProgress?: string;
   actualStudentCount?: number;
   extraData?: string;
+  groupId?: string;
+  isGrouped?: boolean;
+  classIds?: string[];
 }
 
 export interface TenantCustomFieldDto {
@@ -38,13 +41,17 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export const useSessions = (date?: string) => {
+export const useSessions = (startDate?: string, endDate?: string) => {
   return useQuery({
-    queryKey: ['sessions', date],
+    queryKey: ['sessions', startDate, endDate],
     queryFn: async () => {
-      // In a real app we would pass Date range to backend if supported.
-      // If not supported by DTO, we fetch all and filter in frontend, or backend will handle it.
-      const response = await apiClient.get<PagedResult<SessionListResponseDto>>('/sessions');
+      const response = await apiClient.get<PagedResult<SessionListResponseDto>>('/sessions', {
+        params: {
+          StartDate: startDate || undefined,
+          EndDate: endDate || undefined,
+          PageSize: 1000 // Get all sessions in the range
+        }
+      });
       return response.data;
     }
   });
@@ -63,7 +70,7 @@ export const useCustomFields = () => {
 export const useCreateSession = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { classId: string; teacherId?: string | null; assistantIds?: string[]; lessonTitle?: string | null; roomName?: string | null; notes?: string | null; sessionDate: string; startTime: string; endTime: string; actualStudentCount?: number | null; localTeachingAssistant?: string | null; lessonProgress?: string | null; extraData?: string | null; }) => {
+    mutationFn: async (data: { classId: string; schoolId: string; teacherId?: string | null; assistantIds?: string[]; lessonTitle?: string | null; roomName?: string | null; notes?: string | null; sessionDate: string; startTime: string; endTime: string; actualStudentCount?: number | null; localTeachingAssistant?: string | null; lessonProgress?: string | null; extraData?: string | null; }) => {
       const response = await apiClient.post('/sessions', data);
       return response.data;
     },

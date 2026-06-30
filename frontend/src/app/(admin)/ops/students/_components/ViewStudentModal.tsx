@@ -86,6 +86,13 @@ export default function ViewStudentModal({ studentId, onClose }: ViewStudentModa
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
+                  <MapPin className="w-4 h-4 text-edu-muted mt-0.5" />
+                  <div>
+                    <div className="text-edu-muted text-xs">Cơ sở</div>
+                    <div className="font-medium">{student.currentSchool || 'Chưa phân bổ'}</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
                   <div className="w-4 h-4 rounded-full border-2 border-edu-accent text-edu-accent flex items-center justify-center font-bold text-[10px] mt-0.5">₫</div>
                   <div>
                     <div className="text-edu-muted text-xs">Tình trạng học phí</div>

@@ -10,10 +10,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import { useClasses, useCreateClass, useUpdateClass, useDeleteClass, useClassDetails, useClassStudents } from "@/hooks/queries/useClasses";
+import { useClasses, useDeleteClass } from "@/hooks/queries/useClasses";
 import { useSchools } from "@/hooks/queries/useSchools";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
+import CreateClassModal from './_components/CreateClassModal';
+import EditClassModal from './_components/EditClassModal';
+import ViewClassModal from './_components/ViewClassModal';
+import { ApiErrorState } from '@/components/ui/ApiErrorState';
 import { useProfile } from '@/hooks/queries/useProfile';
 import { useDebounce } from '@/hooks/useDebounce';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -28,24 +32,17 @@ export default function ClassesPage() {
   const [selectedClass, setSelectedClass] = useState<any>(null);
   const { confirm } = useConfirm();
 
-  const [newClass, setNewClass] = useState({ name: '', schoolId: '', description: '' });
-  const [editClass, setEditClass] = useState({ id: '', name: '', schoolId: '', description: '', statusCode: 'ACTIVE' });
-
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 500);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterSchoolId, setFilterSchoolId] = useState<string>('');
+  const [filterAcademicYear, setFilterAcademicYear] = useState<string>('');
 
-  const { data: classes, isLoading, isError } = useClasses(debouncedSearch, filterSchoolId);
+  const { data: classes, isLoading, isError } = useClasses(debouncedSearch, filterSchoolId, filterAcademicYear);
   const { data: schools } = useSchools();
   const { data: profile } = useProfile();
   const isAuthorized = profile?.role === 'SUPER_ADMIN' || profile?.role === 'CENTER_ADMIN';
-  const createClass = useCreateClass();
-  const updateClass = useUpdateClass();
   const deleteClass = useDeleteClass();
-  
-  const { data: classDetails, isLoading: isDetailsLoading } = useClassDetails(detailClassId);
-  const { data: classStudents, isLoading: isStudentsLoading } = useClassStudents(detailClassId);
 
   const handleDeleteClick = (classId: string) => {
     confirm({
@@ -64,58 +61,9 @@ export default function ClassesPage() {
     });
   };
 
-  const handleCreate = async () => {
-    if (!newClass.name || !newClass.schoolId) {
-      toast.error('Vui lòng nhập tên lớp và chọn cơ sở');
-      return;
-    }
-    try {
-      await createClass.mutateAsync({
-        name: newClass.name,
-        schoolId: newClass.schoolId,
-        description: newClass.description || undefined
-      });
-      toast.success('Mở lớp thành công!');
-      setIsCreateOpen(false);
-      setNewClass({ name: '', schoolId: '', description: '' });
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Lỗi khi mở lớp');
-      console.error("Failed to create class", error);
-    }
-  };
-
-  const handleEdit = async () => {
-    if (!selectedClass || !editClass.name || !editClass.schoolId) {
-      toast.error('Vui lòng nhập tên lớp và chọn cơ sở');
-      return;
-    }
-    try {
-      await updateClass.mutateAsync({
-        id: selectedClass.id,
-        data: {
-          name: editClass.name,
-          schoolId: editClass.schoolId,
-          description: editClass.description || undefined,
-          statusCode: editClass.statusCode
-        }
-      });
-      toast.success('Sửa thông tin lớp thành công!');
-      setIsEditOpen(false);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Lỗi khi sửa lớp');
-      console.error("Failed to update class", error);
-    }
-  };
 
   const openEditModal = (cls: any) => {
     setSelectedClass(cls);
-    setEditClass({
-      id: cls.id || '',
-      name: cls.name || '',
-      schoolId: cls.schoolId || '',
-      description: cls.classDetail?.description || '',
-      statusCode: cls.statusCode || 'ACTIVE'
-    });
     setIsEditOpen(true);
   };
 
@@ -125,7 +73,7 @@ export default function ClassesPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-7">
+    <div className="w-full h-full space-y-7">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Quản lý lớp học</h2>
@@ -163,7 +111,7 @@ export default function ClassesPage() {
         {isLoading ? (
            <div className="p-10 text-center text-edu-muted"><Loader2 className="animate-spin inline mr-2" /> Đang tải dữ liệu lớp học...</div>
         ) : isError ? (
-           <div className="p-10 text-center text-edu-danger">Lỗi kết nối API.</div>
+           <ApiErrorState onRetry={() => window.location.reload()} />
         ) : !classes?.items || classes.items.length === 0 ? (
            <EmptyState 
              icon={<BookOpen size={32} />}
@@ -177,22 +125,20 @@ export default function ClassesPage() {
             <Table className="w-full whitespace-nowrap">
               <TableHeader>
               <TableRow>
-                <TableHead>Mã Lớp</TableHead>
                 <TableHead>Tên Lớp</TableHead>
-                <TableHead>Giáo viên phụ trách</TableHead>
-                <TableHead>Lịch học</TableHead>
+                <TableHead>Cơ sở</TableHead>
+                <TableHead>Niên khóa</TableHead>
                 <TableHead>Học viên</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead>Thao tác</TableHead>
+                <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {classes.items.map((c) => (
                 <TableRow key={c.id} className="hover:bg-slate-50/50 transition-colors">
-                  <TableCell className="font-semibold text-edu-fg">{c.id.substring(0, 8)}...</TableCell>
                   <TableCell className="font-semibold text-[#2E7D32] truncate max-w-[200px]" title={c.name}>{c.name}</TableCell>
-                  <TableCell>{c.teacherName ?? 'Chưa phân công'}</TableCell>
-                  <TableCell className="text-edu-muted text-sm">{c.schedule || 'Chưa xếp lịch'}</TableCell>
+                  <TableCell className="text-gray-600">{c.schoolName || '-'}</TableCell>
+                  <TableCell className="font-medium">{c.academicYear || '-'}</TableCell>
                   <TableCell>{c.studentsCount || 0}</TableCell>
                   <TableCell>
                     <Badge variant={c.statusCode === 'ACTIVE' ? 'success' : 'warn'}>
@@ -216,132 +162,26 @@ export default function ClassesPage() {
         )}
       </div>
 
-      <Modal 
-        isOpen={isCreateOpen} 
-        onClose={() => setIsCreateOpen(false)} 
-        title="Mở lớp mới"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>Hủy</Button>
-            <Button 
-              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white gap-2" 
-              onClick={handleCreate}
-              disabled={createClass.isPending}
-            >
-              {createClass.isPending && <Loader2 size={16} className="animate-spin" />}
-              {createClass.isPending ? 'Đang tạo...' : 'Tạo lớp'}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Tên lớp học</label>
-            <Input 
-              placeholder="Nhập tên lớp..." 
-              className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
-              value={newClass.name}
-              onChange={(e) => setNewClass({...newClass, name: e.target.value})}
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Cơ sở trực thuộc</label>
-              <Select 
-                options={schools?.items?.map(s => ({ value: s.id, label: s.name })) || []}
-                placeholder="Chọn cơ sở..."
-                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
-                value={newClass.schoolId}
-                onChange={(val) => setNewClass({...newClass, schoolId: val})}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Mô tả thêm</label>
-              <Input 
-                placeholder="Lớp tiếng Anh..." 
-                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
-                value={newClass.description}
-                onChange={(e) => setNewClass({...newClass, description: e.target.value})}
-              />
-            </div>
-          </div>
-        </div>
-      </Modal>
+      {isCreateOpen && (
+        <CreateClassModal onClose={() => setIsCreateOpen(false)} />
+      )}
 
-      {/* EDIT MODAL */}
-      <Modal 
-        isOpen={isEditOpen} 
-        onClose={() => setIsEditOpen(false)} 
-        title="Sửa thông tin lớp học"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setIsEditOpen(false)}>Hủy</Button>
-            <Button 
-              className="bg-[#4CAF50] hover:bg-[#388E3C] text-white gap-2" 
-              onClick={handleEdit}
-              disabled={updateClass.isPending}
-            >
-              {updateClass.isPending && <Loader2 size={16} className="animate-spin" />}
-              {updateClass.isPending ? 'Đang lưu...' : 'Lưu lớp'}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Tên lớp học</label>
-            <Input 
-              placeholder="Nhập tên lớp..." 
-              className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
-              value={editClass.name}
-              onChange={(e) => setEditClass({...editClass, name: e.target.value})}
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Cơ sở trực thuộc</label>
-              <Select 
-                options={schools?.items?.map(s => ({ value: s.id, label: s.name })) || []}
-                placeholder="Chọn cơ sở..."
-                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
-                value={editClass.schoolId}
-                onChange={(val) => setEditClass({...editClass, schoolId: val})}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Mô tả thêm</label>
-              <Input 
-                placeholder="Lớp tiếng Anh..." 
-                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" 
-                value={editClass.description}
-                onChange={(e) => setEditClass({...editClass, description: e.target.value})}
-              />
-            </div>
-            <div className="col-span-1 md:col-span-2">
-              <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Trạng thái lớp học</label>
-              <Select 
-                options={[
-                  { value: 'ACTIVE', label: 'Đang học' },
-                  { value: 'INACTIVE', label: 'Sắp khai giảng / Đã đóng' }
-                ]}
-                placeholder="Chọn trạng thái..."
-                className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
-                value={editClass.statusCode}
-                onChange={(val) => setEditClass({...editClass, statusCode: val})}
-              />
-            </div>
-          </div>
-        </div>
-      </Modal>
+      {isEditOpen && selectedClass && (
+        <EditClassModal 
+          initialData={selectedClass} 
+          onClose={() => { setIsEditOpen(false); setSelectedClass(null); }} 
+        />
+      )}
 
       {/* FILTER MODAL */}
       <Modal
         isOpen={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}
         title="Bộ lọc Tìm kiếm"
+        overflowVisible={true}
         footer={
           <>
-            <Button variant="secondary" onClick={() => { setFilterSchoolId(''); setIsFilterOpen(false); }}>Bỏ lọc</Button>
+            <Button variant="secondary" onClick={() => { setFilterSchoolId(''); setFilterAcademicYear(''); setIsFilterOpen(false); }}>Bỏ lọc</Button>
             <Button className="bg-[#4CAF50] hover:bg-[#388E3C] text-white" onClick={() => setIsFilterOpen(false)}>Áp dụng</Button>
           </>
         }
@@ -357,85 +197,24 @@ export default function ClassesPage() {
               onChange={(val) => setFilterSchoolId(val)}
             />
           </div>
+          <div>
+            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Niên khóa</label>
+            <Input 
+              placeholder="Nhập niên khóa cần tìm..."
+              className="focus:border-[#4CAF50] focus:ring-[#4CAF50]/30"
+              value={filterAcademicYear}
+              onChange={(e) => setFilterAcademicYear(e.target.value)}
+            />
+          </div>
         </div>
       </Modal>
 
-      {/* DETAIL MODAL */}
-      <Modal
-        isOpen={isDetailOpen}
-        onClose={() => { setIsDetailOpen(false); setDetailClassId(null); }}
-        title="Chi tiết lớp học"
-        footer={
-          <Button variant="secondary" onClick={() => { setIsDetailOpen(false); setDetailClassId(null); }}>Đóng</Button>
-        }
-      >
-        {isDetailsLoading ? (
-          <div className="py-10 text-center"><Loader2 className="animate-spin inline mr-2 text-edu-accent" /> Đang tải thông tin...</div>
-        ) : classDetails ? (
-          <div className="space-y-6">
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-              <h3 className="text-lg font-bold text-edu-fg mb-3">{classDetails.name}</h3>
-              <div className="grid grid-cols-2 gap-y-3 text-sm">
-                <div>
-                  <span className="text-gray-500 block text-xs">Mã lớp</span>
-                  <span className="font-mono font-medium">{classDetails.id.substring(0, 8)}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block text-xs">Giáo viên phụ trách</span>
-                  <span className="font-medium">{classDetails.teacherName || 'Chưa phân công'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block text-xs">Lịch học</span>
-                  <span className="font-medium">{classDetails.schedule || 'Chưa xếp lịch'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block text-xs">Trạng thái</span>
-                  <Badge variant={classDetails.statusCode === 'ACTIVE' ? 'success' : 'warn'} className="mt-1">
-                    {classDetails.statusCode === 'ACTIVE' ? 'Đang học' : 'Sắp khai giảng'}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-bold text-edu-fg mb-3 flex justify-between items-center">
-                Danh sách học viên
-                <Badge variant="muted">{classStudents?.length || 0} / {classDetails.maxStudents || 0}</Badge>
-              </h4>
-              {isStudentsLoading ? (
-                <div className="py-4 text-center text-sm text-gray-500"><Loader2 className="animate-spin inline mr-2" /> Đang tải...</div>
-              ) : classStudents && classStudents.length > 0 ? (
-                <div className="border rounded-lg overflow-hidden max-h-60 overflow-y-auto">
-                  <Table className="whitespace-nowrap text-sm">
-                    <TableHeader className="bg-gray-50 sticky top-0">
-                      <TableRow>
-                        <TableHead>Mã HV</TableHead>
-                        <TableHead>Họ Tên</TableHead>
-                        <TableHead>SĐT</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {classStudents.map((student: any) => (
-                        <TableRow key={student.id}>
-                          <TableCell className="font-mono text-xs">{student.id.substring(0, 6)}</TableCell>
-                          <TableCell className="font-medium">{student.fullName}</TableCell>
-                          <TableCell>{student.phone || '-'}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-center py-6 text-sm text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                  Lớp học này chưa có học viên nào.
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="py-10 text-center text-red-500">Không tìm thấy thông tin lớp học.</div>
-        )}
-      </Modal>
+      {isDetailOpen && detailClassId && (
+        <ViewClassModal 
+          classId={detailClassId} 
+          onClose={() => { setIsDetailOpen(false); setDetailClassId(null); }} 
+        />
+      )}
 
     </div>
   );

@@ -154,7 +154,7 @@ namespace EduOps.Application.Services
                 r => r.OrganizationId == organizationId,
                 pageNumber,
                 pageSize,
-                includeProperties: "Status,ReportDetail,Session,Session.Class,Teacher"
+                includeProperties: "Status,ReportDetail"
             );
 
             // Since ReportDto uses .ToDto(mediaList), and we are returning a paged result, 

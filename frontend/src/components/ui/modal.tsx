@@ -12,9 +12,10 @@ interface ModalProps {
   footer?: React.ReactNode;
   className?: string;
   zIndex?: string; // e.g. "z-[300]"
+  overflowVisible?: boolean;
 }
 
-export function Modal({ isOpen, onClose, title, children, footer, className, zIndex = "z-[200]" }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer, className, zIndex = "z-[200]", overflowVisible = false }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -65,7 +66,7 @@ export function Modal({ isOpen, onClose, title, children, footer, className, zIn
             </button>
           </div>
           
-          <div className="px-6 py-5 overflow-y-auto custom-scrollbar">
+          <div className={cn("px-6 py-5 custom-scrollbar", overflowVisible ? "overflow-visible" : "overflow-y-auto")}>
             {children}
           </div>
 

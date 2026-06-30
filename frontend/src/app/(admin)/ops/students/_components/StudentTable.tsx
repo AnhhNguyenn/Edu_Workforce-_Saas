@@ -42,6 +42,7 @@ export function StudentTable({ students, isLoading, onEdit, onDelete, isAuthoriz
             <TableHead className="font-semibold">Họ tên</TableHead>
             <TableHead className="font-semibold">Liên hệ</TableHead>
             <TableHead className="font-semibold">Lớp học</TableHead>
+            <TableHead className="font-semibold">Cơ sở</TableHead>
             <TableHead className="font-semibold">Học phí</TableHead>
             <TableHead className="font-semibold">Trạng thái</TableHead>
             <TableHead className="w-[100px] text-right font-semibold">Hành động</TableHead>
@@ -76,6 +77,7 @@ export function StudentTable({ students, isLoading, onEdit, onDelete, isAuthoriz
                   <div className="text-xs text-edu-muted">{std.email || 'Chưa cập nhật'}</div>
                 </TableCell>
                 <TableCell className="text-edu-fgSecondary font-medium">{std.currentClass || 'Chưa xếp lớp'}</TableCell>
+                <TableCell className="text-edu-fgSecondary font-medium">{std.currentSchool || 'Chưa phân bổ'}</TableCell>
                 <TableCell>
                   <div className="font-semibold text-edu-accent">{std.feeStatus}</div>
                 </TableCell>

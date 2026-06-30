@@ -11,6 +11,7 @@ import { Modal } from '@/components/ui/modal';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Select } from '@/components/ui/select';
 import { useClasses } from '@/hooks/queries/useClasses';
+import { useSchools } from '@/hooks/queries/useSchools';
 
 const studentSchema = z.object({
   studentCode: z.string().min(1, 'Vui lòng nhập Mã học viên'),
@@ -19,6 +20,7 @@ const studentSchema = z.object({
   parentName: z.string().optional(),
   parentPhone: z.string().optional(),
   parentEmail: z.string().email('Email không hợp lệ').or(z.literal('')),
+  schoolId: z.string().optional(),
   classId: z.string().optional()
 });
 
@@ -30,9 +32,9 @@ interface CreateStudentModalProps {
 
 export default function CreateStudentModal({ onClose }: CreateStudentModalProps) {
   const createMutation = useCreateStudent();
-  const { data: classesData } = useClasses('', '');
-
-  const { register, handleSubmit, control, formState: { errors } } = useForm<StudentFormValues>({
+  const { data: schoolsData } = useSchools('');
+  
+  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<StudentFormValues>({
     resolver: zodResolver(studentSchema),
     defaultValues: {
       studentCode: '',
@@ -41,9 +43,13 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
       parentName: '',
       parentPhone: '',
       parentEmail: '',
+      schoolId: '',
       classId: ''
     }
   });
+
+  const selectedSchoolId = watch('schoolId');
+  const { data: classesData } = useClasses('', selectedSchoolId);
 
   const onSubmit = async (data: StudentFormValues) => {
     try {
@@ -114,6 +120,24 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
             {errors.birthDate?.message && <p className="text-sm text-red-500">{errors.birthDate.message}</p>}
           </div>
           <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-edu-fgSecondary">Cơ sở</label>
+            <Controller
+              control={control}
+              name="schoolId"
+              render={({ field }) => (
+                <Select
+                  options={schoolsData?.items?.map(s => ({ value: s.id, label: s.name })) || []}
+                  value={field.value}
+                  onChange={(val) => {
+                    field.onChange(val);
+                    setValue('classId', ''); // Reset class when school changes
+                  }}
+                  placeholder="Chọn cơ sở..."
+                />
+              )}
+            />
+          </div>
+          <div className="space-y-1.5">
             <label className="text-sm font-semibold text-edu-fgSecondary">Xếp lớp (Tùy chọn)</label>
             <Controller
               control={control}
@@ -123,7 +147,8 @@ export default function CreateStudentModal({ onClose }: CreateStudentModalProps)
                   options={classesData?.items?.map(c => ({ value: c.id, label: c.name })) || []}
                   value={field.value}
                   onChange={field.onChange}
-                  placeholder="Chọn lớp học..."
+                  placeholder={selectedSchoolId ? "Chọn lớp học..." : "Vui lòng chọn cơ sở trước"}
+                  disabled={!selectedSchoolId}
                 />
               )}
             />

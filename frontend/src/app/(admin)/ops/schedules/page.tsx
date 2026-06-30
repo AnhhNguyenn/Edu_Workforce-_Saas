@@ -120,7 +120,7 @@ export default function SchedulesPage() {
   };
 
   const { data: sessions, isLoading } = useSessions();
-  const { data: classes } = useClasses(activeTab === 'class' ? debouncedSearch : '', undefined, classPage, PAGE_SIZE);
+  const { data: classes } = useClasses(activeTab === 'class' ? debouncedSearch : '', undefined, undefined, classPage, PAGE_SIZE);
   const { data: teachers } = useUsers('TEACHER', activeTab === 'teacher' ? debouncedSearch : '', teacherPage, PAGE_SIZE);
   const { data: assistants } = useUsers('ASSISTANT', activeTab === 'assistant' ? debouncedSearch : '', assistantPage, PAGE_SIZE);
   const { data: allTeachers } = useUsers('TEACHER', '', 1, 1000);
@@ -136,6 +136,59 @@ export default function SchedulesPage() {
     if (activeTab === 'class') return Math.ceil((classes?.totalCount || 0) / PAGE_SIZE);
     if (activeTab === 'teacher') return Math.ceil((teachers?.totalCount || 0) / PAGE_SIZE);
     return Math.ceil((assistants?.totalCount || 0) / PAGE_SIZE);
+  };
+
+  const [mergePrompt, setMergePrompt] = useState<{
+    isOpen: boolean;
+    dragId: string;
+    targetSession: any;
+    dateStr: string;
+    shiftId: string;
+  } | null>(null);
+
+  const handleMergeSession = async (dragId: string, dateStr: string, targetSession: any) => {
+    const currentClassIds = targetSession.classIds || [targetSession.classId];
+    if (!currentClassIds.includes(dragId)) {
+        try {
+          await updateSession.mutateAsync({
+            id: targetSession.id,
+            data: {
+              classIds: [...currentClassIds, dragId],
+              schoolId: targetSession.schoolId,
+              teacherId: targetSession.teacherId,
+              assistantIds: targetSession.assistantIds || [],
+              lessonTitle: targetSession.lessonTitle,
+              notes: targetSession.notes,
+              sessionDate: dateStr,
+              startTime: targetSession.startTime,
+              endTime: targetSession.endTime
+            }
+          });
+          toast.success('Đã gộp lớp học thành công!');
+          if (selectedSessionInfo?.id === targetSession.id) {
+             setSelectedSessionInfo(null);
+          }
+        } catch (err: any) {
+          toast.error(translateError(getErrorMessage(err)));
+        }
+    } else {
+        toast.error('Lớp này đã có trong ca học!');
+    }
+  };
+
+  const handleCreateParallelSession = async (dragId: string, dateStr: string, targetSession: any) => {
+      const conflictMsg = checkConflict([dragId], null, null, dateStr, targetSession.startTime, targetSession.endTime);
+      if (conflictMsg) {
+        toast.error(conflictMsg);
+        return;
+      }
+      try {
+        const classObj = classes?.items?.find((c: any) => c.id === dragId);
+        await createSession.mutateAsync({ classId: dragId, schoolId: classObj?.schoolId || '', teacherId: null, assistantIds: [], sessionDate: dateStr, startTime: targetSession.startTime, endTime: targetSession.endTime });
+        toast.success('Đã tạo ca học song song!');
+      } catch (err: any) {
+        toast.error(translateError(getErrorMessage(err)));
+      }
   };
 
   const handlePageChange = (delta: number) => {
@@ -290,11 +343,50 @@ export default function SchedulesPage() {
     sessionsMatrix[dStr] = { morning: [], afternoon: [], evening: [] };
   });
 
+  // Group sessions
+  const groupedSessions: any[] = [];
+  const groupsMap = new Map<string, any>();
+
   sessions?.items?.forEach((s: any) => {
+    if (s.groupId) {
+      if (!groupsMap.has(s.groupId)) {
+        groupsMap.set(s.groupId, {
+          ...s,
+          classIds: [s.classId],
+          isGrouped: true,
+          studentsCount: classes?.items?.find((c: any) => c.id === s.classId)?.studentsCount || 0
+        });
+      } else {
+        const group = groupsMap.get(s.groupId);
+        if (!group.classIds.includes(s.classId)) {
+          group.classIds.push(s.classId);
+          group.studentsCount += classes?.items?.find((c: any) => c.id === s.classId)?.studentsCount || 0;
+        }
+      }
+    } else {
+      groupedSessions.push({
+        ...s,
+        classIds: [s.classId],
+        isGrouped: false,
+        studentsCount: classes?.items?.find((c: any) => c.id === s.classId)?.studentsCount || 0
+      });
+    }
+  });
+
+  groupsMap.forEach(group => groupedSessions.push(group));
+
+  groupedSessions.forEach((s: any) => {
     const dStr = new Date(s.sessionDate).toLocaleDateString('en-CA');
     if (sessionsMatrix[dStr]) {
+      let className = '';
+      if (s.isGrouped) {
+        className = s.classIds.map((cid: string) => classes?.items?.find((c: any) => c.id === cid)?.name || cid.substring(0, 8)).join(' + ');
+      } else {
+        const classInfo = classes?.items?.find((c: any) => c.id === s.classId);
+        className = classInfo?.name || s.classId?.substring(0, 8);
+      }
+      
       const classInfo = classes?.items?.find((c: any) => c.id === s.classId);
-      const className = classInfo?.name || s.classId?.substring(0, 8);
       const schoolName = schools?.items?.find((sch: any) => sch.id === (classInfo as any)?.schoolId)?.name || '';
       const teacherName = allTeachers?.items?.find((t: any) => t.id === s.teacherId)?.fullName || 'Chưa xếp';
       const assistantName = (s.assistantIds && s.assistantIds.length > 0) ? s.assistantIds.map((id: string) => allAssistants?.items?.find((a: any) => a.id === id)?.fullName || 'Chưa xếp').join(', ') : 'Chưa xếp';
@@ -317,13 +409,15 @@ export default function SchedulesPage() {
     shiftStats.evening += sessionsMatrix[dStr].evening.length;
   });
 
-  const checkConflict = (classId: string, teacherId: string | null | undefined, assistantId: string | null | undefined, sessionDate: string, startTime: string, endTime: string, excludeSessionId?: string) => {
+  const checkConflict = (classIds: string[], teacherId: string | null | undefined, assistantId: string | null | undefined, sessionDate: string, startTime: string, endTime: string, excludeSessionId?: string, excludeGroupId?: string | null) => {
     if (!sessions?.items) return null;
     const startD = new Date(`2000-01-01T${startTime}`).getTime();
     const endD = new Date(`2000-01-01T${endTime}`).getTime();
 
     for (const s of sessions.items) {
       if (s.id === excludeSessionId) continue;
+      if (excludeGroupId && s.groupId === excludeGroupId) continue;
+
       const sDateStr = new Date(s.sessionDate).toLocaleDateString('en-CA');
       if (sDateStr !== sessionDate) continue;
 
@@ -331,7 +425,7 @@ export default function SchedulesPage() {
       const sEndD = new Date(`2000-01-01T${s.endTime}`).getTime();
 
       if (startD < sEndD && endD > sStartD) {
-        if (s.classId === classId) return 'Lớp học này đã có ca học trong khung giờ này.';
+        if (classIds.includes(s.classId)) return 'Một trong các lớp học đã chọn có ca học bị trùng lặp thời gian.';
         if (teacherId && s.teacherId === teacherId) return 'Giáo viên này đã có lịch dạy trong khung giờ này.';
         if (assistantId && s.assistantIds?.includes(assistantId)) return 'Trợ giảng này đã có lịch trong khung giờ này.';
       }
@@ -358,14 +452,15 @@ export default function SchedulesPage() {
         ? [dragId, ...(targetSession.assistantIds || []).filter((id: string) => id !== dragId)] 
         : targetSession.assistantIds || [];
 
-      const conflictMsg = checkConflict(targetSession.classId, teacherId, dragType === 'assistant' ? dragId : null, dateStr, targetSession.startTime, targetSession.endTime, targetSession.id);
+      const conflictMsg = checkConflict(targetSession.classIds || [targetSession.classId], teacherId, dragType === 'assistant' ? dragId : null, dateStr, targetSession.startTime, targetSession.endTime, targetSession.id, targetSession.groupId);
       if (conflictMsg) {
         toast.error(conflictMsg);
         return;
       }
 
       const payload = {
-        classId: targetSession.classId,
+        classIds: targetSession.classIds || [targetSession.classId],
+        schoolId: targetSession.schoolId,
         sessionDate: dateStr,
         startTime: targetSession.startTime,
         endTime: targetSession.endTime,
@@ -391,18 +486,34 @@ export default function SchedulesPage() {
     }
 
     if (dragType === 'class') {
+      if (targetSession) {
+        if (e.ctrlKey) {
+          handleCreateParallelSession(dragId, dateStr, targetSession);
+        } else {
+          setMergePrompt({
+            isOpen: true,
+            dragId,
+            targetSession,
+            dateStr,
+            shiftId
+          });
+        }
+        return;
+      }
+
       const shiftData = SHIFTS.find(s => s.id === shiftId);
       let startTime = shiftData?.defaultStart || '07:00:00';
       let endTime   = shiftData?.defaultEnd   || '09:00:00';
 
-      const conflictMsg = checkConflict(dragId, null, null, dateStr, startTime, endTime);
+      const conflictMsg = checkConflict([dragId], null, null, dateStr, startTime, endTime);
       if (conflictMsg) {
         toast.error(conflictMsg);
         return;
       }
 
       try {
-        await createSession.mutateAsync({ classId: dragId, teacherId: null, assistantIds: [], sessionDate: dateStr, startTime, endTime });
+        const classObj = classes?.items?.find((c: any) => c.id === dragId);
+        await createSession.mutateAsync({ classId: dragId, schoolId: classObj?.schoolId || '', teacherId: null, assistantIds: [], sessionDate: dateStr, startTime, endTime });
         toast.success('Đã tạo lịch học nhanh!');
       } catch (err: any) {
         toast.error(translateError(getErrorMessage(err)));
@@ -410,9 +521,15 @@ export default function SchedulesPage() {
     } else if (dragType === 'session') {
       const sessionData = JSON.parse(e.dataTransfer.getData('sessionData'));
       const oldShift = getShiftForTime(sessionData.startTime);
+      const oldDateStr = new Date(sessionData.sessionDate).toLocaleDateString('en-CA');
+
+      // Nếu thả lại đúng vào ngày và ca học hiện tại, không làm gì cả
+      if (oldDateStr === dateStr && oldShift === shiftId) {
+        return;
+      }
 
       // If dropped in a different shift, update time to default for that shift.
-      // If same shift, keep exact old time.
+      // If same shift, keep exact old time (mặc dù trường hợp này đã bị block ở trên, giữ logic cho chắc chắn).
       const shiftObj = SHIFTS.find(s => s.id === shiftId);
       let newStart = sessionData.startTime;
       let newEnd = sessionData.endTime;
@@ -429,7 +546,7 @@ export default function SchedulesPage() {
         newEnd = newEndD.toTimeString().split(' ')[0];
       }
 
-      const conflictMsg = checkConflict(sessionData.classId, sessionData.teacherId, null, dateStr, newStart, newEnd, sessionData.id);
+      const conflictMsg = checkConflict(sessionData.classIds || [sessionData.classId], sessionData.teacherId, null, dateStr, newStart, newEnd, sessionData.id, sessionData.groupId);
       if (conflictMsg) {
         toast.error(conflictMsg);
         return;
@@ -444,7 +561,8 @@ export default function SchedulesPage() {
             await updateSession.mutateAsync({
               id: sessionData.id,
               data: {
-                classId: sessionData.classId,
+                classIds: sessionData.classIds || [sessionData.classId],
+                schoolId: sessionData.schoolId,
                 teacherId: sessionData.teacherId,
                 assistantIds: sessionData.assistantIds || [],
                 lessonTitle: sessionData.lessonTitle,
@@ -467,12 +585,8 @@ export default function SchedulesPage() {
   };
 
   const handleSave = async () => {
-    if (modalMode === 'create' && sessionForm.classIds.length === 0) {
+    if (sessionForm.classIds.length === 0) {
       toast.error('Vui lòng chọn ít nhất một lớp học');
-      return;
-    }
-    if (modalMode === 'edit' && !sessionForm.classId) {
-      toast.error('Vui lòng chọn lớp học');
       return;
     }
     if (!sessionForm.sessionDate || !sessionForm.startTime || !sessionForm.endTime) {
@@ -487,6 +601,7 @@ export default function SchedulesPage() {
         extraData: Object.keys(extraDataValues).length > 0 ? JSON.stringify(extraDataValues) : null,
         startTime: sessionForm.startTime.length === 5 ? sessionForm.startTime + ':00' : sessionForm.startTime,
         endTime: sessionForm.endTime.length === 5 ? sessionForm.endTime + ':00' : sessionForm.endTime,
+        sessionDate: new Date(sessionForm.sessionDate).toLocaleDateString('en-CA'),
         isRecurring: sessionForm.isRecurring,
         recurringDaysOfWeek: sessionForm.isRecurring ? sessionForm.recurringDaysOfWeek : undefined,
         recurringEndDate: sessionForm.isRecurring && sessionForm.recurringEndDate ? sessionForm.recurringEndDate : undefined
@@ -644,7 +759,7 @@ export default function SchedulesPage() {
             </Button>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <div className="flex bg-slate-100 p-1 rounded-lg mr-2 shrink-0">
               <button
                 onClick={() => handleViewModeToggle('week')}
@@ -760,7 +875,7 @@ export default function SchedulesPage() {
               });
 
               const toggleSchool = (schoolId: string) => {
-                setExpandedSchools(prev => ({...prev, [schoolId]: prev[schoolId] === undefined ? false : !prev[schoolId]}));
+                setExpandedSchools(prev => ({...prev, [schoolId]: prev[schoolId] === undefined ? true : !prev[schoolId]}));
               };
 
               const renderClass = (c: any) => {
@@ -791,7 +906,7 @@ export default function SchedulesPage() {
                 <div className="space-y-1">
                   {Object.entries(classesBySchool).map(([schoolId, schoolClasses]) => {
                     const schoolName = schools?.items?.find((s: any) => s.id === schoolId)?.name || 'Cơ sở không xác định';
-                    const isExpanded = expandedSchools[schoolId] !== false; // Default true
+                    const isExpanded = expandedSchools[schoolId] === true; // Default false
                     return (
                       <div key={schoolId} className="flex flex-col">
                         <div 
@@ -827,7 +942,7 @@ export default function SchedulesPage() {
               );
             })()}
             
-            {activeTab === 'teacher' && teachers?.items?.map((t: any) => (
+            {activeTab === 'teacher' && teachers?.items?.filter((t: any) => t.statusCode === 'ACTIVE').map((t: any) => (
               <div
                 key={t.id}
                 draggable={isAuthorized}
@@ -847,7 +962,7 @@ export default function SchedulesPage() {
               </div>
             ))}
 
-            {activeTab === 'assistant' && assistants?.items?.map((a: any) => (
+            {activeTab === 'assistant' && assistants?.items?.filter((a: any) => a.statusCode === 'ACTIVE').map((a: any) => (
               <div
                 key={a.id}
                 draggable={isAuthorized}
@@ -882,13 +997,14 @@ export default function SchedulesPage() {
 
         {/* Matrix Board */}
         <div className="flex-1 w-full min-w-0 flex flex-col min-h-0 overflow-hidden bg-white border border-slate-100 rounded-3xl shadow-sm">
-          <div className={`flex flex-col flex-1 min-h-0 overflow-x-auto hide-scrollbar transition-all duration-150 ${isTransitioning ? 'opacity-0 scale-[0.98]' : 'opacity-100 scale-100'}`} style={{minWidth: viewMode === 'week' ? '1000px' : '800px'}}>
+          <div className={`flex flex-col flex-1 min-h-0 overflow-x-auto hide-scrollbar transition-all duration-150 ${isTransitioning ? 'opacity-0 scale-[0.98]' : 'opacity-100 scale-100'}`}>
+            <div className="flex flex-col flex-1 min-h-0" style={{minWidth: viewMode === 'week' ? '1000px' : '800px'}}>
 
             {viewMode === 'week' ? (
               <>
                 {/* Header Row: Days of the week */}
                 <div className="grid shrink-0 border-b border-slate-200 bg-white" style={{gridTemplateColumns: '80px repeat(7, minmax(140px, 1fr))'}}>
-                  <div className="border-r border-slate-100 bg-slate-50/50" />
+                  <div className="border-r border-slate-100 bg-slate-50/50 sticky left-0 z-30" />
                   {daysOfWeek.map((day, idx) => {
                     const dateStr = day.toLocaleDateString('en-CA');
                     const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
@@ -908,12 +1024,27 @@ export default function SchedulesPage() {
                     <div className="flex-1 flex flex-col items-center justify-center"><Loader2 className="animate-spin text-[#2563EB] mb-4 h-10 w-10" /><span className="text-slate-500 font-medium">Đang tải lịch điều phối...</span></div>
                   ) : (
                     <div className="flex flex-col flex-1 min-h-full">
-                      {SHIFTS.map(shift => (
-                        <div key={shift.id} className="flex grow shrink-0 border-b border-slate-200 last:border-b-0 min-h-[160px]">
+                      {(() => {
+                        const maxCardsAcrossAllShifts = Math.max(
+                          0,
+                          ...SHIFTS.map(shift => 
+                            Math.max(
+                              0,
+                              ...daysOfWeek.map(day => {
+                                const dateStr = day.toLocaleDateString('en-CA');
+                                return (sessionsMatrix[dateStr]?.[shift.id] || []).length;
+                              })
+                            )
+                          )
+                        );
+                        const globalRowFlexClass = maxCardsAcrossAllShifts > 1 ? 'flex-auto shrink-0' : 'flex-1';
+
+                        return SHIFTS.map(shift => (
+                          <div key={shift.id} className={`flex ${globalRowFlexClass} border-b border-slate-200 last:border-b-0`}>
                           
                           {/* Shift Row Header */}
                           <div 
-                            className="w-[80px] shrink-0 border-r border-slate-200 bg-white flex flex-col items-center justify-center py-4 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] z-10 relative transition-colors hover:bg-slate-50 cursor-crosshair"
+                            className="w-[80px] shrink-0 border-r border-slate-200 bg-white flex flex-col items-center justify-center py-4 min-h-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] z-10 relative transition-colors hover:bg-slate-50 cursor-crosshair"
                             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('bg-blue-50/50'); }}
                             onDragLeave={(e) => { e.currentTarget.classList.remove('bg-blue-50/50'); }}
                             onDrop={(e) => { e.stopPropagation(); e.currentTarget.classList.remove('bg-blue-50/50'); handleDropOnShiftHeader(e, shift.id); }}
@@ -927,7 +1058,7 @@ export default function SchedulesPage() {
                           </div>
 
                           {/* Day Cells for this shift */}
-                          <div className="flex-1 grid" style={{gridTemplateColumns: 'repeat(7, minmax(140px, 1fr))'}}>
+                          <div className="grow grid" style={{gridTemplateColumns: 'repeat(7, minmax(140px, 1fr))'}}>
                             {daysOfWeek.map((day, idx) => {
                               const dateStr = day.toLocaleDateString('en-CA');
                               const cellSessions = sessionsMatrix[dateStr]?.[shift.id] || [];
@@ -942,7 +1073,7 @@ export default function SchedulesPage() {
                                   onDrop={(e) => { e.stopPropagation(); e.currentTarget.classList.remove('bg-blue-50/80'); handleDropOnCell(e, dateStr, shift.id, undefined); }}
                                 >
                                   {cellSessions.length === 0 ? (
-                                    <div className="flex-1 flex items-center justify-center min-h-[100px] rounded-xl border-2 border-dashed border-slate-200/60 bg-transparent">
+                                    <div className="flex-1 w-full flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200/60 bg-transparent">
                                       <span className="text-[12px] font-medium text-slate-300">Trống</span>
                                     </div>
                                   ) : (
@@ -954,8 +1085,9 @@ export default function SchedulesPage() {
                                         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                         onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDropOnCell(e, dateStr, shift.id, session); }}
                                         onClick={() => setSelectedSessionInfo(session)}
-                                        className={`shrink-0 bg-white border rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:shadow-md transition-all group ${session.theme.border} ${session.theme.hover}`}
+                                        className={`h-fit shrink-0 bg-white border rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:shadow-md transition-all group ${session.theme.border} ${session.theme.hover}`}
                                       >
+                                        {/* TOP */}
                                         <div className="flex items-center justify-between mb-2">
                                           <span className={`font-bold text-[13px] uppercase ${session.theme.text}`}>{session.className}</span>
                                           <MoreVertical size={14} className={`${session.theme.textLight} opacity-0 group-hover:opacity-100 transition-opacity`} />
@@ -966,6 +1098,8 @@ export default function SchedulesPage() {
                                             <span className="truncate">{session.schoolName}</span>
                                           </div>
                                         )}
+                                        
+                                        {/* MIDDLE */}
                                         <div className={`text-[12px] font-semibold mb-2 leading-tight ${session.theme.textLight}`}>
                                           {session.lessonTitle || 'Lý thuyết'}
                                         </div>
@@ -976,11 +1110,19 @@ export default function SchedulesPage() {
                                               {session.startTime.substring(0,5)} - {session.endTime.substring(0,5)}
                                             </span>
                                           </div>
-                                          <div className={`flex items-center gap-1.5 text-[11px] font-medium ${session.theme.textLight} px-1`}>
-                                            <MapPin size={12} className="shrink-0" />
-                                            <span className="truncate">{session.roomName || 'Chưa xếp phòng'}</span>
+                                          <div className="flex items-center justify-between gap-1 mt-0.5">
+                                            <div className={`flex items-center gap-1.5 text-[11px] font-medium ${session.theme.textLight} px-1 truncate`}>
+                                              <MapPin size={12} className="shrink-0" />
+                                              <span className="truncate">{session.roomName || 'Chưa xếp phòng'}</span>
+                                            </div>
+                                            <div className={`flex items-center gap-1 text-[11px] font-bold ${session.theme.textLight} px-1 shrink-0 bg-slate-50/50 rounded-md py-0.5`} title="Sĩ số thực tế">
+                                              <Users size={11} className="shrink-0" />
+                                              <span>{session.studentsCount || 0}</span>
+                                            </div>
                                           </div>
                                         </div>
+
+                                        {/* BOTTOM */}
                                         <div className="flex flex-col gap-1.5 pt-2.5 border-t border-slate-100">
                                           <div className={`flex items-center gap-2 text-[11px] font-medium ${session.theme.textLight}`}>
                                             <div className={`w-4 h-4 rounded-full flex items-center justify-center ${session.theme.iconBg} text-white`}><User size={9} /></div>
@@ -999,7 +1141,8 @@ export default function SchedulesPage() {
                             })}
                           </div>
                         </div>
-                      ))}
+                      ));
+                      })()}
                     </div>
                   )}
                 </div>
@@ -1043,51 +1186,59 @@ export default function SchedulesPage() {
                   {isLoading ? (
                     <div className="flex-1 flex flex-col items-center justify-center"><Loader2 className="animate-spin text-[#2563EB] mb-4 h-10 w-10" /><span className="text-slate-500 font-medium">Đang tải lịch điều phối...</span></div>
                   ) : (
-                    <div className="flex flex-col grow min-h-full">
-                      {daysOfWeek.map((day, idx) => {
-                        const dateStr = day.toLocaleDateString('en-CA');
-                        const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
-                        const dayName = day.getDay() === 0 ? 'Chủ Nhật' : `Thứ ${day.getDay() + 1}`;
-                        
-                        const daySessions = sessions?.items?.filter((s: any) => new Date(s.sessionDate).toLocaleDateString('en-CA') === dateStr).sort((a: any, b: any) => a.startTime.localeCompare(b.startTime)) || [];
-                        const dayRows: any[][] = [];
-                        daySessions.forEach((rawSession: any) => {
-                           const classInfo = classes?.items?.find((c: any) => c.id === rawSession.classId);
-                           const className = classInfo?.name || rawSession.classId?.substring(0, 8);
-                           const schoolName = schools?.items?.find((sch: any) => sch.id === (classInfo as any)?.schoolId)?.name || '';
-                           const s = {
-                             ...rawSession,
-                             className,
-                             schoolName,
-                             teacherName: allTeachers?.items?.find((t: any) => t.id === rawSession.teacherId)?.fullName || 'Chưa xếp',
-                             assistantName: (rawSession.assistantIds && rawSession.assistantIds.length > 0) ? rawSession.assistantIds.map((id: string) => allAssistants?.items?.find((a: any) => a.id === id)?.fullName || 'Chưa xếp').join(', ') : 'Chưa xếp',
-                             theme: getClassTheme(rawSession.classId)
-                           };
-                           const { start, span } = getShiftIndices(s.startTime, s.endTime);
-                           let r = 0;
-                           while (true) {
-                              if (!dayRows[r]) dayRows[r] = [null, null, null];
-                              let canFit = true;
-                              for (let i = start; i < start + span; i++) {
-                                 if (dayRows[r][i] !== null) canFit = false;
-                              }
-                              if (canFit) {
-                                 for (let i = start; i < start + span; i++) {
-                                    dayRows[r][i] = s;
-                                 }
-                                 s._start = start;
-                                 s._span = span;
-                                 break;
-                              }
-                              r++;
-                           }
+                    <div className="flex flex-col flex-1 min-h-full">
+                      {(() => {
+                        // First calculate dayRows for all days to find global max
+                        const allDaysData = daysOfWeek.map((day) => {
+                          const dateStr = day.toLocaleDateString('en-CA');
+                          const daySessions = sessions?.items?.filter((s: any) => new Date(s.sessionDate).toLocaleDateString('en-CA') === dateStr).sort((a: any, b: any) => a.startTime.localeCompare(b.startTime)) || [];
+                          const dayRows: any[][] = [];
+                          daySessions.forEach((rawSession: any) => {
+                             const classInfo = classes?.items?.find((c: any) => c.id === rawSession.classId);
+                             const className = classInfo?.name || rawSession.classId?.substring(0, 8);
+                             const schoolName = schools?.items?.find((sch: any) => sch.id === (classInfo as any)?.schoolId)?.name || '';
+                             const s = {
+                               ...rawSession,
+                               className,
+                               schoolName,
+                               teacherName: allTeachers?.items?.find((t: any) => t.id === rawSession.teacherId)?.fullName || 'Chưa xếp',
+                               assistantName: (rawSession.assistantIds && rawSession.assistantIds.length > 0) ? rawSession.assistantIds.map((id: string) => allAssistants?.items?.find((a: any) => a.id === id)?.fullName || 'Chưa xếp').join(', ') : 'Chưa xếp',
+                               theme: getClassTheme(rawSession.classId)
+                             };
+                             const { start, span } = getShiftIndices(s.startTime, s.endTime);
+                             let r = 0;
+                             while (true) {
+                                if (!dayRows[r]) dayRows[r] = [null, null, null];
+                                let canFit = true;
+                                for (let i = start; i < start + span; i++) {
+                                   if (dayRows[r][i] !== null) canFit = false;
+                                }
+                                if (canFit) {
+                                   for (let i = start; i < start + span; i++) {
+                                      dayRows[r][i] = s;
+                                   }
+                                   s._start = start;
+                                   s._span = span;
+                                   break;
+                                }
+                                r++;
+                             }
+                          });
+                          return { day, dateStr, dayRows };
                         });
 
-                        return (
-                          <div key={dateStr} className="flex grow shrink-0 border-b border-slate-200 last:border-b-0 min-h-[160px]">
+                        const maxCardsAcrossAllDays = Math.max(0, ...allDaysData.map(d => d.dayRows.length));
+                        const globalRowFlexClass = maxCardsAcrossAllDays > 1 ? 'flex-auto shrink-0' : 'flex-1';
+
+                        return allDaysData.map(({ day, dateStr, dayRows }) => {
+                          const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
+                          const dayName = day.getDay() === 0 ? 'Chủ Nhật' : `Thứ ${day.getDay() + 1}`;
+
+                          return (
+                            <div key={dateStr} className={`flex ${globalRowFlexClass} border-b border-slate-200 last:border-b-0`}>
                             
                             {/* Day Row Header */}
-                            <div className={`w-[120px] shrink-0 border-r border-slate-200 flex flex-col items-center justify-center py-4 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] z-20 relative ${isToday ? 'bg-[#EFF6FF]' : 'bg-white'}`}>
+                            <div className={`w-[120px] shrink-0 border-r border-slate-200 flex flex-col items-center justify-center py-4 min-h-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] z-20 relative ${isToday ? 'bg-[#EFF6FF]' : 'bg-white'}`}>
                               <span className={`font-bold text-[15px] ${isToday ? 'text-[#2563EB]' : 'text-slate-800'}`}>{dayName}</span>
                               <span className={`text-[12px] font-medium mt-1 ${isToday ? 'text-[#1D4ED8]' : 'text-slate-400'}`}>
                                 {day.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
@@ -1095,7 +1246,7 @@ export default function SchedulesPage() {
                             </div>
 
                             {/* Shift Cells for this day */}
-                            <div className="flex-1 relative">
+                            <div className="grow relative">
                                <div className="absolute inset-0 grid" style={{gridTemplateColumns: 'repeat(3, minmax(200px, 1fr))'}}>
                                   {SHIFTS.map(shift => (
                                      <div 
@@ -1115,15 +1266,17 @@ export default function SchedulesPage() {
                                            if (!s) return <div key={cIdx} />;
                                            
                                            return (
-                                              <div 
-                                                key={`${s.id}-${cIdx}`} 
-                                                className={`pointer-events-auto bg-white border rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:shadow-md transition-all group ${s.theme.border} ${s.theme.hover} h-full`}
-                                                draggable={isAuthorized}
-                                                onDragStart={(e) => { e.dataTransfer.setData('type', 'session'); e.dataTransfer.setData('sessionData', JSON.stringify(s)); e.dataTransfer.setData('application/x-eduops-session', 'true'); }}
-                                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                                onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDropOnCell(e, dateStr, SHIFTS[cIdx].id, s); }}
-                                                onClick={() => setSelectedSessionInfo(s)}
-                                              >
+                                              <div key={`wrapper-${s.id}-${cIdx}`} style={{gridColumn: `${s._start + 1} / span ${s._span}`}}>
+                                                <div 
+                                                  key={`${s.id}-${cIdx}`} 
+                                                  className={`h-fit pointer-events-auto bg-white border rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:shadow-md transition-all group ${s.theme.border} ${s.theme.hover}`}
+                                                  draggable={isAuthorized}
+                                                  onDragStart={(e) => { e.dataTransfer.setData('type', 'session'); e.dataTransfer.setData('sessionData', JSON.stringify(s)); e.dataTransfer.setData('application/x-eduops-session', 'true'); }}
+                                                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                  onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDropOnCell(e, dateStr, SHIFTS[s._start].id, s); }}
+                                                  onClick={() => setSelectedSessionInfo(s)}
+                                                >
+                                                {/* TOP */}
                                                 <div className="flex items-center justify-between mb-2">
                                                   <span className={`font-bold text-[13px] uppercase ${s.theme.text}`}>{s.className}</span>
                                                   <MoreVertical size={14} className={`${s.theme.textLight} opacity-0 group-hover:opacity-100 transition-opacity`} />
@@ -1134,6 +1287,8 @@ export default function SchedulesPage() {
                                                     <span className="truncate">{s.schoolName}</span>
                                                   </div>
                                                 )}
+                                                
+                                                {/* MIDDLE */}
                                                 <div className={`text-[12px] font-semibold mb-2 leading-tight ${s.theme.textLight}`}>
                                                   {s.lessonTitle || 'Lý thuyết'}
                                                 </div>
@@ -1144,11 +1299,19 @@ export default function SchedulesPage() {
                                                       {s.startTime.substring(0,5)} - {s.endTime.substring(0,5)}
                                                     </span>
                                                   </div>
-                                                  <div className={`flex items-center gap-1.5 text-[11px] font-medium ${s.theme.textLight} px-1`}>
-                                                    <MapPin size={12} className="shrink-0" />
-                                                    <span className="truncate">{s.roomName || 'Chưa xếp phòng'}</span>
+                                                  <div className="flex items-center gap-4 mt-0.5 overflow-hidden">
+                                                    <div className={`flex items-center gap-1.5 text-[11px] font-medium ${s.theme.textLight} px-1 truncate`}>
+                                                      <MapPin size={12} className="shrink-0" />
+                                                      <span className="truncate">{s.roomName || 'Chưa xếp phòng'}</span>
+                                                    </div>
+                                                    <div className={`flex items-center gap-1 text-[11px] font-bold ${s.theme.textLight} px-1 shrink-0 bg-slate-50/50 rounded-md py-0.5`} title="Sĩ số thực tế">
+                                                      <Users size={11} className="shrink-0" />
+                                                      <span>{s.studentsCount || 0}</span>
+                                                    </div>
                                                   </div>
                                                 </div>
+
+                                                {/* BOTTOM */}
                                                 <div className="flex flex-col gap-1.5 pt-2.5 border-t border-slate-100">
                                                   <div className={`flex items-center gap-2 text-[11px] font-medium ${s.theme.textLight}`}>
                                                     <div className={`w-4 h-4 rounded-full flex items-center justify-center ${s.theme.iconBg} text-white`}><User size={9} /></div>
@@ -1159,6 +1322,7 @@ export default function SchedulesPage() {
                                                     <span className="truncate">{s.assistantName !== 'Chưa xếp' ? s.assistantName : 'Chưa xếp TG'}</span>
                                                   </div>
                                                 </div>
+                                                </div>
                                               </div>
                                            );
                                         })}
@@ -1166,7 +1330,7 @@ export default function SchedulesPage() {
                                   ))}
                                   
                                   {dayRows.length === 0 && (
-                                    <div className="flex items-center justify-center h-32 pointer-events-none">
+                                    <div className="flex-1 w-full flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200/60 bg-transparent pointer-events-none">
                                        <span className="text-[12px] font-medium text-slate-300">Trống</span>
                                     </div>
                                   )}
@@ -1174,12 +1338,15 @@ export default function SchedulesPage() {
                             </div>
                           </div>
                         );
-                      })}
+                      });
+                      })()}
                     </div>
                   )}
                 </div>
               </>
             )}
+
+            </div>
 
             {/* Footer Legend */}
             <div className="p-3 border-t border-slate-200 bg-white flex flex-wrap gap-3 items-center justify-center shrink-0 mt-auto z-20 relative">
@@ -1212,8 +1379,12 @@ export default function SchedulesPage() {
 
             <div className="p-6 flex-1 overflow-y-auto space-y-7 hide-scrollbar">
               <div className="flex items-center gap-4 border border-slate-100 p-3 rounded-2xl bg-slate-50/50">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-extrabold text-[15px] shrink-0 bg-white border ${selectedSessionInfo.theme.border} ${selectedSessionInfo.theme.text} uppercase`}>
-                  {selectedSessionInfo.className}
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedSessionInfo.className.split(' + ').map((clsName: string, idx: number) => (
+                    <div key={idx} className={`min-w-[48px] h-12 px-2 rounded-xl flex items-center justify-center font-extrabold text-[15px] shrink-0 bg-white border ${selectedSessionInfo.theme.border} ${selectedSessionInfo.theme.text} uppercase`}>
+                      {clsName}
+                    </div>
+                  ))}
                 </div>
                 <div className="text-slate-700 font-semibold text-[15px]">
                   {selectedSessionInfo.lessonTitle || 'Lý thuyết'}
@@ -1279,7 +1450,7 @@ export default function SchedulesPage() {
                     <div className="flex items-center gap-2">
                       <Users size={16} className="text-blue-500" />
                       <span className="font-bold text-slate-800 text-[15px]">
-                        {classes?.items?.find((c: any) => c.id === selectedSessionInfo.classId)?.studentsCount || 0} học viên
+                        {selectedSessionInfo.studentsCount || 0} học viên
                       </span>
                     </div>
                   </div>
@@ -1296,8 +1467,8 @@ export default function SchedulesPage() {
               <Button
                 onClick={() => {
                   setSessionForm({
-                    classIds: [],
-                    classId: selectedSessionInfo.classId || '',
+                    classIds: selectedSessionInfo.classIds || [selectedSessionInfo.classId || ''],
+                    classId: '',
                     teacherId: selectedSessionInfo.teacherId || '',
                     assistantIds: selectedSessionInfo.assistantIds || [],
                     lessonTitle: selectedSessionInfo.lessonTitle || '',
@@ -1375,26 +1546,17 @@ export default function SchedulesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Lớp học <span className="text-red-500">*</span></label>
-              {modalMode === 'create' ? (
-                <MultiSelect
-                  options={classes?.items?.map((c: any) => ({ value: c.id, label: c.name })) || []}
-                  placeholder="Chọn các lớp học..."
-                  value={sessionForm.classIds}
-                  onChange={(val) => setSessionForm({ ...sessionForm, classIds: val })}
-                />
-              ) : (
-                <Select
-                  options={classes?.items?.map((c: any) => ({ value: c.id, label: c.name })) || []}
-                  placeholder="Chọn lớp học..."
-                  value={sessionForm.classId}
-                  onChange={(val) => setSessionForm({ ...sessionForm, classId: val })}
-                />
-              )}
+              <MultiSelect
+                options={classes?.items?.map((c: any) => ({ value: c.id, label: c.name })) || []}
+                placeholder="Chọn các lớp học..."
+                value={sessionForm.classIds}
+                onChange={(val) => setSessionForm({ ...sessionForm, classIds: val })}
+              />
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Giáo viên</label>
               <Select
-                options={teachers?.items?.map((t: any) => ({ value: t.id, label: t.fullName })) || []}
+                options={teachers?.items?.filter((t: any) => t.statusCode === 'ACTIVE').map((t: any) => ({ value: t.id, label: t.fullName })) || []}
                 placeholder="Chọn giáo viên..."
                 className="focus:border-blue-500 focus:ring-blue-500/20"
                 value={sessionForm.teacherId}
@@ -1404,7 +1566,7 @@ export default function SchedulesPage() {
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Trợ giảng</label>
               <MultiSelect
-                options={assistants?.items?.map((a: any) => ({ value: a.id, label: a.fullName })) || []}
+                options={assistants?.items?.filter((a: any) => a.statusCode === 'ACTIVE').map((a: any) => ({ value: a.id, label: a.fullName })) || []}
                 placeholder="Chọn trợ giảng..."
                 value={sessionForm.assistantIds}
                 onChange={(val) => setSessionForm({ ...sessionForm, assistantIds: val })}
@@ -1420,20 +1582,21 @@ export default function SchedulesPage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Ngày học <span className="text-red-500">*</span></label>
               <DatePicker
                 selected={sessionForm.sessionDate ? new Date(sessionForm.sessionDate) : null}
                 onChange={(date) => setSessionForm({ ...sessionForm, sessionDate: date ? date.toLocaleDateString('en-CA') : '' })}
-                className="w-full h-11"
+                className="w-full h-11 focus:border-blue-500 focus:ring-blue-500/20"
+                wrapperClassName="w-full"
               />
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Chủ đề (Nội dung bài)</label>
               <Input
                 placeholder="VD: Grammar Unit 1..."
-                className="focus:border-blue-500 focus:ring-blue-500/20 h-11"
+                className="focus:border-blue-500 focus:ring-blue-500/20 h-11 w-full"
                 value={sessionForm.lessonTitle}
                 onChange={(e) => setSessionForm({ ...sessionForm, lessonTitle: e.target.value })}
               />
@@ -1451,7 +1614,8 @@ export default function SchedulesPage() {
                 timeCaption="Giờ"
                 dateFormat="HH:mm"
                 placeholderText="Chọn giờ..."
-                className="w-full h-11"
+                className="w-full h-11 focus:border-blue-500 focus:ring-blue-500/20"
+                wrapperClassName="w-full"
               />
             </div>
             <div>
@@ -1465,7 +1629,8 @@ export default function SchedulesPage() {
                 timeCaption="Giờ"
                 dateFormat="HH:mm"
                 placeholderText="Chọn giờ..."
-                className="w-full h-11"
+                className="w-full h-11 focus:border-blue-500 focus:ring-blue-500/20"
+                wrapperClassName="w-full"
               />
             </div>
           </div>
@@ -1517,7 +1682,8 @@ export default function SchedulesPage() {
                     <DatePicker
                       selected={sessionForm.recurringEndDate ? new Date(sessionForm.recurringEndDate) : null}
                       onChange={(date) => setSessionForm({ ...sessionForm, recurringEndDate: date ? date.toLocaleDateString('en-CA') : '' })}
-                      className="w-full h-11"
+                      className="w-full h-11 focus:border-blue-500 focus:ring-blue-500/20"
+                      wrapperClassName="w-full"
                       placeholderText="Chọn ngày kết thúc lịch lặp..."
                     />
                   </div>
@@ -1599,6 +1765,49 @@ export default function SchedulesPage() {
       {isImportModalOpen && (
         <ImportScheduleModal onClose={() => setIsImportModalOpen(false)} />
       )}
+
+      <Modal
+        isOpen={mergePrompt?.isOpen || false}
+        onClose={() => setMergePrompt(null)}
+        title="Tùy chọn tạo lịch"
+        footer={
+          <div className="flex justify-end w-full">
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setMergePrompt(null)}>
+                Hủy bỏ
+              </Button>
+              <Button 
+                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm px-4"
+                onClick={() => {
+                  if (mergePrompt) {
+                    handleMergeSession(mergePrompt.dragId, mergePrompt.dateStr, mergePrompt.targetSession);
+                    setMergePrompt(null);
+                  }
+                }}
+              >
+                Gộp ca học
+              </Button>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm px-4"
+                onClick={() => {
+                  if (mergePrompt) {
+                    handleCreateParallelSession(mergePrompt.dragId, mergePrompt.dateStr, mergePrompt.targetSession);
+                    setMergePrompt(null);
+                  }
+                }}
+              >
+                Tạo ca song song
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="py-2">
+          <p className="text-slate-600 text-[14px]">
+            Bạn đang kéo một lớp học vào ca học đã tồn tại. Bạn muốn gộp lớp hay tạo ca học song song ở khung giờ này?
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }

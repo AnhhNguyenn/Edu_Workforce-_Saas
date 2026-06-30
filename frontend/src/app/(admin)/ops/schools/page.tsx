@@ -129,7 +129,7 @@ export default function SchoolsPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-7">
+    <div className="w-full h-full space-y-7">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Cơ sở / Trường học</h2>

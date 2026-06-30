@@ -258,5 +258,57 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
             await _realtimeNotification.SendToOrganizationAsync(organizationId, "AttendanceUpdated");
         }
+
+        public async Task<List<AttendanceStatDto>> GetAttendanceStatsAsync(Guid organizationId, int days)
+        {
+            var endDate = DateTime.UtcNow;
+            var startDate = endDate.AddDays(-days + 1).Date; // include today
+
+            var sessionRepo = _unitOfWork.Repository<Session>();
+            var attendanceRepo = _unitOfWork.Repository<Attendance>();
+
+            var sessions = await sessionRepo.FindAsync(s => s.OrganizationId == organizationId && s.SessionDate >= startDate && s.SessionDate <= endDate);
+            var sessionIds = sessions.Select(s => s.Id).ToList();
+
+            var attendances = new List<Attendance>();
+            if (sessionIds.Any())
+            {
+                attendances = (await attendanceRepo.FindAsync(a => sessionIds.Contains(a.SessionId))).ToList();
+            }
+
+            var stats = new List<AttendanceStatDto>();
+
+            for (int i = days - 1; i >= 0; i--)
+            {
+                var targetDate = endDate.AddDays(-i).Date;
+                var sessionsOnDay = sessions.Where(s => s.SessionDate.Date == targetDate).ToList();
+                
+                int total = sessionsOnDay.Count;
+                int checkedIn = 0;
+
+                foreach(var s in sessionsOnDay)
+                {
+                    if (attendances.Any(a => a.SessionId == s.Id && a.CheckinTime != null))
+                    {
+                        checkedIn++;
+                    }
+                }
+
+                double rate = total == 0 ? 0 : Math.Round((double)checkedIn / total * 100, 1);
+
+                string[] dayNames = { "CN", "T2", "T3", "T4", "T5", "T6", "T7" };
+                string dayName = dayNames[(int)targetDate.DayOfWeek];
+
+                stats.Add(new AttendanceStatDto
+                {
+                    Date = dayName,
+                    TotalSessions = total,
+                    CheckedInCount = checkedIn,
+                    AttendanceRate = rate
+                });
+            }
+
+            return stats;
+        }
     }
 }

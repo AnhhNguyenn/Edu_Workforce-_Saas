@@ -25,6 +25,26 @@ export const useMyAttendances = () => {
   });
 };
 
+export const useAttendanceStats = (days: number = 7) => {
+  return useQuery({
+    queryKey: ['attendance-stats', days],
+    queryFn: async () => {
+      const response = await apiClient.get<any[]>(`/attendances/stats?days=${days}`);
+      return response.data;
+    }
+  });
+};
+
+export const useTodayAttendances = () => {
+  return useQuery({
+    queryKey: ['today-attendances'],
+    queryFn: async () => {
+      const response = await apiClient.get<any[]>('/attendances/today');
+      return response.data;
+    }
+  });
+};
+
 export const useCheckIn = () => {
   const queryClient = useQueryClient();
   return useMutation({

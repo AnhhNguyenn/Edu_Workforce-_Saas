@@ -74,7 +74,7 @@ namespace EduOps.Application.Services
             return session.ToDetailResponseDto();
         }
 
-        public async Task CheckConflictAsync(Guid organizationId, Guid? teacherId, List<Guid>? assistantIds, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime, Guid? excludeSessionId = null)
+        public async Task CheckConflictAsync(Guid organizationId, Guid? teacherId, List<Guid>? assistantIds, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime, Guid? excludeSessionId = null, Guid? excludeGroupId = null)
         {
             var repo = _unitOfWork.Repository<Session>();
             var targetDate = sessionDate.Date.ToUniversalTime();
@@ -83,6 +83,7 @@ namespace EduOps.Application.Services
             var exists = await repo.AnyAsync(s =>
                 s.OrganizationId == organizationId &&
                 (!excludeSessionId.HasValue || s.Id != excludeSessionId.Value) &&
+                (!excludeGroupId.HasValue || s.GroupId == null || s.GroupId != excludeGroupId.Value) &&
                 s.SessionDate == targetDate &&
                 s.Status != null && s.Status.Code != "CANCELLED" &&
                 ((teacherId.HasValue && s.TeacherId == teacherId.Value) ||
@@ -349,7 +350,7 @@ namespace EduOps.Application.Services
 
             if (timeOrStaffChanged)
             {
-                await CheckConflictAsync(organizationId, request.TeacherId, assistantIdsToUse, request.SessionDate, request.StartTime, request.EndTime, id);
+                await CheckConflictAsync(organizationId, request.TeacherId, assistantIdsToUse, request.SessionDate, request.StartTime, request.EndTime, id, originalSession.GroupId);
             }
 
             // Cập nhật các session hiện tại
@@ -447,7 +448,19 @@ namespace EduOps.Application.Services
             var session = await repo.FirstOrDefaultAsync(s => s.Id == id && s.OrganizationId == organizationId);
             if (session == null) throw new NotFoundException("Session", id);
 
-            repo.Remove(session);
+            if (session.GroupId.HasValue)
+            {
+                var groupedSessions = await repo.FindAsync(s => s.GroupId == session.GroupId.Value && s.OrganizationId == organizationId);
+                foreach (var s in groupedSessions)
+                {
+                    repo.Remove(s);
+                }
+            }
+            else
+            {
+                repo.Remove(session);
+            }
+
             await _unitOfWork.CommitAsync();
             await _realtimeNotification.SendToOrganizationAsync(organizationId, "SessionUpdated");
         }
@@ -1327,7 +1340,7 @@ namespace EduOps.Application.Services
 
                 var teacherId = request.TeacherId ?? session.TeacherId;
 
-                await CheckConflictAsync(organizationId, teacherId, assistantIds, session.SessionDate, session.StartTime, session.EndTime, session.Id);
+                await CheckConflictAsync(organizationId, teacherId, assistantIds, session.SessionDate, session.StartTime, session.EndTime, session.Id, session.GroupId);
 
                 if (request.TeacherId.HasValue)
                 {

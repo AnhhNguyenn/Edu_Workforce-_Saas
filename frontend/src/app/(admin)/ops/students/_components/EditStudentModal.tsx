@@ -12,6 +12,7 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useClasses } from '@/hooks/queries/useClasses';
+import { useSchools } from '@/hooks/queries/useSchools';
 import { Controller } from 'react-hook-form';
 
 const editStudentSchema = z.object({
@@ -20,7 +21,9 @@ const editStudentSchema = z.object({
   parentName: z.string().optional(),
   parentPhone: z.string().optional(),
   parentEmail: z.string().email('Email không hợp lệ').or(z.literal('')),
-  classId: z.string().optional()
+  schoolId: z.string().optional(),
+  classId: z.string().optional(),
+  statusCode: z.string().optional()
 });
 
 type EditStudentFormValues = z.infer<typeof editStudentSchema>;
@@ -33,9 +36,9 @@ interface EditStudentModalProps {
 export default function EditStudentModal({ studentId, onClose }: EditStudentModalProps) {
   const { data: studentDetail, isLoading } = useStudent(studentId);
   const updateMutation = useUpdateStudent();
-  const { data: classesData } = useClasses('', '');
+  const { data: schoolsData } = useSchools('');
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<EditStudentFormValues>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<EditStudentFormValues>({
     resolver: zodResolver(editStudentSchema),
     defaultValues: {
       fullName: '',
@@ -43,9 +46,14 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
       parentName: '',
       parentPhone: '',
       parentEmail: '',
-      classId: ''
+      schoolId: '',
+      classId: '',
+      statusCode: 'ACTIVE'
     }
   });
+
+  const selectedSchoolId = watch('schoolId');
+  const { data: classesData } = useClasses('', selectedSchoolId);
 
   useEffect(() => {
     if (studentDetail) {
@@ -55,7 +63,9 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
         parentName: studentDetail.parentName || '',
         parentPhone: studentDetail.parentPhone || '',
         parentEmail: studentDetail.parentEmail || '',
-        classId: studentDetail.classId || ''
+        schoolId: studentDetail.schoolId || '',
+        classId: studentDetail.classId || '',
+        statusCode: studentDetail.statusCode || 'ACTIVE'
       });
     }
   }, [studentDetail, reset]);
@@ -65,7 +75,8 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
       const payload = {
         ...data,
         birthDate: data.birthDate || null,
-        classId: data.classId || null
+        classId: data.classId || null,
+        statusCode: data.statusCode || 'ACTIVE'
       };
       await updateMutation.mutateAsync({ id: studentId, data: payload });
       toast.success('Cập nhật học viên thành công!');
@@ -126,16 +137,56 @@ export default function EditStudentModal({ studentId, onClose }: EditStudentModa
             {errors.birthDate?.message && <p className="text-sm text-red-500">{errors.birthDate.message}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-edu-fgSecondary">Xếp lớp</label>
+            <label className="text-sm font-semibold text-edu-fgSecondary">Cơ sở</label>
             <Controller
               control={control}
-              name="classId"
+              name="schoolId"
               render={({ field }) => (
                 <Select
-                  options={classesData?.items?.map((c: any) => ({ value: c.id, label: c.name })) || []}
+                  options={schoolsData?.items?.map((s: any) => ({ value: s.id, label: s.name })) || []}
+                  value={field.value}
+                  onChange={(val) => {
+                    field.onChange(val);
+                    setValue('classId', ''); // Reset class when school changes
+                  }}
+                  placeholder="Chọn cơ sở..."
+                />
+              )}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Lớp học</label>
+            <Controller
+              name="classId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  options={[
+                    { value: '', label: 'Chưa xếp lớp' },
+                    ...(classesData?.items?.map((c: any) => ({ value: c.id, label: c.name })) || [])
+                  ]}
                   value={field.value}
                   onChange={field.onChange}
-                  placeholder="Chọn lớp học..."
+                  placeholder={selectedSchoolId ? "Chọn lớp học..." : "Vui lòng chọn cơ sở trước"}
+                  disabled={!selectedSchoolId}
+                />
+              )}
+            />
+          </div>
+          <div className="col-span-1 md:col-span-2">
+            <label className="block text-sm font-semibold text-edu-fgSecondary mb-1.5">Trạng thái học tập</label>
+            <Controller
+              name="statusCode"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  options={[
+                    { value: 'ACTIVE', label: 'Đang học' },
+                    { value: 'INACTIVE', label: 'Bảo lưu / Đã nghỉ' }
+                  ]}
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Chọn trạng thái..."
                 />
               )}
             />

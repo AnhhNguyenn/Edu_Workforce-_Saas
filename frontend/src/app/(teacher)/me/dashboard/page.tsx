@@ -11,7 +11,7 @@ export default function TeacherDashboard() {
   const { data: profile, isLoading: isProfileLoading } = useProfile();
   
   const todayStr = new Date().toISOString().split('T')[0];
-  const { data: sessionData, isLoading: isSessionsLoading } = useSessions(todayStr);
+  const { data: sessionData, isLoading: isSessionsLoading } = useSessions(todayStr, todayStr);
   const { data: attendances } = useMyAttendances();
 
   const sessions = sessionData?.items || [];

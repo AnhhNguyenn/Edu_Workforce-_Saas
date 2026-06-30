@@ -1,12 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 
-export const useStudents = (keyword?: string, pageNumber: number = 1, pageSize: number = 20) => {
+export const useStudents = (
+  keyword?: string, 
+  classId?: string, 
+  schoolId?: string, 
+  statusCode?: string,
+  pageNumber: number = 1, 
+  pageSize: number = 20
+) => {
   return useQuery({
-    queryKey: ['students', keyword, pageNumber, pageSize],
+    queryKey: ['students', keyword, classId, schoolId, statusCode, pageNumber, pageSize],
     queryFn: async () => {
       const response = await apiClient.get('/students', {
-        params: { searchKeyword: keyword, pageNumber, pageSize }
+        params: { 
+          searchKeyword: keyword, 
+          classId: classId || undefined,
+          schoolId: schoolId || undefined,
+          statusCode: statusCode || undefined,
+          pageNumber, 
+          pageSize 
+        }
       });
       return response.data;
     }
