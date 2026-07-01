@@ -93,7 +93,7 @@ export default function UsersSettingsPage() {
     <div className="w-full space-y-7">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold mb-1 text-edu-fg">Quản lý Người dùng</h2>
+          <h2 className="text-2xl font-bold mb-1 text-edu-fg">Người dùng (Nâng cao)</h2>
           <p className="text-edu-muted text-sm">Danh sách tài khoản nhân sự và cấp quyền truy cập vào trung tâm</p>
         </div>
         <Button onClick={handleCreate} className="bg-edu-accent hover:bg-edu-accentDark text-white gap-2 shadow-sm">

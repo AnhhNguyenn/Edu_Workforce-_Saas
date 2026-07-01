@@ -31,10 +31,17 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
 
         try {
+          const forwardedFor = req.headers?.['x-forwarded-for'] || req.headers?.['x-real-ip'] || '127.0.0.1';
+          const userAgent = req.headers?.['user-agent'] || 'Next.js API';
+
           const res = await fetch(`${ENV.INTERNAL_API_URL}/auth/login`, {
             method: 'POST',
             body: JSON.stringify(credentials),
-            headers: { "Content-Type": "application/json" }
+            headers: { 
+              "Content-Type": "application/json",
+              "X-Forwarded-For": forwardedFor,
+              "User-Agent": userAgent
+            }
           });
           
           if (!res.ok) {

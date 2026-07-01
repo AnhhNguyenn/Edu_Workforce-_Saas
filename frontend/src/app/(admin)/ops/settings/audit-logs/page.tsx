@@ -28,14 +28,96 @@ export default function AuditLogsPage() {
     fetchLogs();
   }, []);
 
-  const formatJson = (jsonStr: string) => {
-    if (!jsonStr) return "Không có dữ liệu";
+  const fieldNames: Record<string, string> = {
+    Amount: "Số tiền",
+    MonthsToAdd: "Thời hạn (Tháng)",
+    PlanName: "Gói dịch vụ",
+    PaymentMethod: "Phương thức TT",
+    StatusId: "Mã trạng thái",
+    PaymentDate: "Ngày thanh toán",
+    ReferenceCode: "Mã tham chiếu",
+    FullName: "Họ và tên",
+    PhoneNumber: "Số điện thoại",
+    Email: "Email",
+    Role: "Vai trò",
+    Name: "Tên",
+    Description: "Mô tả",
+    IsActive: "Trạng thái",
+    Price: "Giá",
+  };
+
+  const ignoredFields = [
+    'Id', 'OrganizationId', 'CreatedBy', 'CreatedAt', 'UpdatedBy', 'UpdatedAt', 
+    'DeletedBy', 'DeletedAt', 'Version', 'PlanId', 'PromotionId', 'SePayTransactionId', 
+    'UserId', 'NormalizedEmail', 'NormalizedUserName', 'SecurityStamp', 'ConcurrencyStamp', 'PasswordHash'
+  ];
+
+  const parseJson = (str: string) => {
+    if (!str) return {};
     try {
-      const obj = JSON.parse(jsonStr);
-      return JSON.stringify(obj, null, 2);
+      return JSON.parse(str) || {};
     } catch {
-      return jsonStr;
+      return {};
     }
+  };
+
+  const renderDiffTable = (oldStr: string, newStr: string) => {
+    const oldObj = parseJson(oldStr);
+    const newObj = parseJson(newStr);
+    
+    const allKeys = Array.from(new Set([...Object.keys(oldObj), ...Object.keys(newObj)]))
+      .filter(key => !ignoredFields.includes(key));
+
+    const diffKeys = allKeys.filter(key => oldObj[key] !== newObj[key]);
+
+    if (diffKeys.length === 0) {
+      return <div className="text-gray-500 italic p-6 text-center bg-gray-50 rounded-xl border border-gray-100">Không có thay đổi dữ liệu nào đáng kể được ghi nhận.</div>;
+    }
+
+    return (
+      <div className="w-full overflow-hidden border border-gray-200 rounded-xl bg-white shadow-sm mt-4">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 border-b border-gray-200 text-gray-700">
+              <tr>
+                <th className="px-4 py-3 font-semibold whitespace-nowrap">Trường dữ liệu</th>
+                <th className="px-4 py-3 font-semibold text-red-600 w-2/5">Trước khi thay đổi</th>
+                <th className="px-4 py-3 font-semibold text-green-600 w-2/5">Sau khi thay đổi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {diffKeys.map(key => {
+                const oldVal = oldObj[key];
+                const newVal = newObj[key];
+                const displayKey = fieldNames[key] || key;
+                
+                const formatVal = (val: any) => {
+                  if (val === null || val === undefined) return <span className="text-gray-400 italic">Trống</span>;
+                  if (typeof val === 'boolean') return val ? 'Có' : 'Không';
+                  if (typeof val === 'object') return JSON.stringify(val);
+                  if (typeof val === 'string' && val.includes('T') && val.endsWith('Z')) {
+                    try { return format(new Date(val), "dd/MM/yyyy HH:mm"); } catch { return val; }
+                  }
+                  return String(val);
+                };
+
+                return (
+                  <tr key={key} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 font-medium text-gray-700">{displayKey}</td>
+                    <td className="px-4 py-3 text-red-600 bg-red-50/50">
+                       <div className="line-through opacity-80 break-words whitespace-pre-wrap">{formatVal(oldVal)}</div>
+                    </td>
+                    <td className="px-4 py-3 text-green-700 bg-green-50/50 font-medium">
+                       <div className="break-words whitespace-pre-wrap">{formatVal(newVal)}</div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
   };
 
   const getActionBadgeVariant = (action: string) => {
@@ -114,23 +196,11 @@ export default function AuditLogsPage() {
         title="Chi tiết thay đổi"
         className="max-w-4xl"
       >
-        <p className="text-sm text-edu-muted mb-4">
-          So sánh dữ liệu trước và sau khi thay đổi của <span className="font-semibold text-edu-fg">{selectedLog?.entityType}</span>
+        <p className="text-sm text-edu-muted mb-2">
+          Hệ thống đang hiển thị so sánh dữ liệu bị thay đổi của <span className="font-semibold text-edu-fg bg-gray-100 px-2 py-0.5 rounded">{selectedLog?.entityType}</span>
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="font-semibold text-edu-danger mb-2">Trước khi sửa (Before)</h4>
-            <pre className="bg-edu-dangerLight p-4 rounded-lg text-xs overflow-x-auto text-edu-danger border border-red-100 whitespace-pre-wrap max-h-[500px]">
-              {formatJson(selectedLog?.oldData)}
-            </pre>
-          </div>
-          <div>
-            <h4 className="font-semibold text-edu-success mb-2">Sau khi sửa (After)</h4>
-            <pre className="bg-edu-successLight p-4 rounded-lg text-xs overflow-x-auto text-edu-success border border-green-100 whitespace-pre-wrap max-h-[500px]">
-              {formatJson(selectedLog?.newData)}
-            </pre>
-          </div>
-        </div>
+        
+        {renderDiffTable(selectedLog?.oldData, selectedLog?.newData)}
       </Modal>
     </div>
   );

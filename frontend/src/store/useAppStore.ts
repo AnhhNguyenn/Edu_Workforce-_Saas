@@ -24,6 +24,9 @@ interface AppState {
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   setNotifications: (ns: AppNotification[]) => void;
+  
+  upgradeModalOpen: boolean;
+  setUpgradeModalOpen: (isOpen: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -55,4 +58,7 @@ export const useAppStore = create<AppState>((set) => ({
     unreadCount: 0
   })),
   setNotifications: (ns) => set({ notifications: ns, unreadCount: ns.filter(n => !n.read).length }),
+
+  upgradeModalOpen: false,
+  setUpgradeModalOpen: (isOpen) => set({ upgradeModalOpen: isOpen }),
 }));

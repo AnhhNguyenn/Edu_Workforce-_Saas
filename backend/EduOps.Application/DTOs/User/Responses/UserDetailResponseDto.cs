@@ -13,6 +13,7 @@ namespace EduOps.Application.DTOs.User.Responses
         public Guid? RoleId { get; set; }
         public string RoleCode { get; set; } = string.Empty;
         public string? Phone { get; set; }
+        public string? Address { get; set; }
         public string? AvatarUrl { get; set; }
         public Guid? StatusId { get; set; }
         public string StatusCode { get; set; } = string.Empty;

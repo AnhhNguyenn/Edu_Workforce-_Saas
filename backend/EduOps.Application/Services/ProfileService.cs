@@ -85,6 +85,35 @@ namespace EduOps.Application.Services
             return avatarUrl;
         }
 
+        public async Task<string> UploadOrganizationLogoAsync(Guid userId, Stream fileStream, string fileName, string contentType)
+        {
+            var user = await _unitOfWork.Repository<User>().GetByIdAsync(userId);
+            if (user == null || user.OrganizationId == null)
+                throw new NotFoundException("Organization for user", userId);
+
+            var orgId = user.OrganizationId.Value;
+            var org = await _unitOfWork.Repository<Organization>().GetByIdAsync(orgId);
+            if (org == null)
+                throw new NotFoundException("Organization", orgId);
+
+            var logoUrl = await _storageService.UploadFileAsync(fileStream, fileName, contentType);
+
+            if (!string.IsNullOrEmpty(org.CustomLogoUrl))
+            {
+                try
+                {
+                    await _storageService.DeleteFileAsync(org.CustomLogoUrl);
+                }
+                catch { }
+            }
+
+            org.CustomLogoUrl = logoUrl;
+            _unitOfWork.Repository<Organization>().Update(org);
+            await _unitOfWork.CommitAsync();
+
+            return logoUrl;
+        }
+
         public async Task UpdateProfileAsync(Guid userId, UpdateProfileRequestDto request)
         {
             var repo = _unitOfWork.Repository<User>();
@@ -95,7 +124,10 @@ namespace EduOps.Application.Services
                 
             user.UserDetail = await _unitOfWork.Repository<UserDetail>().FirstOrDefaultAsync(d => d.UserId == userId);
 
-            // Chỉ cho phép cập nhật các trường an toàn (SĐT, Địa chỉ)
+            // Chỉ cho phép cập nhật các trường an toàn (Họ tên, SĐT, Địa chỉ)
+            if (!string.IsNullOrWhiteSpace(request.FullName))
+                user.FullName = request.FullName;
+            
             user.Phone = request.Phone ?? string.Empty;
             
             if (user.UserDetail == null)

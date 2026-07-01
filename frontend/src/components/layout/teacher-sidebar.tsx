@@ -12,7 +12,6 @@ const NAV = [
   { section: 'CÔNG VIỆC GIẢNG DẠY' },
   { id: 'dashboard', icon: Home, label: 'Hôm nay', path: '/dashboard' },
   { id: 'schedule', icon: CalendarDays, label: 'Lịch dạy', path: '/schedule' },
-  { id: 'checkin', icon: MapPin, label: 'Check-in', path: '/checkin' },
   { section: 'TÀI KHOẢN' },
   { id: 'profile', icon: User, label: 'Cá nhân', path: '/profile' }
 ]

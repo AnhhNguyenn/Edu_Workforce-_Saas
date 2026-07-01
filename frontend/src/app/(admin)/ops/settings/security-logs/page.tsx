@@ -26,6 +26,46 @@ export default function SecurityLogsPage() {
     fetchLogs();
   }, []);
 
+  const translateAction = (action: string) => {
+    switch (action) {
+      case 'Login Success': return 'Đăng nhập thành công';
+      case 'Login Failed': return 'Đăng nhập thất bại';
+      case 'Logout': return 'Đăng xuất';
+      case 'Password Changed': return 'Đổi mật khẩu';
+      default: return action;
+    }
+  };
+
+  const formatUserAgent = (ua: string) => {
+    if (!ua || ua === 'Unknown') return 'Không xác định';
+    const lower = ua.toLowerCase();
+    if (lower.includes('node') || lower.includes('axios') || lower.includes('postman') || lower.includes('insomnia')) {
+      return 'Hệ thống (API)';
+    }
+    
+    let browser = 'Trình duyệt';
+    if (ua.includes('Edg/')) browser = 'Edge';
+    else if (ua.includes('Chrome/')) browser = 'Chrome';
+    else if (ua.includes('Firefox/')) browser = 'Firefox';
+    else if (ua.includes('Safari/') && !ua.includes('Chrome')) browser = 'Safari';
+    
+    let os = 'Thiết bị khác';
+    if (ua.includes('Windows')) os = 'Windows';
+    else if (ua.includes('Mac OS')) os = 'MacOS';
+    else if (ua.includes('Linux')) os = 'Linux';
+    else if (ua.includes('Android')) os = 'Android';
+    else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+    
+    if (browser === 'Trình duyệt' && os === 'Thiết bị khác') return ua.substring(0, 25) + '...';
+    return `${browser} trên ${os}`;
+  };
+
+  const formatIp = (ip: string) => {
+    if (!ip) return 'Không xác định';
+    if (ip === '::1' || ip === '127.0.0.1') return `${ip} (Localhost)`;
+    return ip;
+  };
+
   return (
     <div className="w-full space-y-7">
       <div>
@@ -68,24 +108,26 @@ export default function SecurityLogsPage() {
               const isSuccess = log.action === 'Login Success';
               
               return (
-                <TableRow key={log.id} className={isDanger ? 'bg-edu-dangerLight/30 hover:bg-edu-dangerLight' : ''}>
-                  <TableCell className="whitespace-nowrap">
+                <TableRow key={log.id} className={isDanger ? 'bg-red-50/50 hover:bg-red-50 transition-colors' : 'hover:bg-gray-50/50 transition-colors'}>
+                  <TableCell className="whitespace-nowrap font-medium text-gray-700">
                     {format(new Date(log.createdAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={isDanger ? 'danger' : isSuccess ? 'success' : 'info'}>
-                      {log.action}
+                    <Badge variant={isDanger ? 'danger' : isSuccess ? 'success' : 'info'} className="whitespace-nowrap font-medium">
+                      {translateAction(log.action)}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium text-edu-fg">{log.userName !== 'Unknown' ? log.userName : ''}</div>
-                    <div className={`text-xs ${isDanger ? 'text-edu-danger font-medium' : 'text-edu-muted'}`}>{email}</div>
+                    <div className="font-semibold text-gray-800">{log.userName !== 'Unknown' ? log.userName : 'Không rõ'}</div>
+                    <div className={`text-xs mt-0.5 ${isDanger ? 'text-red-600 font-medium' : 'text-gray-500'}`}>{email}</div>
                   </TableCell>
-                  <TableCell className="font-mono text-edu-fgSecondary">
-                    {log.ipAddress}
+                  <TableCell className="font-mono text-sm text-gray-600">
+                    {formatIp(log.ipAddress)}
                   </TableCell>
-                  <TableCell className="text-xs text-edu-muted max-w-[200px] truncate" title={log.userAgent}>
-                    {log.userAgent}
+                  <TableCell className="text-sm text-gray-600">
+                    <div className="flex items-center gap-1.5" title={log.userAgent}>
+                      <span className="truncate max-w-[150px] md:max-w-[200px]">{formatUserAgent(log.userAgent)}</span>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

@@ -3,6 +3,7 @@
 import { ReactNode, useEffect } from 'react';
 import { TeacherSidebar } from '@/components/layout/teacher-sidebar';
 import { Topbar } from '@/components/layout/topbar';
+import { BottomNav } from '@/components/layout/bottom-nav';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/components/ui/stat-card';
 
@@ -34,16 +35,20 @@ export default function TeacherLayout({ children }: { children: ReactNode }) {
           onClick={() => useAppStore.getState().toggleSidebar()}
         />
       )}
-      <Topbar />
+      <div className="hidden md:block">
+        <Topbar />
+      </div>
       
       <main className={cn(
-        "flex-1 p-4 md:p-7 transition-all duration-300 ease-in-out mt-16 min-h-[calc(100vh-64px)] w-full max-w-[100vw] overflow-x-hidden",
+        "flex-1 p-4 md:p-7 transition-all duration-300 ease-in-out md:mt-16 min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden pb-24 md:pb-8",
         sidebarOpen ? "lg:ml-[260px]" : "ml-0"
       )}>
         <div className="max-w-4xl mx-auto">
           {children}
         </div>
       </main>
+
+      <BottomNav />
     </div>
   );
 }

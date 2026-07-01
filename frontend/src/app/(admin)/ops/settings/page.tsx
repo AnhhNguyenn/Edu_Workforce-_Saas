@@ -1,19 +1,63 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, CheckCircle2, AlertCircle, Bot, DollarSign } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Bot, DollarSign, Edit2, Save, X } from "lucide-react";
 import apiClient from "@/lib/api-client";
 import { useSession } from "next-auth/react";
-import { useProfile } from "@/hooks/queries/useProfile";
+import { useProfile, useUpdateProfile, useUploadOrganizationLogo } from "@/hooks/queries/useProfile";
 import { useMySubscription } from "@/hooks/queries/useSubscriptions";
+import { toast } from "react-hot-toast";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const userRole = (session?.user as any)?.role || '';
   const { data: profile } = useProfile();
   const { data: sub } = useMySubscription();
+  const setUpgradeModalOpen = useAppStore(state => state.setUpgradeModalOpen);
+  const updateProfileMutation = useUpdateProfile();
+  const uploadLogoMutation = useUploadOrganizationLogo();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isEditingAdmin, setIsEditingAdmin] = useState(false);
+  const [adminFullName, setAdminFullName] = useState("");
+  const [adminPhone, setAdminPhone] = useState("");
+  const [adminAddress, setAdminAddress] = useState("");
+
+  const handleEditAdmin = () => {
+    setAdminFullName(profile?.fullName || "");
+    setAdminPhone(profile?.phone || "");
+    setAdminAddress(profile?.address || "");
+    setIsEditingAdmin(true);
+  };
+
+  const handleSaveAdmin = async () => {
+    try {
+      await updateProfileMutation.mutateAsync({
+        fullName: adminFullName,
+        phone: adminPhone,
+        address: adminAddress
+      });
+      toast.success("Cập nhật thông tin thành công!");
+      setIsEditingAdmin(false);
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi cập nhật!");
+    }
+  };
+
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      await uploadLogoMutation.mutateAsync(file);
+      toast.success("Cập nhật Logo thành công!");
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi tải ảnh lên!");
+    }
+  };
 
   const [aiBaseUrl, setAiBaseUrl] = useState("");
   const [aiModel, setAiModel] = useState("");
@@ -36,7 +80,14 @@ export default function SettingsPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
+    if (status === 'loading') return;
+
     const fetchSettings = async () => {
+      if (userRole !== 'SUPER_ADMIN') {
+        setIsLoading(false);
+        return;
+      }
+      
       try {
         // SuperAdmin endpoint to get all settings
         const res = await apiClient.get('/SystemSettings');
@@ -78,8 +129,10 @@ export default function SettingsPage() {
         setIsLoading(false);
       }
     };
-    fetchSettings();
-  }, []);
+    if (status !== 'loading') {
+      fetchSettings();
+    }
+  }, [status, userRole]);
 
   const handleSaveAiSettings = async () => {
     setIsSaving(true);
@@ -117,37 +170,140 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
-        <div className="p-6 border-b border-edu-border">
-          <h3 className="text-lg font-bold text-edu-fg mb-4">Thông tin cơ bản</h3>
-          <div className="space-y-4 max-w-2xl">
-            <div className="grid grid-cols-3 items-center gap-4">
-              <label className="font-medium text-sm text-edu-fgSecondary">Tên trung tâm</label>
-              <div className="col-span-2">
-                <Input readOnly value={profile?.organizationName || ""} className="bg-gray-50 focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" />
+      <div className="bg-white rounded-3xl shadow-[0_2px_20px_-4px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden relative mb-8">
+        <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-blue-50 via-indigo-50/40 to-transparent"></div>
+        <div className="p-8 relative z-10">
+          <div className="flex flex-col md:flex-row gap-10 items-start">
+            
+            {/* Center Logo/Avatar */}
+            <div className="flex flex-col items-center gap-4 shrink-0 mt-2">
+              <div className="w-36 h-36 rounded-3xl bg-white shadow-xl shadow-blue-900/5 border border-white flex items-center justify-center overflow-hidden ring-4 ring-gray-50">
+                {profile?.customLogoUrl ? (
+                  <img src={profile.customLogoUrl} alt="Logo trung tâm" className="w-full h-full object-contain p-2" />
+                ) : (
+                  <div className="text-6xl font-extrabold text-blue-600 bg-gradient-to-br from-blue-100 to-indigo-50 w-full h-full flex items-center justify-center">
+                    {profile?.organizationName ? profile.organizationName.charAt(0).toUpperCase() : 'C'}
+                  </div>
+                )}
               </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadLogoMutation.isPending}
+                className="w-full text-xs h-9 rounded-full font-semibold text-gray-600 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-colors shadow-sm"
+              >
+                {uploadLogoMutation.isPending ? <Loader2 size={14} className="animate-spin mr-1.5" /> : null}
+                Thay đổi Logo
+              </Button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleLogoChange} 
+              />
             </div>
-            {profile?.customAppName && (
-              <div className="grid grid-cols-3 items-center gap-4">
-                <label className="font-medium text-sm text-edu-fgSecondary">Tên ứng dụng</label>
-                <div className="col-span-2">
-                  <Input readOnly value={profile.customAppName} className="bg-gray-50 focus:border-[#4CAF50] focus:ring-[#4CAF50]/30" />
-                </div>
-              </div>
-            )}
-            <div className="grid grid-cols-3 items-center gap-4 pt-4 border-t border-edu-border">
-              <label className="font-medium text-sm text-edu-fgSecondary">Gói hiện tại</label>
-              <div className="col-span-2 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-edu-accent">{sub?.planName || "Đang tải..."}</span>
-                  {sub?.subscriptionEnd && (
-                    <span className="text-xs text-edu-muted ml-2">
-                      (Hết hạn: {new Date(sub.subscriptionEnd).toLocaleDateString('vi-VN')})
-                    </span>
+
+            {/* Basic Info Fields */}
+            <div className="flex-1 w-full flex flex-col h-full justify-center space-y-8">
+              
+              {/* Thông tin chung */}
+              <div id="thong-tin-chung" className="scroll-mt-24">
+                <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-2">
+                  <h3 className="text-[17px] font-bold text-gray-900">Thông tin chung</h3>
+                  {!isEditingAdmin ? (
+                    <Button variant="ghost" size="sm" onClick={handleEditAdmin} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 px-3 rounded-lg font-medium text-xs">
+                      <Edit2 size={14} className="mr-1.5" /> Sửa thông tin
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setIsEditingAdmin(false)} className="text-gray-500 hover:bg-gray-100 h-8 px-3 rounded-lg font-medium text-xs">
+                        Hủy
+                      </Button>
+                      <Button size="sm" onClick={handleSaveAdmin} disabled={updateProfileMutation.isPending} className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-4 rounded-lg font-bold text-xs shadow-sm">
+                        {updateProfileMutation.isPending ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <Save size={14} className="mr-1.5" />} Lưu thay đổi
+                      </Button>
+                    </div>
                   )}
                 </div>
-                <Button variant="secondary" size="sm">Nâng cấp</Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Read-only system fields */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Tên trung tâm</label>
+                    <Input 
+                      readOnly 
+                      value={profile?.organizationName || "Chưa cập nhật"} 
+                      className="bg-gray-50 border-gray-200 h-11 rounded-xl text-gray-700 font-medium focus:ring-0 cursor-not-allowed shadow-sm" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Trạng thái hệ thống</label>
+                    <div className="h-11 rounded-xl bg-green-50 text-green-700 font-bold border border-green-100 flex items-center px-4 shadow-sm text-sm">
+                      <CheckCircle2 size={16} className="mr-2" /> Đang hoạt động
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Email đăng nhập</label>
+                    <Input 
+                      readOnly 
+                      value={profile?.email || "Chưa cập nhật"} 
+                      className="bg-gray-50 border-gray-200 h-11 rounded-xl text-gray-700 font-medium focus:ring-0 cursor-not-allowed shadow-sm" 
+                    />
+                  </div>
+
+                  {/* Editable fields */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Họ và tên</label>
+                    <Input 
+                      readOnly={!isEditingAdmin}
+                      value={isEditingAdmin ? adminFullName : (profile?.fullName || "Chưa cập nhật")} 
+                      onChange={(e) => setAdminFullName(e.target.value)}
+                      className={`h-11 rounded-xl text-gray-700 font-medium shadow-sm ${!isEditingAdmin ? 'bg-gray-50 border-gray-200 focus:ring-0 cursor-not-allowed' : 'bg-white border-blue-200 focus:border-blue-500 focus:ring-blue-500/20'}`} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Số điện thoại</label>
+                    <Input 
+                      readOnly={!isEditingAdmin}
+                      value={isEditingAdmin ? adminPhone : (profile?.phone || "Chưa cập nhật")} 
+                      onChange={(e) => setAdminPhone(e.target.value)}
+                      className={`h-11 rounded-xl text-gray-700 font-medium shadow-sm ${!isEditingAdmin ? 'bg-gray-50 border-gray-200 focus:ring-0 cursor-not-allowed' : 'bg-white border-blue-200 focus:border-blue-500 focus:ring-blue-500/20'}`} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Địa chỉ</label>
+                    <Input 
+                      readOnly={!isEditingAdmin}
+                      value={isEditingAdmin ? adminAddress : (profile?.address || "Chưa cập nhật")} 
+                      onChange={(e) => setAdminAddress(e.target.value)}
+                      className={`h-11 rounded-xl text-gray-700 font-medium shadow-sm ${!isEditingAdmin ? 'bg-gray-50 border-gray-200 focus:ring-0 cursor-not-allowed' : 'bg-white border-blue-200 focus:border-blue-500 focus:ring-blue-500/20'}`} 
+                    />
+                  </div>
+                </div>
               </div>
+
+              {/* Plan Box */}
+              <div className="mt-4 p-6 bg-[#2563EB] rounded-2xl text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+                <div>
+                  <div className="text-blue-100 text-xs font-bold mb-2 uppercase tracking-wide">GÓI DỊCH VỤ HIỆN TẠI</div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[28px] leading-none font-bold">{sub?.planName || "Đang tải..."}</span>
+                    {sub?.subscriptionEnd && (
+                      <span className="text-xs font-semibold text-white bg-[#1E40AF] px-3 py-1.5 rounded-full">
+                        Hết hạn: {new Date(sub.subscriptionEnd).toLocaleDateString('vi-VN')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => setUpgradeModalOpen(true)}
+                  className="bg-white text-blue-600 hover:bg-gray-50 rounded-full font-bold px-6 py-2.5 h-auto shrink-0 shadow-sm border-0 hover:shadow-md transition-all whitespace-nowrap text-sm"
+                >
+                  Nâng cấp gói
+                </Button>
+              </div>
+
             </div>
           </div>
         </div>

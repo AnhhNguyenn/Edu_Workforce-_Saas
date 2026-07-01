@@ -17,7 +17,8 @@ export default function TeacherDashboard() {
   const sessions = sessionData?.items || [];
   
   // Calculate checkin state
-  const hasCheckedInToday = attendances?.some((a: any) => a.checkInTime?.startsWith(todayStr));
+  const attendanceList = attendances?.items || (Array.isArray(attendances) ? attendances : []);
+  const hasCheckedInToday = attendanceList.some((a: any) => a.checkInTime?.startsWith(todayStr));
 
   if (isProfileLoading || isSessionsLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-edu-accent" size={32} /></div>;
@@ -28,34 +29,14 @@ export default function TeacherDashboard() {
   return (
     <div className="space-y-6 mt-2">
       {/* Teacher Info */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-edu-border shadow-sm">
         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#81C784] to-[#A5D6A7] flex items-center justify-center text-white font-bold text-lg shadow-sm">
           {avatarInitials}
         </div>
-        <div>
+        <div className="flex-1">
           <h3 className="font-semibold text-edu-fg text-base">{profile?.fullName || "Chưa cập nhật tên"}</h3>
           <p className="text-xs text-edu-muted">{profile?.role === 'TEACHER' ? 'Giáo viên' : 'Trợ giảng'} — {profile?.schoolName || 'Chưa cập nhật cơ sở'}</p>
         </div>
-      </div>
-
-      {/* Checkin Action Box */}
-      <div className="bg-white rounded-2xl border border-edu-border p-4 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-xs font-medium bg-blue-50 text-blue-600 px-3 py-2 rounded-lg">
-             <MapPin size={16} />
-             <span>{profile?.schoolName}</span>
-          </div>
-          {hasCheckedInToday && (
-            <span className="text-xs font-bold text-edu-success bg-edu-successLight px-2 py-1 rounded">Đã Check-in</span>
-          )}
-        </div>
-        
-        <button 
-          onClick={() => router.push('/me/checkin')}
-          className="w-full py-4 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-edu-accent to-[#7BC4FF] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-edu-accent/30 transition-all active:scale-[0.98]"
-        >
-          {hasCheckedInToday ? 'Xem Check-in/Check-out' : 'Check-in Ca Dạy'}
-        </button>
       </div>
 
       {/* Today's Schedule */}

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 
 export interface AttendanceRequestDto {
+  sessionId?: string;
   latitude?: number;
   longitude?: number;
   note?: string;

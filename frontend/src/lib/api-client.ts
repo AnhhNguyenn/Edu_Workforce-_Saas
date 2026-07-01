@@ -59,7 +59,7 @@ apiClient.interceptors.response.use(
 
         // Nếu error response có chứa một số thông tin báo lỗi session, hoặc đơn giản là ta ép đăng xuất luôn
         // Bắt lỗi Token Invalidated từ Redis
-        if (error.response.headers?.['www-authenticate']?.includes('Token invalidated') || error.response.status === 401) {
+        if (error.response.headers?.['www-authenticate']?.includes('Token invalidated')) {
             const { signOut } = await import("next-auth/react");
             await signOut({ callbackUrl: '/login' });
             return Promise.reject(error);

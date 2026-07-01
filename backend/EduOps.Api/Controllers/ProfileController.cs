@@ -51,6 +51,22 @@ namespace EduOps.Api.Controllers
             return Ok(new { AvatarUrl = avatarUrl });
         }
 
+        [HttpPost("organization/logo")]
+        public async Task<IActionResult> UploadOrganizationLogo(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("Invalid file");
+
+            var userId = _currentUserService.UserId;
+            if (userId == Guid.Empty)
+                return Unauthorized();
+
+            using var stream = file.OpenReadStream();
+            var logoUrl = await _profileService.UploadOrganizationLogoAsync(userId, stream, file.FileName, file.ContentType);
+
+            return Ok(new { LogoUrl = logoUrl });
+        }
+
         [HttpPost("password")]
         public async Task<IActionResult> ChangePassword([FromBody] EduOps.Application.DTOs.User.ChangePasswordRequestDto request)
         {

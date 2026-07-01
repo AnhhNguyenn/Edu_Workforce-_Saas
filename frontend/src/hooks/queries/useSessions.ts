@@ -57,6 +57,17 @@ export const useSessions = (startDate?: string, endDate?: string) => {
   });
 };
 
+export const useSessionDetail = (id: string) => {
+  return useQuery({
+    queryKey: ['session', id],
+    queryFn: async () => {
+      const response = await apiClient.get<SessionListResponseDto>(`/sessions/${id}`);
+      return response.data;
+    },
+    enabled: !!id,
+  });
+};
+
 export const useCustomFields = () => {
   return useQuery({
     queryKey: ['sessionCustomFields'],

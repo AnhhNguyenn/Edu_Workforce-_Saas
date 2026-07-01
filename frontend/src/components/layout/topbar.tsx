@@ -3,21 +3,24 @@
 import { useAppStore } from '@/store/useAppStore';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/components/ui/stat-card';
-import { Search, Menu, LogOut, User, Zap, X, CheckCircle2, QrCode, Clock } from 'lucide-react';
+import { Search, Menu, LogOut, User, Zap, X, CheckCircle2, QrCode, Clock, Crown, Tag, Send, Gem, ArrowRight, ShieldCheck, Star, Lock } from 'lucide-react';
 import { NotificationBell } from './notification-bell';
 import { useSignalR } from '@/lib/useSignalR';
 import { useSession, signOut } from 'next-auth/react';
 import { useState, useRef, useEffect } from 'react';
 import { usePlans, useSubscribe, usePreviewSubscribe, useTransactionStatus, SubscribeResponseDto, PreviewSubscribeResponseDto, useMySubscription, useCancelTransaction } from '@/hooks/queries/useSubscriptions';
 import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 
 export function Topbar() {
   const sidebarOpen = useAppStore(state => state.sidebarOpen);
   const toggleSidebar = useAppStore(state => state.toggleSidebar);
+  const showUpgradeModal = useAppStore(state => state.upgradeModalOpen);
+  const setShowUpgradeModal = useAppStore(state => state.setUpgradeModalOpen);
   const { data: session } = useSession();
+  const router = useRouter();
   
   const [menuOpen, setMenuOpen] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   
   // Close menu on click outside
@@ -42,10 +45,11 @@ export function Topbar() {
   const previewSubscribeMutation = usePreviewSubscribe();
   const [subscribeResult, setSubscribeResult] = useState<SubscribeResponseDto | null>(null);
   
-  const [checkoutPlan, setCheckoutPlan] = useState<{ planId: string, billingCycle: string, planName: string, basePrice: number } | null>(null);
+  const [checkoutPlan, setCheckoutPlan] = useState<{ planId: string, billingCycle: string, planName: string, basePrice: number, maxUsers?: number, description?: string, isPopular?: boolean } | null>(null);
   const [promoCode, setPromoCode] = useState('');
   const [previewResult, setPreviewResult] = useState<PreviewSubscribeResponseDto | null>(null);
   const [promoError, setPromoError] = useState('');
+  const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
 
   const { data: mySubscription, isLoading: isMySubLoading, isError: isMySubError } = useMySubscription();
   const { data: txStatus } = useTransactionStatus(subscribeResult?.referenceCode || undefined);
@@ -97,8 +101,8 @@ export function Topbar() {
     }
   }, [txStatus, subscribeResult?.amount]);
 
-  const openCheckout = (planId: string, billingCycle: string, planName: string, basePrice: number) => {
-    setCheckoutPlan({ planId, billingCycle, planName, basePrice });
+  const openCheckout = (plan: any, billingCycle: string, basePrice: number, isPopular: boolean) => {
+    setCheckoutPlan({ planId: plan.id, billingCycle, planName: plan.name, basePrice, maxUsers: plan.maxUsers, description: plan.description, isPopular });
     setPromoCode('');
     setPreviewResult(null);
     setPromoError('');
@@ -226,7 +230,13 @@ export function Topbar() {
                   <p className="text-xs text-gray-500 truncate">{session?.user?.email || 'Chưa đăng nhập'}</p>
                 </div>
                 
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    setMenuOpen(false);
+                    router.push('/ops/settings#thong-tin-chung');
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
                   <User size={16} className="text-gray-400" />
                   Thông tin tài khoản
                 </button>
@@ -258,234 +268,380 @@ export function Topbar() {
       {/* Upgrade Subscription Modal */}
       {showUpgradeModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">Nâng cấp gói dịch vụ</h2>
-                {isMySubLoading && <p className="text-sm text-gray-500 mt-1">Đang tải thông tin gói...</p>}
-                {isMySubError && <p className="text-sm text-red-500 mt-1">Lỗi tải thông tin gói</p>}
-                {mySubscription && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Gói hiện tại: <span className="font-semibold text-[#2563EB]">{mySubscription.planName || 'Chưa rõ'}</span> 
-                    {mySubscription.subscriptionEnd && ` • Hết hạn: ${new Date(mySubscription.subscriptionEnd).toLocaleDateString('vi-VN')}`}
-                  </p>
-                )}
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[900px] overflow-hidden animate-in zoom-in-95 duration-200 my-8">
+            <div className="flex justify-between items-start p-8 pb-4 bg-white z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <Crown size={28} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-extrabold text-gray-900">Nâng cấp gói dịch vụ</h2>
+                  {isMySubLoading ? (
+                    <p className="text-sm text-gray-500 mt-1">Đang tải thông tin gói...</p>
+                  ) : isMySubError ? (
+                    <p className="text-sm text-red-500 mt-1">Lỗi tải thông tin gói</p>
+                  ) : mySubscription ? (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Gói hiện tại: <span className="font-semibold text-blue-600">{mySubscription.planName || 'Chưa rõ'}</span> 
+                      {mySubscription.subscriptionEnd && <span className="text-gray-400 mx-2">•</span>}
+                      {mySubscription.subscriptionEnd && `Hết hạn: ${new Date(mySubscription.subscriptionEnd).toLocaleDateString('vi-VN')}`}
+                    </p>
+                  ) : null}
+                </div>
               </div>
-              <button onClick={() => setShowUpgradeModal(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
-                <X size={20} />
+              <button onClick={() => setShowUpgradeModal(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={24} />
               </button>
             </div>
             
-            <div className="p-6 bg-gray-50/50">
-              {subscribeResult ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  {txStatus === 'SUCCESS' || subscribeResult.amount === 0 ? (
-                    <div className="text-green-500 flex flex-col items-center animate-in fade-in zoom-in duration-500">
-                      <CheckCircle2 size={64} className="mb-4" />
-                      <h3 className="text-2xl font-bold text-gray-800 mb-2">Thanh toán thành công!</h3>
-                      <p className="text-gray-600">Gói cước đã được kích hoạt. Đang làm mới hệ thống...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <h3 className="text-xl font-bold text-gray-800 mb-2">Quét mã QR để thanh toán</h3>
-                      <p className="text-gray-600 mb-2">Mã giao dịch: <strong>{subscribeResult.referenceCode}</strong></p>
+            <div className="bg-gray-50/50 rounded-b-3xl w-full">
+              {subscribeResult || checkoutPlan ? (
+                <div className="flex flex-col md:flex-row bg-white rounded-b-3xl">
+                {/* Left Sidebar */}
+                <div className="w-full md:w-[300px] shrink-0 border-r border-gray-100 bg-gray-50/50 p-8 flex flex-col justify-between rounded-bl-3xl">
+                  <div>
+                    <div className="relative pl-2">
+                      {/* Line connecting steps */}
+                      <div className="absolute left-[24px] top-6 bottom-6 w-[2px] bg-gray-200 z-0"></div>
                       
-                      {remainingSeconds !== null && (
-                        <div className="flex items-center gap-1.5 text-red-600 font-medium bg-red-50 px-3 py-1 rounded-full mb-4">
-                          <Clock size={16} className="animate-pulse" />
-                          <span>Hết hạn trong: {Math.floor(remainingSeconds / 60)}:{(remainingSeconds % 60).toString().padStart(2, '0')}</span>
-                        </div>
-                      )}
-
-                      {subscribeResult.qrCodeUrl ? (
-                         <img src={subscribeResult.qrCodeUrl} alt="QR Code" className="w-64 h-64 rounded-xl border-4 border-white shadow-md mb-6" />
-                      ) : (
-                         <div className="w-64 h-64 rounded-xl border-4 border-white shadow-md mb-6 flex items-center justify-center bg-gray-100 text-gray-400">Đang tải mã QR...</div>
-                      )}
-                      
-                      <div className="bg-blue-50 border border-blue-100 text-blue-800 text-sm p-4 rounded-lg flex items-start gap-3 max-w-md text-left">
-                        <div className="animate-spin mt-0.5 rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent shrink-0"></div>
-                        <p>Hệ thống đang chờ xác nhận thanh toán từ ngân hàng. Bạn có thể bấm [X] góc trên để thu nhỏ cửa sổ này và làm việc khác, giao dịch vẫn được giữ trong thời gian đếm ngược.</p>
-                      </div>
-                      
-                      <button 
-                        onClick={handleCancelTransaction} 
-                        disabled={cancelTransactionMutation.isPending}
-                        className="mt-6 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50"
-                      >
-                        {cancelTransactionMutation.isPending ? 'Đang hủy...' : 'Hủy giao dịch'}
-                      </button>
-                    </>
-                  )}
-                </div>
-              ) : checkoutPlan ? (
-                  <div className="max-w-2xl mx-auto py-4">
-                    <button 
-                      onClick={() => setCheckoutPlan(null)}
-                      className="text-sm text-edu-muted hover:text-edu-fg flex items-center gap-1 mb-6"
-                    >
-                      &larr; Quay lại chọn gói
-                    </button>
-                    
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                      <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-4">Xác nhận thanh toán</h3>
-                      
-                      <div className="flex justify-between items-center mb-4">
+                      <div className="flex gap-4 items-start mb-10 relative z-10 cursor-pointer" onClick={() => { if (!subscribeResult && checkoutPlan) setCheckoutPlan(null); }}>
+                        <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm shadow-blue-200">1</div>
                         <div>
-                          <p className="font-medium text-gray-800">Gói {checkoutPlan.planName}</p>
-                          <p className="text-sm text-gray-500">Chu kỳ: {checkoutPlan.billingCycle === 'MONTHLY' ? 'Hàng tháng' : 'Hàng năm'}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium text-gray-800">{(checkoutPlan.billingCycle === 'MONTHLY' ? checkoutPlan.basePrice : checkoutPlan.basePrice * 12).toLocaleString('vi-VN')} đ</p>
+                          <p className="font-bold text-blue-600 text-sm">Chọn gói</p>
+                          <p className="text-xs text-gray-500 mt-1">Lựa chọn dịch vụ phù hợp</p>
                         </div>
                       </div>
 
-                      <div className="mt-6 border-t border-b py-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Mã giảm giá</label>
-                        <div className="flex gap-2">
-                          <Input 
-                            value={promoCode} 
-                            onChange={(e) => setPromoCode(e.target.value)}
-                            placeholder="Nhập mã giảm giá..." 
-                            className="flex-1"
-                          />
-                          <button 
-                            onClick={handleApplyPromo}
-                            disabled={!promoCode || previewSubscribeMutation.isPending}
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors disabled:opacity-50"
-                          >
-                            Áp dụng
-                          </button>
+                      <div className="flex gap-4 items-start mb-10 relative z-10">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 shadow-sm transition-colors ${!subscribeResult ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-gray-200 text-gray-500'}`}>
+                          2
                         </div>
-                        {promoError && <p className="text-sm text-red-500 mt-2">{promoError}</p>}
-                        
-                        {previewResult && previewResult.discountAmount > 0 && (
-                          <div className="mt-4 p-3 bg-green-50 text-green-800 rounded-lg text-sm flex justify-between items-center border border-green-100">
-                            <div>
-                              <p className="font-medium">
-                                Đã áp dụng mã giảm giá {previewResult.appliedPromotionCode || ''}
-                              </p>
-                            </div>
-                            <p className="font-bold">- {previewResult.discountAmount.toLocaleString('vi-VN')} đ</p>
-                          </div>
-                        )}
+                        <div>
+                          <p className={`font-bold text-sm transition-colors ${!subscribeResult ? 'text-gray-900' : 'text-gray-500'}`}>Xác nhận thanh toán</p>
+                          <p className="text-xs text-gray-500 mt-1">Kiểm tra thông tin đơn hàng</p>
+                        </div>
                       </div>
 
-                      <div className="mt-6">
-                        <div className="flex justify-between items-center mb-6">
-                          <p className="text-lg font-bold text-gray-800">Tổng thanh toán</p>
-                          <p className="text-2xl font-extrabold text-[#2563EB]">
-                            {previewResult ? previewResult.finalPrice.toLocaleString('vi-VN') : (checkoutPlan.billingCycle === 'MONTHLY' ? checkoutPlan.basePrice : checkoutPlan.basePrice * 12).toLocaleString('vi-VN')} đ
-                          </p>
+                      <div className="flex gap-4 items-start relative z-10">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 shadow-sm transition-colors ${subscribeResult ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-gray-200 text-gray-400'}`}>
+                          3
                         </div>
-                        
-                        <button 
-                          onClick={handleConfirmSubscribe}
-                          disabled={subscribeMutation.isPending || previewSubscribeMutation.isPending}
-                          className="w-full py-3.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-lg transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          {subscribeMutation.isPending ? 'Đang tạo đơn...' : 'Xác nhận & Thanh toán'}
-                        </button>
+                        <div>
+                          <p className={`font-bold text-sm transition-colors ${subscribeResult ? 'text-gray-900' : 'text-gray-400'}`}>Thanh toán</p>
+                          <p className="text-xs text-gray-400 mt-1">Hoàn tất nâng cấp gói</p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                ) : isPlansLoading ? (
+
+                  <div className="mt-12 bg-white rounded-xl p-4 border border-blue-100 flex gap-3 items-start shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
+                    <ShieldCheck size={20} className="text-blue-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[12px] font-bold text-gray-900">Thanh toán an toàn & bảo mật</p>
+                      <p className="text-[11px] text-gray-500 mt-1">Thông tin của bạn luôn được bảo vệ tuyệt đối.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Content */}
+                <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
+                  {subscribeResult ? (
+                     // QR Code section
+                     <div className="flex flex-col items-center justify-center text-center">
+                       {txStatus === 'SUCCESS' || subscribeResult.amount === 0 ? (
+                         <div className="text-green-500 flex flex-col items-center animate-in fade-in zoom-in duration-500">
+                           <CheckCircle2 size={64} className="mb-4" />
+                           <h3 className="text-2xl font-bold text-gray-800 mb-2">Thanh toán thành công!</h3>
+                           <p className="text-gray-600">Gói cước đã được kích hoạt. Đang làm mới hệ thống...</p>
+                         </div>
+                       ) : (
+                         <>
+                           <h3 className="text-xl font-bold text-gray-900 mb-2">Quét mã QR để thanh toán</h3>
+                           <p className="text-gray-500 mb-6 text-sm">Mã giao dịch: <strong className="text-gray-800">{subscribeResult.referenceCode}</strong></p>
+                           
+                           {remainingSeconds !== null && (
+                             <div className="flex items-center gap-1.5 text-red-600 font-bold bg-red-50 px-4 py-1.5 rounded-full mb-6 text-sm shadow-sm">
+                               <Clock size={16} className="animate-pulse" />
+                               <span>Hết hạn trong: {Math.floor(remainingSeconds / 60)}:{(remainingSeconds % 60).toString().padStart(2, '0')}</span>
+                             </div>
+                           )}
+
+                           {subscribeResult.qrCodeUrl ? (
+                              <img src={subscribeResult.qrCodeUrl} alt="QR Code" className="w-64 h-64 rounded-2xl border-4 border-gray-50 shadow-lg mb-8" />
+                           ) : (
+                              <div className="w-64 h-64 rounded-2xl border-4 border-gray-50 shadow-lg mb-8 flex items-center justify-center bg-gray-50 text-gray-400">Đang tải mã QR...</div>
+                           )}
+                           
+                           <div className="bg-blue-50/50 border border-blue-100 text-blue-800 text-[13px] p-4 rounded-xl flex items-start gap-3 max-w-md text-left leading-relaxed">
+                             <div className="animate-spin mt-0.5 rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent shrink-0"></div>
+                             <p>Hệ thống đang chờ xác nhận thanh toán từ ngân hàng. Bạn có thể thu nhỏ cửa sổ này và làm việc khác, giao dịch vẫn được giữ trong thời gian đếm ngược.</p>
+                           </div>
+                           
+                           <button 
+                             onClick={handleCancelTransaction} 
+                             disabled={cancelTransactionMutation.isPending}
+                             className="mt-8 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 px-6 py-2.5 rounded-full transition-colors font-semibold disabled:opacity-50"
+                           >
+                             {cancelTransactionMutation.isPending ? 'Đang hủy...' : 'Hủy giao dịch'}
+                           </button>
+                         </>
+                       )}
+                     </div>
+                  ) : checkoutPlan ? (
+                     // Checkout section
+                     <div className="max-w-[480px] mx-auto w-full">
+                       <h3 className="text-lg font-bold text-gray-900 mb-6">Xác nhận thanh toán</h3>
+                       
+                       <div className="border border-gray-200 rounded-2xl p-6 mb-8 bg-white shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
+                         <div className="flex justify-between items-start mb-6 gap-4">
+                           <div className="flex items-center gap-4">
+                             <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                               {checkoutPlan.isPopular ? <Gem size={22} /> : <Send size={22} />}
+                             </div>
+                             <div>
+                               <div className="flex items-center gap-2">
+                                 <h4 className="font-bold text-gray-900 text-[15px]">Gói {checkoutPlan.planName}</h4>
+                                 {checkoutPlan.isPopular && (
+                                   <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Phổ biến</span>
+                                 )}
+                               </div>
+                               <p className="text-[13px] text-gray-500 mt-1 line-clamp-1">{checkoutPlan.description || 'Gói cước cơ bản'}</p>
+                             </div>
+                           </div>
+                           <div className="text-right shrink-0">
+                             <p className="text-lg font-extrabold text-gray-900">{checkoutPlan.basePrice.toLocaleString('vi-VN')} <span className="text-xs font-medium text-gray-500 font-normal">đ/{checkoutPlan.billingCycle === 'MONTHLY' ? 'tháng' : 'năm'}</span></p>
+                           </div>
+                         </div>
+
+                         <div className="border-t border-gray-100/60 pt-4 space-y-2.5">
+                           <div className="flex items-center gap-3 text-[13px] font-medium text-gray-700">
+                             <div className="rounded-full p-0.5 shrink-0 bg-blue-600 text-white">
+                               <CheckCircle2 size={12} strokeWidth={3} />
+                             </div>
+                             <span>Tối đa <strong>{checkoutPlan.maxUsers}</strong> người dùng</span>
+                           </div>
+                           {checkoutPlan.description && checkoutPlan.description.split('\n').filter(line => line.trim() !== '').map((line, i) => (
+                             <div key={i} className="flex items-center gap-3 text-[13px] font-medium text-gray-700">
+                               <div className="rounded-full p-0.5 shrink-0 bg-blue-600 text-white">
+                                 <CheckCircle2 size={12} strokeWidth={3} />
+                               </div>
+                               <span>{line}</span>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+
+                       <div className="mb-8">
+                         <label className="block text-[13px] font-bold text-gray-700 mb-2">Mã giảm giá (nếu có)</label>
+                         <div className="flex gap-2">
+                           <Input 
+                             value={promoCode} 
+                             onChange={(e) => setPromoCode(e.target.value)}
+                             placeholder="Nhập mã giảm giá..." 
+                             className="flex-1 h-11 rounded-xl text-sm"
+                           />
+                           <button 
+                             onClick={handleApplyPromo}
+                             disabled={!promoCode || previewSubscribeMutation.isPending}
+                             className="px-5 h-11 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold text-[13px] rounded-xl transition-colors disabled:opacity-50 border border-gray-200 shadow-sm"
+                           >
+                             Áp dụng
+                           </button>
+                         </div>
+                         {promoError && <p className="text-xs text-red-500 mt-2 font-medium">{promoError}</p>}
+                         {previewResult && previewResult.discountAmount > 0 && (
+                           <div className="mt-3 p-2.5 bg-green-50 text-green-700 rounded-xl text-xs flex justify-between items-center border border-green-100">
+                             <p className="font-bold">Đã áp dụng mã giảm giá {previewResult.appliedPromotionCode || ''}</p>
+                             <p className="font-bold">- {previewResult.discountAmount.toLocaleString('vi-VN')} đ</p>
+                           </div>
+                         )}
+                       </div>
+
+                       <div className="border-t border-gray-100/60 pt-6 mb-6 space-y-3">
+                         <div className="flex justify-between items-center">
+                           <p className="text-sm font-medium text-gray-500">Tạm tính</p>
+                           <p className="text-sm font-bold text-gray-900">{checkoutPlan.basePrice.toLocaleString('vi-VN')} đ</p>
+                         </div>
+                         <div className="flex justify-between items-center">
+                           <p className="text-sm font-medium text-gray-500">Giảm giá</p>
+                           <p className="text-sm font-bold text-green-500">-{previewResult ? previewResult.discountAmount.toLocaleString('vi-VN') : '0'} đ</p>
+                         </div>
+                         
+                         <div className="flex justify-between items-end border-t border-gray-100/60 pt-4 mt-2">
+                           <p className="text-[15px] font-bold text-gray-900 mb-0.5">Tổng thanh toán</p>
+                           <p className="text-2xl font-extrabold text-blue-600">
+                             {previewResult ? previewResult.finalPrice.toLocaleString('vi-VN') : checkoutPlan.basePrice.toLocaleString('vi-VN')} đ
+                           </p>
+                         </div>
+                       </div>
+                       
+                       <button 
+                         onClick={handleConfirmSubscribe}
+                         disabled={subscribeMutation.isPending || previewSubscribeMutation.isPending}
+                         className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[15px] transition-colors shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] disabled:opacity-50 flex items-center justify-center gap-2 group"
+                       >
+                         {subscribeMutation.isPending ? 'Đang tạo đơn...' : 'Xác nhận & Thanh toán'}
+                         {!subscribeMutation.isPending && <Lock size={16} className="opacity-80" />}
+                       </button>
+                       <p className="text-center text-[11px] text-gray-500 mt-4">
+                         Bằng cách tiếp tục, bạn đồng ý với <a href="#" className="text-blue-600 hover:underline font-medium">Điều khoản dịch vụ</a>
+                       </p>
+                     </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : isPlansLoading ? (
                 <div className="text-center py-10 text-gray-500">Đang tải danh sách gói cước...</div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {plans?.map((plan) => {
-                    const isCurrentPlan = mySubscription && mySubscription.planId === plan.id;
-                    const getRemainingDays = () => {
-                      if (!mySubscription?.subscriptionEnd) return Infinity;
-                      const end = new Date(mySubscription.subscriptionEnd);
-                      const now = new Date();
-                      const diffTime = end.getTime() - now.getTime();
-                      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    };
-                    const remainingDays = getRemainingDays();
-                    const isNearExpiry = remainingDays <= 7;
+                <div className="max-w-[800px] mx-auto p-6 pb-10">
+                  <div className="flex flex-col sm:flex-row justify-between items-center mb-8 mt-4 px-4 sm:px-10 gap-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 font-medium">
+                      <Tag size={16} />
+                      Chu kỳ thanh toán
+                    </div>
+                    <div className="bg-white p-1 rounded-full flex items-center relative border border-gray-200">
+                      <button
+                        onClick={() => setBillingCycle('MONTHLY')}
+                        className={`relative z-10 px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
+                          billingCycle === 'MONTHLY' ? 'text-blue-700' : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        Thanh toán Tháng
+                      </button>
+                      <button
+                        onClick={() => setBillingCycle('YEARLY')}
+                        className={`relative z-10 px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-2 ${
+                          billingCycle === 'YEARLY' ? 'text-blue-700' : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        Thanh toán Năm
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-colors ${billingCycle === 'YEARLY' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          -20%
+                        </span>
+                      </button>
+                      
+                      {/* Active Indicator Slider */}
+                      <div 
+                        className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full border border-blue-600 shadow-sm transition-transform duration-300 ease-out z-0"
+                        style={{ transform: billingCycle === 'YEARLY' ? 'translateX(100%)' : 'translateX(0)' }}
+                      ></div>
+                    </div>
+                  </div>
 
-                    return (
-                      <div key={plan.id} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col h-full">
-                        {plan.activeDiscountPercentage && plan.activeDiscountPercentage > 0 ? (
-                          <div className="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">
-                            Giảm {plan.activeDiscountPercentage}%
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-4 sm:px-10">
+                    {plans?.map((plan) => {
+                      const isCurrentPlan = mySubscription && mySubscription.planId === plan.id;
+                      const getRemainingDays = () => {
+                        if (!mySubscription?.subscriptionEnd) return Infinity;
+                        const end = new Date(mySubscription.subscriptionEnd);
+                        const now = new Date();
+                        const diffTime = end.getTime() - now.getTime();
+                        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      };
+                      const remainingDays = getRemainingDays();
+                      const isNearExpiry = remainingDays <= 7;
+                      const isPopular = plan.name.toLowerCase().includes('pro') || plan.name.toLowerCase().includes('premium');
+                      const hasDiscount = plan.activeDiscountPercentage && plan.activeDiscountPercentage > 0;
+                      
+                      const basePrice = billingCycle === 'MONTHLY' ? plan.pricePerMonth : (plan.pricePerYear || plan.pricePerMonth * 12 * 0.8);
+                      const finalPrice = hasDiscount ? basePrice * (1 - plan.activeDiscountPercentage / 100) : basePrice;
+
+                      return (
+                        <div 
+                          key={plan.id} 
+                          className={`relative rounded-3xl bg-white flex flex-col h-full transition-all duration-300 ${
+                            isPopular 
+                              ? 'border-2 border-blue-600 shadow-[0_8px_30px_rgb(0,0,0,0.08)] md:-translate-y-2 z-10 pt-10 px-8 pb-8' 
+                              : 'border border-gray-100 shadow-[0_2px_15px_rgb(0,0,0,0.04)] hover:shadow-lg pt-10 px-8 pb-8'
+                          }`}
+                        >
+                          {isPopular && (
+                            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[11px] font-bold px-4 py-1.5 rounded-full shadow-sm uppercase tracking-wider flex items-center gap-1.5">
+                              <Star size={14} fill="currentColor" /> PHỔ BIẾN
+                            </div>
+                          )}
+                          
+                          <div className="flex justify-center mb-5">
+                            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+                              {isPopular ? <Gem size={28} /> : <Send size={28} />}
+                            </div>
                           </div>
-                        ) : plan.pricePerMonth > 0 && (
-                          <div className="absolute top-0 right-0 bg-gradient-to-r from-orange-400 to-red-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">
-                            Nổi bật
+
+                          <div className="text-center mb-6">
+                            <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                            {plan.description && <p className="text-sm text-gray-500 line-clamp-2 px-6">{plan.description}</p>}
                           </div>
-                        )}
-                        <h3 className="text-lg font-bold text-gray-800 mb-1">{plan.name}</h3>
-                        <div className="flex items-baseline gap-1 mb-6 flex-wrap">
-                          {plan.activeDiscountPercentage && plan.activeDiscountPercentage > 0 ? (
-                            <>
-                              <div className="w-full flex items-center gap-2 mb-1">
-                                <span className="text-xl font-medium text-gray-400 line-through">{plan.pricePerMonth.toLocaleString('vi-VN')}đ</span>
-                              </div>
-                              <span className="text-3xl font-extrabold text-red-600">
-                                {(plan.pricePerMonth * (1 - plan.activeDiscountPercentage / 100)).toLocaleString('vi-VN')}đ
+
+                          <div className="flex flex-col items-center justify-center gap-1 mb-8">
+                            {hasDiscount && (
+                              <span className="text-sm font-medium text-gray-400 line-through">
+                                {basePrice.toLocaleString('vi-VN')}đ
                               </span>
-                            </>
-                          ) : (
-                            <span className="text-3xl font-extrabold text-gray-900">{plan.pricePerMonth.toLocaleString('vi-VN')}đ</span>
-                          )}
-                          <span className="text-gray-500 text-sm">/tháng</span>
-                        </div>
-                        
-                        <ul className="space-y-3 mb-8 flex-1">
-                          <li className="flex gap-2 text-sm text-gray-600"><CheckCircle2 size={18} className="text-green-500 shrink-0" /> Tối đa {plan.maxUsers} người dùng</li>
-                          {plan.description && plan.description.split('\n').filter(line => line.trim() !== '').map((line, i) => (
-                            <li key={i} className="flex gap-2 text-sm text-gray-600">
-                              <CheckCircle2 size={18} className="text-green-500 shrink-0" /> 
-                              {line}
-                            </li>
-                          ))}
-                        </ul>
-                        
-                        <div className="space-y-2 mt-auto">
-                          {isCurrentPlan ? (
-                            isNearExpiry ? (
-                              <>
-                                <button 
-                                  onClick={() => openCheckout(plan.id, 'MONTHLY', plan.name, plan.pricePerMonth)}
-                                  className="w-full py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-medium text-sm transition-colors shadow-sm flex items-center justify-center gap-1.5"
-                                >
-                                  Gia hạn Gói Tháng
-                                </button>
-                                <button 
-                                  onClick={() => openCheckout(plan.id, 'YEARLY', plan.name, plan.pricePerMonth)}
-                                  className="w-full py-2.5 rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] text-white font-medium text-sm transition-colors shadow-md flex items-center justify-center gap-1.5"
-                                >
-                                  Nâng cấp / Gia hạn Gói Năm
-                                </button>
-                              </>
-                            ) : (
-                              <div className="w-full py-3 rounded-lg bg-gray-100 text-gray-500 font-semibold text-sm text-center border border-gray-200 flex items-center justify-center gap-1.5 select-none">
-                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                Đang sử dụng
+                            )}
+                            <div className="flex items-end gap-1">
+                              <span className={`text-[44px] leading-none font-extrabold tracking-tight ${hasDiscount ? 'text-rose-600' : (isPopular ? 'text-blue-600' : 'text-gray-900')}`}>
+                                {finalPrice.toLocaleString('vi-VN')}
+                              </span>
+                              <span className="text-gray-500 font-medium mb-1.5 text-sm">đ/{billingCycle === 'MONTHLY' ? 'tháng' : 'năm'}</span>
+                            </div>
+                          </div>
+                          
+                          <ul className="space-y-4 mb-10 flex-1 px-4 border-t border-gray-100/60 pt-6">
+                            <li className="flex items-center gap-3 text-sm font-medium text-gray-700">
+                              <div className={`rounded-full p-0.5 shrink-0 ${isPopular ? 'bg-blue-600 text-white' : 'border border-blue-600 text-blue-600 bg-white'}`}>
+                                <CheckCircle2 size={16} className={isPopular ? "" : "w-3 h-3 m-[1px]"} strokeWidth={3} />
                               </div>
-                            )
-                          ) : (
-                            <>
+                              <span>Tối đa <strong>{plan.maxUsers}</strong> người dùng</span>
+                            </li>
+                            {plan.description && plan.description.split('\n').filter(line => line.trim() !== '').map((line, i) => (
+                              <li key={i} className="flex items-center gap-3 text-sm text-gray-700 font-medium">
+                                <div className={`rounded-full p-0.5 shrink-0 ${isPopular ? 'bg-blue-600 text-white' : 'border border-gray-400 text-gray-400 bg-white'}`}>
+                                  <CheckCircle2 size={16} className={isPopular ? "" : "w-3 h-3 m-[1px]"} strokeWidth={3} />
+                                </div>
+                                <span>{line}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          
+                          <div className="mt-auto">
+                            {isCurrentPlan ? (
+                              isNearExpiry ? (
+                                <button 
+                                  onClick={() => openCheckout(plan, billingCycle, basePrice, isPopular)}
+                                  className="w-full py-3.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+                                >
+                                  Gia hạn gói ({billingCycle === 'MONTHLY' ? 'Tháng' : 'Năm'})
+                                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                </button>
+                              ) : (
+                                <div className="w-full py-3.5 rounded-full bg-green-50 text-green-700 font-bold text-sm text-center flex items-center justify-center gap-2 border border-green-100">
+                                  <CheckCircle2 size={18} />
+                                  Đang sử dụng
+                                </div>
+                              )
+                            ) : (
                               <button 
-                                onClick={() => openCheckout(plan.id, 'MONTHLY', plan.name, plan.pricePerMonth)}
-                                className="w-full py-2.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-medium text-sm transition-colors shadow-sm"
+                                onClick={() => openCheckout(plan, billingCycle, basePrice, isPopular)}
+                                className={`w-full py-3.5 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 group ${
+                                  isPopular 
+                                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_4px_14px_0_rgba(37,99,235,0.39)]' 
+                                    : 'bg-[#293E63] hover:bg-[#1E2E4B] text-white shadow-md'
+                                }`}
                               >
-                                Đăng ký Gói Tháng
+                                {isPopular ? `Đăng ký gói ${billingCycle === 'MONTHLY' ? 'Tháng' : 'Năm'}` : 'Nâng cấp gói'}
+                                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                               </button>
-                              <button 
-                                onClick={() => openCheckout(plan.id, 'YEARLY', plan.name, plan.pricePerMonth)}
-                                className="w-full py-2.5 rounded-lg border border-[#2563EB] text-[#2563EB] hover:bg-[#EFF6FF] font-medium text-sm transition-colors"
-                              >
-                                Đăng ký Gói Năm (Tiết kiệm)
-                              </button>
-                            </>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-12 flex items-center justify-center gap-2 text-[13px] text-blue-600 font-medium">
+                    <ShieldCheck size={16} className="shrink-0" />
+                    <span>Thanh toán an toàn & bảo mật. Bạn có thể nâng cấp, hạ gói hoặc hủy bất kỳ lúc nào.</span>
+                  </div>
                 </div>
               )}
             </div>

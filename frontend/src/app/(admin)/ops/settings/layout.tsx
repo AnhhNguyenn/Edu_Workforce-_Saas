@@ -2,16 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { ShieldCheck, UserCog, History, ShieldAlert, Settings } from "lucide-react";
 import { useMySubscription } from "@/hooks/queries/useSubscriptions";
+import { UpgradeWarningModal } from "@/components/ui/UpgradeModals";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: sub } = useMySubscription();
+  const [isWarningOpen, setIsWarningOpen] = useState(false);
+  const setUpgradeModalOpen = useAppStore(state => state.setUpgradeModalOpen);
 
   const menuItems = [
     { name: "Thông tin chung", href: "/ops/settings", icon: <Settings size={18} />, exact: true },
-    { name: "Quản lý Người dùng", href: "/ops/settings/users", icon: <UserCog size={18} />, exact: false },
+    { name: "Người dùng (Nâng cao)", href: "/ops/settings/users", icon: <UserCog size={18} />, exact: false },
     { name: "Phân quyền (Roles)", href: "/ops/settings/roles", icon: <ShieldCheck size={18} />, exact: false },
     { name: "Nhật ký Hoạt động", href: "/ops/settings/audit-logs", icon: <History size={18} />, exact: false },
     { name: "Nhật ký Bảo mật", href: "/ops/settings/security-logs", icon: <ShieldAlert size={18} />, exact: false },
@@ -26,13 +31,14 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           {menuItems.map((item) => {
             const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
             const isBasic = sub?.planName?.toLowerCase().includes("basic") || sub?.planName?.toLowerCase().includes("free");
-            const isLocked = isBasic && (item.name === "Quản lý Người dùng" || item.name === "Phân quyền (Roles)");
+            const isLocked = isBasic && (item.name === "Người dùng (Nâng cao)" || item.name === "Phân quyền (Roles)");
 
             if (isLocked) {
               return (
                 <div
                   key={item.href}
-                  className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-400 bg-gray-50 cursor-not-allowed opacity-75"
+                  onClick={() => setIsWarningOpen(true)}
+                  className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-400 bg-gray-50 cursor-pointer hover:bg-gray-100 opacity-75 transition-colors"
                   title="Tính năng không khả dụng ở gói Basic"
                 >
                   <div className="flex items-center gap-3">
@@ -66,6 +72,15 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       <main className="flex-1 w-full overflow-hidden">
         {children}
       </main>
+
+      <UpgradeWarningModal 
+        isOpen={isWarningOpen} 
+        onClose={() => setIsWarningOpen(false)} 
+        onUpgradeClick={() => {
+          setIsWarningOpen(false);
+          setUpgradeModalOpen(true);
+        }}
+      />
     </div>
   );
 }

@@ -17,7 +17,8 @@ import logoImage from '../../../public/logo.png';
 
 const loginSchema = z.object({
   email: z.string().email('Email không hợp lệ'),
-  password: z.string().min(1, 'Vui lòng nhập mật khẩu')
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
+  remember: z.boolean().optional()
 });
 
 const otpSchema = z.object({
@@ -96,9 +97,20 @@ function LoginContent() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const { register: registerLogin, handleSubmit: handleSubmitLogin, formState: { errors: loginErrors } } = useForm<LoginFormValues>({
+  const { register: registerLogin, handleSubmit: handleSubmitLogin, setValue, formState: { errors: loginErrors } } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema)
   });
+
+  useEffect(() => {
+    // Only access localStorage on client side
+    if (typeof window !== 'undefined') {
+      const savedEmail = localStorage.getItem('rememberedEmail');
+      if (savedEmail) {
+        setValue('email', savedEmail);
+        setValue('remember', true);
+      }
+    }
+  }, [setValue]);
 
   const { register: registerOtp, handleSubmit: handleSubmitOtp, formState: { errors: otpErrors }, watch } = useForm<OtpFormValues>({
     resolver: zodResolver(otpSchema)
@@ -118,6 +130,15 @@ function LoginContent() {
     setLoading(true);
     setError('');
     
+    // Securely handle remember me (email only)
+    if (typeof window !== 'undefined') {
+      if (data.remember) {
+        localStorage.setItem('rememberedEmail', data.email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+      }
+    }
+
     // Clear URL error on new attempt
     if (errorMsg) {
       setErrorMsg(null);
@@ -315,10 +336,10 @@ function LoginContent() {
           <div className="mb-12">
             <h1 className="text-5xl font-extrabold text-slate-900 leading-[1.1] mb-4 tracking-tight">
               Chào mừng <br />
-              <span className="text-blue-600">trở lại!</span>
+              <span className="text-blue-600">bạn dã tới EduOps!</span>
             </h1>
             <p className="text-base text-slate-500 leading-relaxed max-w-sm">
-              Đăng nhập để tiếp tục quản lý trung tâm và giáo viên một cách hiệu quả.
+              Đăng nhập ngay để bắt đầu quản lý trung tâm một cách hiệu quả.
             </p>
           </div>
 
@@ -438,7 +459,7 @@ function LoginContent() {
                     id="remember"
                     type="checkbox"
                     className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded cursor-pointer"
-                    defaultChecked
+                    {...registerLogin('remember')}
                   />
                   <label htmlFor="remember" className="ml-3 block text-[13px] text-gray-700 font-semibold cursor-pointer">
                     Ghi nhớ đăng nhập

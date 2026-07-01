@@ -41,6 +41,7 @@ namespace EduOps.Application.Mappings
                 Phone = user.Phone,
                 RoleId = user.RoleId,
                 RoleCode = user.Role?.Code ?? string.Empty,
+                Address = user.UserDetail?.Address,
                 AvatarUrl = user.UserDetail?.AvatarUrl,
                 StatusId = user.StatusId,
                 StatusCode = user.Status?.Code ?? string.Empty,

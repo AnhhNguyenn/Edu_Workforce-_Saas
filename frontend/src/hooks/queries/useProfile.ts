@@ -6,6 +6,7 @@ export interface UserProfileDto {
   email: string;
   fullName: string;
   phone?: string;
+  address?: string;
   avatarUrl?: string;
   role: string;
   organizationName?: string;
@@ -38,6 +39,25 @@ export const useUpdateProfile = () => {
   return useMutation({
     mutationFn: async (data: Partial<UserProfileDto>) => {
       const response = await apiClient.put('/profile', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    }
+  });
+};
+
+export const useUploadOrganizationLogo = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await apiClient.post('/profile/organization/logo', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return response.data;
     },
     onSuccess: () => {
