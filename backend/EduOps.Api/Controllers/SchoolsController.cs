@@ -12,7 +12,6 @@ namespace EduOps.Api.Controllers
 {
     [Route("api/schools")]
     [ApiController]
-    [HasPermission("Schools:Manage")]
     public class SchoolsController : ControllerBase
     {
         private readonly ISchoolService _schoolService;
@@ -45,6 +44,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPost]
+        [HasPermission("Schools:Manage")]
         public async Task<IActionResult> Create([FromBody] CreateSchoolRequestDto request)
         {
             var orgId = GetOrganizationId();
@@ -53,6 +53,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpPut("{id}")]
+        [HasPermission("Schools:Manage")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateSchoolRequestDto request)
         {
             var orgId = GetOrganizationId();
@@ -61,6 +62,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [HasPermission("Schools:Manage")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var orgId = GetOrganizationId();

@@ -12,7 +12,6 @@ namespace EduOps.Api.Controllers
 {
     [Route("api/attendances")]
     [ApiController]
-    [HasPermission("Attendances:Manage")]
     [RequirePaidSubscription]
     [FeatureGate("ENABLE_ATTENDANCE")]
     public class AttendancesController : ControllerBase
@@ -66,8 +65,16 @@ namespace EduOps.Api.Controllers
             return Ok(result);
         }
 
-        [HttpPost("sessions/{sessionId}/students")]
+        [HttpGet("stats/staff")]
         [HasPermission("Attendances:Manage")]
+        public async Task<IActionResult> GetStaffAttendanceStats([FromQuery] int? month, [FromQuery] int? year)
+        {
+            var orgId = _currentUserService.OrganizationId ?? Guid.Empty;
+            var result = await _attendanceService.GetStaffAttendanceStatsAsync(orgId, month, year);
+            return Ok(result);
+        }
+
+        [HttpPost("sessions/{sessionId}/students")]
         public async Task<IActionResult> SubmitStudentAttendances(Guid sessionId, [FromBody] StudentAttendanceSubmitDto request)
         {
             var userId = _currentUserService.UserId;

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using EduOps.Application.DTOs;
@@ -16,11 +17,13 @@ namespace EduOps.Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IRealtimeNotificationService _realtimeNotification;
+        private readonly IStorageService _storageService;
 
-        public AttendanceService(IUnitOfWork unitOfWork, IRealtimeNotificationService realtimeNotification)
+        public AttendanceService(IUnitOfWork unitOfWork, IRealtimeNotificationService realtimeNotification, IStorageService storageService)
         {
             _unitOfWork = unitOfWork;
             _realtimeNotification = realtimeNotification;
+            _storageService = storageService;
         }
 
         public async Task<AttendanceDto> CheckInAsync(Guid userId, AttendanceRequestDto request)
@@ -50,7 +53,7 @@ namespace EduOps.Application.Services
 
                 if (distance > school.SchoolDetail.AttendanceRadius)
                 {
-                    throw new BadRequestException($"You are out of the attendance zone. Distance: {Math.Round(distance)}m, Max allowed: {school.SchoolDetail.AttendanceRadius}m.");
+                    throw new BadRequestException($"Bạn đang ở ngoài khu vực cho phép Check-in. Khoảng cách: {Math.Round(distance)}m, Bán kính tối đa: {school.SchoolDetail.AttendanceRadius}m.");
                 }
             }
 
@@ -90,6 +93,29 @@ namespace EduOps.Application.Services
             var attendanceStatus = await _unitOfWork.Repository<EduOps.Domain.Entities.AttendanceStatus>().FirstOrDefaultAsync(s => s.Code == statusCode);
             attendance.StatusId = attendanceStatus?.Id;
             attendance.Note = request.Note;
+
+            if (string.IsNullOrEmpty(request.PhotoBase64))
+            {
+                throw new BadRequestException("Vui lòng chụp ảnh xác nhận (selfie) khi Check-in.");
+            }
+
+            try
+            {
+                var base64Data = request.PhotoBase64.Contains(",") 
+                    ? request.PhotoBase64.Split(',').Last() 
+                    : request.PhotoBase64;
+                byte[] imageBytes = Convert.FromBase64String(base64Data);
+                using (var ms = new MemoryStream(imageBytes))
+                {
+                    string fileName = $"checkin_{session.Id}_{userId}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg";
+                    string photoUrl = await _storageService.UploadFileAsync(ms, fileName, "image/jpeg");
+                    attendance.CheckinImageUrl = photoUrl;
+                }
+            }
+            catch (Exception)
+            {
+                throw new BadRequestException("Định dạng ảnh không hợp lệ hoặc lỗi khi tải ảnh lên.");
+            }
 
             if (existingRecord == null)
             {
@@ -142,7 +168,11 @@ namespace EduOps.Application.Services
 
                 if (distance > school.SchoolDetail.AttendanceRadius)
                 {
-                    throw new BadRequestException($"You are out of the attendance zone for check-out. Distance: {Math.Round(distance)}m, Max allowed: {school.SchoolDetail.AttendanceRadius}m.");
+                    // Nếu Client có cờ Force (vd thông qua việc có chuỗi [Ngoài cơ sở] trong Note) thì cho phép
+                    if (request.Note == null || !request.Note.Contains("[Ngoài cơ sở]"))
+                    {
+                        throw new BadRequestException("OUT_OF_RANGE");
+                    }
                 }
             }
 
@@ -160,6 +190,11 @@ namespace EduOps.Application.Services
             record.CheckoutLatitude = request.Latitude;
             record.CheckoutLongitude = request.Longitude;
             record.EarlyCheckoutMinutes = earlyMinutes;
+            
+            if (!string.IsNullOrEmpty(request.Note))
+            {
+                record.Note = string.IsNullOrEmpty(record.Note) ? request.Note : $"{record.Note} | {request.Note}";
+            }
 
             attendanceRepo.Update(record);
             await _unitOfWork.CommitAsync();
@@ -309,6 +344,99 @@ namespace EduOps.Application.Services
             }
 
             return stats;
+        }
+        public async Task<List<StaffAttendanceStatDto>> GetStaffAttendanceStatsAsync(Guid organizationId, int? month, int? year)
+        {
+            var sessionRepo = _unitOfWork.Repository<Session>();
+            var attendanceRepo = _unitOfWork.Repository<Attendance>();
+            var userRepo = _unitOfWork.Repository<EduOps.Domain.Entities.User>();
+
+            // Get users (Teacher & Assistant)
+            var staffUsers = await userRepo.FindAsync(u => u.OrganizationId == organizationId && u.Role != null && (u.Role.Code == "TEACHER" || u.Role.Code == "ASSISTANT"));
+
+            var startDate = DateTime.MinValue;
+            var endDate = DateTime.MaxValue;
+
+            if (month.HasValue && year.HasValue)
+            {
+                startDate = new DateTime(year.Value, month.Value, 1, 0, 0, 0, DateTimeKind.Utc);
+                endDate = startDate.AddMonths(1).AddTicks(-1);
+            }
+            else if (!month.HasValue && !year.HasValue)
+            {
+                // Default: get all time, or maybe we don't filter date
+                // Actually the requirement: "Tất cả" => no date filter
+            }
+            
+            var sessions = await sessionRepo.FindAsync(s => s.OrganizationId == organizationId 
+                                                            && (s.SessionDate >= startDate && s.SessionDate <= endDate));
+                                                            
+            var sessionIds = sessions.Select(s => s.Id).ToList();
+            var attendances = new List<Attendance>();
+            if (sessionIds.Any())
+            {
+                attendances = (await attendanceRepo.FindAsync(a => sessionIds.Contains(a.SessionId))).ToList();
+            }
+
+            var result = new List<StaffAttendanceStatDto>();
+            var now = DateTime.UtcNow;
+
+            foreach (var user in staffUsers)
+            {
+                var userSessions = sessions.Where(s => s.TeacherId == user.Id || (s.AssistantId == user.Id)).ToList(); // Adjusted to check AssistantId if single, but in DB it's AssistantId
+                
+                // Exclude future sessions from stats calculation
+                var pastSessions = userSessions.Where(s => s.SessionDate < now.Date || (s.SessionDate == now.Date && s.EndTime < now.TimeOfDay)).ToList();
+
+                int total = pastSessions.Count;
+                int checkedIn = 0;
+                int late = 0;
+                int earlyCO = 0;
+                int missingCO = 0;
+                int absent = 0;
+
+                foreach (var s in pastSessions)
+                {
+                    var att = attendances.FirstOrDefault(a => a.SessionId == s.Id && a.UserId == user.Id);
+                    if (att != null && att.CheckinTime != null)
+                    {
+                        checkedIn++;
+                        if (att.LateMinutes > 0) late++;
+                        
+                        if (att.CheckoutTime != null)
+                        {
+                            if (att.EarlyCheckoutMinutes > 0) earlyCO++;
+                        }
+                        else
+                        {
+                            missingCO++;
+                        }
+                    }
+                    else
+                    {
+                        absent++;
+                    }
+                }
+
+                if (total > 0)
+                {
+                    result.Add(new StaffAttendanceStatDto
+                    {
+                        UserId = user.Id,
+                        FullName = user.FullName,
+                        Role = user.Role?.Code ?? string.Empty,
+                        TotalSessions = total,
+                        CheckedInCount = checkedIn,
+                        LateCount = late,
+                        EarlyCheckoutCount = earlyCO,
+                        MissingCheckoutCount = missingCO,
+                        AbsentCount = absent,
+                        AttendanceRate = Math.Round((double)checkedIn / total * 100, 1)
+                    });
+                }
+            }
+
+            return result.OrderByDescending(x => x.AttendanceRate).ThenByDescending(x => x.TotalSessions).ToList();
         }
     }
 }

@@ -7,24 +7,53 @@ import { vi } from "date-fns/locale";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Button } from "@/components/ui/button";
 
 export default function SecurityLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [keyword, setKeyword] = useState('');
+  const [actionFilter, setActionFilter] = useState('');
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+
+  const fetchLogs = async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        type: 'security',
+        pageSize: '20',
+        pageNumber: page.toString()
+      });
+      if (keyword) params.append('keyword', keyword);
+      if (actionFilter) params.append('action', actionFilter);
+      if (startDate) params.append('startDate', format(startDate, 'yyyy-MM-dd'));
+      if (endDate) params.append('endDate', format(endDate, 'yyyy-MM-dd'));
+
+      const res = await apiClient.get(`/audit-logs?${params.toString()}`);
+      setLogs(res.data.items || []);
+      setTotalPages(res.data.totalPages || 1);
+    } catch (err) {
+      console.error("Failed to load security logs", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const res = await apiClient.get('/audit-logs?type=security&pageSize=100');
-        setLogs(res.data.items || []);
-      } catch (err) {
-        console.error("Failed to load security logs", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchLogs();
-  }, []);
+  }, [page]);
+
+  const handleFilter = () => {
+    setPage(1);
+    fetchLogs();
+  };
 
   const translateAction = (action: string) => {
     switch (action) {
@@ -75,6 +104,55 @@ export default function SecurityLogsPage() {
         <p className="text-edu-muted text-sm">Theo dõi các lượt đăng nhập, đổi mật khẩu và phát hiện truy cập trái phép</p>
       </div>
 
+      <div className="bg-white p-4 rounded-xl border border-edu-border shadow-sm flex flex-wrap gap-4 items-end">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-medium text-gray-500 mb-1">Tìm kiếm (Tên, Email)</label>
+          <Input 
+            type="text" 
+            placeholder="Nhập từ khóa..."
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
+          />
+        </div>
+        <div className="w-[180px]">
+          <label className="block text-xs font-medium text-gray-500 mb-1">Sự kiện</label>
+          <Select 
+            options={[
+              { value: "", label: "Tất cả" },
+              { value: "Login Success", label: "Đăng nhập thành công" },
+              { value: "Login Failed", label: "Đăng nhập thất bại" },
+              { value: "Logout", label: "Đăng xuất" },
+              { value: "Password Changed", label: "Đổi mật khẩu" }
+            ]}
+            value={actionFilter}
+            onChange={(value) => setActionFilter(value)}
+          />
+        </div>
+        <div className="w-[150px]">
+          <label className="block text-xs font-medium text-gray-500 mb-1">Từ ngày</label>
+          <DatePicker 
+            selected={startDate}
+            onChange={(date) => setStartDate(date)}
+            placeholderText="dd/mm/yyyy"
+          />
+        </div>
+        <div className="w-[150px]">
+          <label className="block text-xs font-medium text-gray-500 mb-1">Đến ngày</label>
+          <DatePicker 
+            selected={endDate}
+            onChange={(date) => setEndDate(date)}
+            placeholderText="dd/mm/yyyy"
+          />
+        </div>
+        <Button 
+          variant="primary"
+          onClick={handleFilter}
+        >
+          Lọc dữ liệu
+        </Button>
+      </div>
+
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-edu-muted bg-white rounded-2xl border border-edu-border shadow-sm">
           <Loader2 className="animate-spin mr-2" size={24} /> Đang tải dữ liệu...
@@ -84,56 +162,81 @@ export default function SecurityLogsPage() {
           Không có sự kiện bảo mật nào.
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Thời gian</TableHead>
-              <TableHead>Sự kiện</TableHead>
-              <TableHead>Tài khoản (Email)</TableHead>
-              <TableHead>Địa chỉ IP</TableHead>
-              <TableHead>Thiết bị</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {logs.map((log) => {
-              let email = log.userEmail;
-              if (log.newData) {
-                try {
-                  const data = JSON.parse(log.newData);
-                  if (data.Email) email = data.Email;
-                } catch {}
-              }
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Thời gian</TableHead>
+                <TableHead>Sự kiện</TableHead>
+                <TableHead>Tài khoản (Email)</TableHead>
+                <TableHead>Địa chỉ IP</TableHead>
+                <TableHead>Thiết bị</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {logs.map((log) => {
+                let email = log.userEmail;
+                if (log.newData) {
+                  try {
+                    const parsed = JSON.parse(log.newData);
+                    if (parsed.Email) email = parsed.Email;
+                  } catch (e) {}
+                }
+                
+                const isFailed = log.action === 'Login Failed';
+                
+                return (
+                  <TableRow key={log.id}>
+                    <TableCell>
+                      {format(new Date(log.createdAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={isFailed ? 'danger' : 'success'}>
+                        {translateAction(log.action)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium text-edu-fg">{log.userName || 'Không xác định'}</div>
+                      <div className={`text-xs ${isFailed ? 'text-edu-danger font-medium' : 'text-edu-muted'}`}>{email}</div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-mono text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                        {formatIp(log.ipAddress)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-edu-fg">
+                        {formatUserAgent(log.userAgent)}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
 
-              const isDanger = log.action === 'Login Failed';
-              const isSuccess = log.action === 'Login Success';
-              
-              return (
-                <TableRow key={log.id} className={isDanger ? 'bg-red-50/50 hover:bg-red-50 transition-colors' : 'hover:bg-gray-50/50 transition-colors'}>
-                  <TableCell className="whitespace-nowrap font-medium text-gray-700">
-                    {format(new Date(log.createdAt), 'dd/MM/yyyy HH:mm', { locale: vi })}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={isDanger ? 'danger' : isSuccess ? 'success' : 'info'} className="whitespace-nowrap font-medium">
-                      {translateAction(log.action)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-semibold text-gray-800">{log.userName !== 'Unknown' ? log.userName : 'Không rõ'}</div>
-                    <div className={`text-xs mt-0.5 ${isDanger ? 'text-red-600 font-medium' : 'text-gray-500'}`}>{email}</div>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm text-gray-600">
-                    {formatIp(log.ipAddress)}
-                  </TableCell>
-                  <TableCell className="text-sm text-gray-600">
-                    <div className="flex items-center gap-1.5" title={log.userAgent}>
-                      <span className="truncate max-w-[150px] md:max-w-[200px]">{formatUserAgent(log.userAgent)}</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-4 mt-6">
+              <button 
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Trang trước
+              </button>
+              <span className="text-sm font-medium text-gray-500">
+                Trang {page} / {totalPages}
+              </span>
+              <button 
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Trang sau
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

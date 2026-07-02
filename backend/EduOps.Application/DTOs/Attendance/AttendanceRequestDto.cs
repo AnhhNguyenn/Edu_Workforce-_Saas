@@ -10,5 +10,6 @@ namespace EduOps.Application.DTOs.Attendance
         public bool IsMockLocation { get; set; }
         public string? DeviceId { get; set; }
         public string? Note { get; set; }
+        public string? PhotoBase64 { get; set; }
     }
 }

@@ -16,5 +16,6 @@ namespace EduOps.Application.DTOs.Attendance
         public int LateMinutes { get; set; }
         public int EarlyCheckoutMinutes { get; set; }
         public string? Note { get; set; }
+        public string? CheckinImageUrl { get; set; }
     }
 }

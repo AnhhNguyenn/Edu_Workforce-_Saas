@@ -12,5 +12,6 @@ namespace EduOps.Application.Interfaces
         Task<string> UploadOrganizationLogoAsync(Guid userId, Stream fileStream, string fileName, string contentType);
         Task UpdateProfileAsync(Guid userId, UpdateProfileRequestDto request);
         Task<UserDetailResponseDto> GetProfileAsync(Guid userId);
+        Task<TeacherStatsResponseDto> GetStatsAsync(Guid userId, int? month, int? year);
     }
 }

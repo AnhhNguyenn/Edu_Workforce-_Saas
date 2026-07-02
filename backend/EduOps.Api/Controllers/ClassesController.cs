@@ -31,7 +31,6 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        [RequirePermission("Classes", "View")]
         public async Task<IActionResult> Get([FromQuery] GetClassListQueryDto query)
         {
             Guid? teacherId = null;
@@ -46,7 +45,6 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("{id}")]
-        [RequirePermission("Classes", "View")]
         public async Task<IActionResult> GetById(Guid id)
         {
             Guid? teacherId = null;
@@ -61,7 +59,6 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("{id}/students")]
-        [RequirePermission("Classes", "View")]
         public async Task<IActionResult> GetStudents(Guid id)
         {
             var result = await _classService.GetClassStudentsAsync(id, GetOrganizationId());

@@ -10,7 +10,7 @@ import { useAppStore } from "@/store/useAppStore";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { data: sub } = useMySubscription();
+  const { data: sub, isError: subError } = useMySubscription();
   const [isWarningOpen, setIsWarningOpen] = useState(false);
   const setUpgradeModalOpen = useAppStore(state => state.setUpgradeModalOpen);
 
@@ -30,7 +30,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         <nav className="space-y-1">
           {menuItems.map((item) => {
             const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-            const isBasic = sub?.planName?.toLowerCase().includes("basic") || sub?.planName?.toLowerCase().includes("free");
+            const isBasic = sub?.planName?.toLowerCase().includes("basic") || sub?.planName?.toLowerCase().includes("free") || subError;
             const isLocked = isBasic && (item.name === "Người dùng (Nâng cao)" || item.name === "Phân quyền (Roles)");
 
             if (isLocked) {

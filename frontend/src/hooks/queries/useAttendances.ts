@@ -36,6 +36,25 @@ export const useAttendanceStats = (days: number = 7) => {
   });
 };
 
+export const useStaffAttendanceStats = (month?: number | null, year?: number | null) => {
+  return useQuery({
+    queryKey: ['staff-attendance-stats', month, year],
+    queryFn: async () => {
+      let url = '/attendances/stats/staff';
+      const params = new URLSearchParams();
+      if (month && year) {
+        params.append('month', month.toString());
+        params.append('year', year.toString());
+      }
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      const response = await apiClient.get<any[]>(url);
+      return response.data;
+    }
+  });
+};
+
 export const useTodayAttendances = () => {
   return useQuery({
     queryKey: ['today-attendances'],

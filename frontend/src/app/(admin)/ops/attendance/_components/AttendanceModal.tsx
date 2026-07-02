@@ -69,10 +69,25 @@ export function AttendanceModal({ session, onClose }: AttendanceModalProps) {
                     </div>
                   )}
                   
+                  {teacherAttendance.note && (
+                    <div className="mt-4 p-3 bg-slate-100 rounded-lg border border-slate-200">
+                      <p className="text-sm font-semibold text-slate-700 mb-1">Ghi chú & Giải trình:</p>
+                      <p className="text-sm text-slate-600 whitespace-pre-wrap">{teacherAttendance.note}</p>
+                    </div>
+                  )}
+
                   {teacherAttendance.checkinLatitude && teacherAttendance.checkinLongitude && (
-                    <div className="text-xs flex items-center gap-1 text-slate-500">
-                      <MapPin size={12} />
-                      Tọa độ: {teacherAttendance.checkinLatitude}, {teacherAttendance.checkinLongitude}
+                    <div className="text-xs flex flex-col gap-1 text-slate-500 mt-2">
+                      <div className="flex items-center gap-1">
+                        <MapPin size={12} />
+                        Tọa độ Check-in: {teacherAttendance.checkinLatitude}, {teacherAttendance.checkinLongitude}
+                      </div>
+                      {teacherAttendance.checkoutLatitude && teacherAttendance.checkoutLongitude && (
+                        <div className="flex items-center gap-1">
+                          <MapPin size={12} />
+                          Tọa độ Check-out: {teacherAttendance.checkoutLatitude}, {teacherAttendance.checkoutLongitude}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

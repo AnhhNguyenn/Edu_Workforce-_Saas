@@ -11,6 +11,7 @@ import { useStudents } from '@/hooks/queries/useStudents';
 import { toast } from 'react-hot-toast';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/components/ui/stat-card';
+import { AttendanceActionModal } from '@/components/schedule/AttendanceActionModal';
 
 export default function SessionWorkspacePage() {
   const params = useParams();
@@ -32,6 +33,10 @@ export default function SessionWorkspacePage() {
   const isCheckedIn = !!myAttendance;
   const isCheckedOut = !!myAttendance?.checkOutTime;
 
+  const [actionModalOpen, setActionModalOpen] = useState(false);
+  const [actionType, setActionType] = useState<'checkin' | 'checkout'>('checkin');
+  const [isOutOfRange, setIsOutOfRange] = useState(false);
+
   if (isSessionLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-edu-accent" size={32} /></div>;
   }
@@ -40,39 +45,80 @@ export default function SessionWorkspacePage() {
     return <EmptyState description="Không tìm thấy thông tin ca học." />;
   }
 
-  const handleCheckIn = () => {
+  const handleModalSubmit = async (photoBase64: string | null, reason: string | null) => {
     if (!navigator.geolocation) {
       toast.error("Trình duyệt không hỗ trợ GPS");
       return;
     }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        checkInMutation.mutate(
-          { sessionId: id, latitude: pos.coords.latitude, longitude: pos.coords.longitude },
-          {
+        const payload = {
+          sessionId: id,
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          note: reason || undefined,
+          photoBase64: photoBase64 || undefined
+        };
+
+        if (actionType === 'checkin') {
+          checkInMutation.mutate(payload, {
             onSuccess: () => {
               toast.success("Check-in thành công!");
+              setActionModalOpen(false);
               setActiveTab('ATTENDANCE'); // Auto move to next tab
             },
+            onError: (err: any) => toast.error(err.response?.data?.message || "Lỗi check-in")
+          });
+        } else {
+          checkOutMutation.mutate(payload, {
+            onSuccess: () => {
+              toast.success("Check-out thành công!");
+              setActionModalOpen(false);
+              setIsOutOfRange(false);
+            },
             onError: (err: any) => {
-              toast.error(err.response?.data?.message || "Lỗi check-in");
+              const msg = err.response?.data?.message;
+              if (msg === "OUT_OF_RANGE") {
+                setIsOutOfRange(true);
+                toast.error("Bạn đang ngoài cơ sở. Vui lòng ghi rõ lý do giải trình.");
+              } else {
+                toast.error(msg || "Lỗi check-out");
+              }
             }
-          }
-        );
+          });
+        }
       },
-      (err) => toast.error("Không thể lấy vị trí: " + err.message)
+      (err) => toast.error("Không thể lấy vị trí GPS: " + err.message),
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
-  const handleCheckOut = () => {
-    checkOutMutation.mutate(
-      { sessionId: id, latitude: 0, longitude: 0 },
-      {
-        onSuccess: () => toast.success("Check-out thành công!"),
-        onError: (err: any) => toast.error(err.response?.data?.message || "Lỗi check-out")
-      }
-    );
+  const handleCheckIn = () => {
+    setActionType('checkin');
+    setIsOutOfRange(false);
+    setActionModalOpen(true);
   };
+
+  const handleCheckOut = () => {
+    setActionType('checkout');
+    setIsOutOfRange(false);
+    setActionModalOpen(true);
+  };
+
+  const now = new Date();
+  const [eHours, eMinutes] = (session.endTime || '00:00').split(':').map(Number);
+  const sessionEndTime = new Date(session.sessionDate);
+  sessionEndTime.setHours(eHours, eMinutes, 0, 0);
+
+  const endOfDay = new Date(session.sessionDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const isPastEndTime = now > sessionEndTime;
+  const isPastEndOfDay = now > endOfDay;
+
+  const isCheckinLocked = !isCheckedIn && isPastEndTime;
+  const isCheckoutLocked = isCheckedIn && !isCheckedOut && isPastEndOfDay;
 
   return (
     <div className="space-y-4 pb-20">
@@ -118,35 +164,115 @@ export default function SessionWorkspacePage() {
             </div>
             
             {!isCheckedIn ? (
-              <>
-                <h3 className="font-bold text-xl">Xác nhận vào ca học</h3>
-                <p className="text-sm text-edu-muted">Vui lòng cấp quyền vị trí để hệ thống ghi nhận.</p>
-                <button
-                  onClick={handleCheckIn}
-                  disabled={checkInMutation.isPending}
-                  className="w-full max-w-xs py-4 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-edu-accent to-[#7BC4FF] hover:shadow-lg active:scale-95 transition-all flex justify-center"
-                >
-                  {checkInMutation.isPending ? <Loader2 className="animate-spin" /> : 'CHECK-IN CA HỌC'}
-                </button>
-              </>
+              isCheckinLocked ? (
+                <>
+                  <h3 className="font-bold text-xl text-edu-warn">Vắng mặt / Đã qua</h3>
+                  <p className="text-sm text-edu-muted">Ca học đã kết thúc và bạn chưa Check-in. Hệ thống đã khóa ca này.</p>
+                </>
+              ) : (
+                <>
+                  <h3 className="font-bold text-xl">Xác nhận vào ca học</h3>
+                  <p className="text-sm text-edu-muted">Vui lòng cấp quyền vị trí để hệ thống ghi nhận.</p>
+                  <button
+                    onClick={handleCheckIn}
+                    disabled={checkInMutation.isPending}
+                    className="w-full max-w-xs py-4 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-edu-accent to-[#7BC4FF] hover:shadow-lg active:scale-95 transition-all flex justify-center"
+                  >
+                    {checkInMutation.isPending ? <Loader2 className="animate-spin" /> : 'CHECK-IN CA HỌC'}
+                  </button>
+                </>
+              )
             ) : !isCheckedOut ? (
-              <>
-                <h3 className="font-bold text-xl text-edu-success">Đã Check-in thành công</h3>
-                <p className="text-sm text-edu-muted">Bạn có thể chuyển sang bước Điểm danh và Báo cáo.</p>
-                <button
-                  onClick={handleCheckOut}
-                  disabled={checkOutMutation.isPending}
-                  className="w-full max-w-xs py-4 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-[#FF8A65] to-[#FFB74D] hover:shadow-lg active:scale-95 transition-all flex justify-center mt-4"
-                >
-                  {checkOutMutation.isPending ? <Loader2 className="animate-spin" /> : 'CHECK-OUT KẾT THÚC'}
-                </button>
-              </>
+              <div className="w-full flex flex-col items-center">
+                <h3 className="font-bold text-xl text-edu-success mb-4">Đã Check-in thành công</h3>
+                
+                <div className="bg-slate-50 w-full max-w-sm rounded-xl p-4 border mb-6 text-left space-y-3 text-sm">
+                  <div className="flex justify-between border-b border-slate-200 pb-2">
+                    <span className="text-slate-500">Giờ vào:</span>
+                    <span className="font-bold text-slate-800">{myAttendance.checkinTime ? new Date(myAttendance.checkinTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : '--:--'}</span>
+                  </div>
+                  {myAttendance.lateMinutes > 0 && (
+                    <div className="flex justify-between border-b border-slate-200 pb-2 text-red-500">
+                      <span>Đi trễ:</span>
+                      <span className="font-bold">{myAttendance.lateMinutes} phút</span>
+                    </div>
+                  )}
+                  {myAttendance.note && (
+                    <div className="flex flex-col border-b border-slate-200 pb-2">
+                      <span className="text-slate-500 mb-1">Ghi chú Check-in:</span>
+                      <span className="italic text-slate-700 bg-white p-2 rounded border">"{myAttendance.note}"</span>
+                    </div>
+                  )}
+                  {myAttendance.checkinImageUrl && (
+                    <div className="flex flex-col pt-1">
+                      <span className="text-slate-500 mb-2">Ảnh xác nhận:</span>
+                      <img 
+                        src={myAttendance.checkinImageUrl} 
+                        alt="Check-in Selfie" 
+                        loading="lazy" 
+                        className="w-full h-auto object-cover rounded-lg border shadow-sm max-h-[250px]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-sm text-edu-muted mb-4">
+                  {isCheckoutLocked 
+                    ? 'Đã quá ngày làm việc. Bạn không thể Check-out ca dạy này nữa.' 
+                    : 'Vui lòng Check-out sau khi hoàn thành ca dạy.'}
+                </p>
+                
+                {!isCheckoutLocked && (
+                  <button
+                    onClick={handleCheckOut}
+                    disabled={checkOutMutation.isPending}
+                    className="w-full max-w-xs py-4 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-[#FF8A65] to-[#FFB74D] hover:shadow-lg active:scale-95 transition-all flex justify-center"
+                  >
+                    {checkOutMutation.isPending ? <Loader2 className="animate-spin" /> : 'CHECK-OUT KẾT THÚC'}
+                  </button>
+                )}
+              </div>
             ) : (
-              <>
+              <div className="w-full flex flex-col items-center">
                 <div className="text-edu-success mb-2"><CheckCircle2 size={48} /></div>
-                <h3 className="font-bold text-xl">Ca học đã hoàn thành</h3>
+                <h3 className="font-bold text-xl mb-4">Ca học đã hoàn thành</h3>
+                
+                <div className="bg-slate-50 w-full max-w-sm rounded-xl p-4 border mb-6 text-left space-y-3 text-sm">
+                  <div className="flex justify-between border-b border-slate-200 pb-2">
+                    <span className="text-slate-500">Giờ vào:</span>
+                    <span className="font-bold text-slate-800">{myAttendance.checkinTime ? new Date(myAttendance.checkinTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : '--:--'}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-200 pb-2">
+                    <span className="text-slate-500">Giờ ra:</span>
+                    <span className="font-bold text-slate-800">{myAttendance.checkoutTime ? new Date(myAttendance.checkoutTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : '--:--'}</span>
+                  </div>
+                  {myAttendance.earlyCheckoutMinutes > 0 && (
+                    <div className="flex justify-between border-b border-slate-200 pb-2 text-orange-500">
+                      <span>Ra sớm:</span>
+                      <span className="font-bold">{myAttendance.earlyCheckoutMinutes} phút</span>
+                    </div>
+                  )}
+                  {myAttendance.note && (
+                    <div className="flex flex-col border-b border-slate-200 pb-2">
+                      <span className="text-slate-500 mb-1">Ghi chú:</span>
+                      <span className="italic text-slate-700 bg-white p-2 rounded border">"{myAttendance.note}"</span>
+                    </div>
+                  )}
+                  {myAttendance.checkinImageUrl && (
+                    <div className="flex flex-col pt-1">
+                      <span className="text-slate-500 mb-2">Ảnh xác nhận Check-in:</span>
+                      <img 
+                        src={myAttendance.checkinImageUrl} 
+                        alt="Check-in Selfie" 
+                        loading="lazy" 
+                        className="w-full h-auto object-cover rounded-lg border shadow-sm max-h-[250px]"
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <p className="text-sm text-edu-muted">Cảm ơn bạn đã hoàn thành tốt ca học.</p>
-              </>
+              </div>
             )}
           </div>
         )}
@@ -159,6 +285,16 @@ export default function SessionWorkspacePage() {
           <SessionReportTab sessionId={id} profile={profile} isLocked={!isCheckedIn} existingReport={report} />
         )}
       </div>
+
+      <AttendanceActionModal 
+        isOpen={actionModalOpen}
+        onClose={() => setActionModalOpen(false)}
+        type={actionType}
+        session={session}
+        onSubmit={handleModalSubmit}
+        isLoading={checkInMutation.isPending || checkOutMutation.isPending}
+        isOutOfRange={isOutOfRange}
+      />
     </div>
   );
 }

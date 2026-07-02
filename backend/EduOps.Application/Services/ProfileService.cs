@@ -9,6 +9,7 @@ using EduOps.Application.DTOs.User.Requests;
 using EduOps.Application.Mappings;
 using EduOps.Domain.Entities;
 using EduOps.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace EduOps.Application.Services
 {
@@ -141,6 +142,127 @@ namespace EduOps.Application.Services
 
             repo.Update(user);
             await _unitOfWork.CommitAsync();
+        }
+        public async Task<TeacherStatsResponseDto> GetStatsAsync(Guid userId, int? month, int? year)
+        {
+            var sessionsQuery = _unitOfWork.Repository<Session>().GetQueryable();
+            var attendanceQuery = _unitOfWork.Repository<Attendance>().GetQueryable();
+            var classesQuery = _unitOfWork.Repository<Class>().GetQueryable();
+
+            // Filter sessions for the user (Teacher or Assistant)
+            sessionsQuery = sessionsQuery.Where(s => s.TeacherId == userId || s.AssistantId == userId);
+
+            // Filter by month and year if provided
+            if (month.HasValue && year.HasValue)
+            {
+                sessionsQuery = sessionsQuery.Where(s => s.SessionDate.Month == month.Value && s.SessionDate.Year == year.Value);
+            }
+
+            // Execute queries to get data
+            var sessions = await sessionsQuery.Include(s => s.Status).ToListAsync();
+            var classIds = sessions.Select(s => s.ClassId).Distinct().ToList();
+            var classes = await _unitOfWork.Repository<Class>().GetQueryable().Where(c => classIds.Contains(c.Id)).ToListAsync();
+            
+            var sessionIds = sessions.Select(s => s.Id).ToList();
+            var attendances = await _unitOfWork.Repository<Attendance>().GetQueryable().Where(a => a.UserId == userId && sessionIds.Contains(a.SessionId)).ToListAsync();
+
+            var result = new TeacherStatsResponseDto();
+            result.TotalSessions = sessions.Count;
+
+            var validSessionStatuses = new List<string> { "COMPLETED", "ONGOING", "FINISHED" }; // Assuming Finished/Completed means the session happened
+            var totalCountableSessions = 0;
+            var checkedInCount = 0;
+
+            foreach (var session in sessions)
+            {
+                var cls = classes.FirstOrDefault(c => c.Id == session.ClassId);
+                var att = attendances.FirstOrDefault(a => a.SessionId == session.Id);
+                var status = session.Status?.Code ?? "UPCOMING";
+                
+                var statDto = new TeacherSessionStatDto
+                {
+                    SessionId = session.Id,
+                    ClassName = cls?.Name ?? "Lớp chưa đặt tên",
+                    LessonTitle = session.LessonTitle,
+                    SessionDate = session.SessionDate,
+                    StartTime = session.StartTime,
+                    EndTime = session.EndTime,
+                    SessionStatus = (EduOps.Domain.Enums.SessionStatus)System.Enum.Parse(typeof(EduOps.Domain.Enums.SessionStatus), status, true),
+                    HasCheckedIn = att != null && att.CheckinTime.HasValue,
+                    CheckinTime = att?.CheckinTime
+                };
+
+                // Logic Penalty 
+                if (statDto.HasCheckedIn && att != null && att.CheckinTime.HasValue)
+                {
+                    // Calculate late minutes
+                    // CheckinTime is UTC. We need to compare time of day.
+                    // Assuming CheckinTime matches SessionDate and StartTime in local timezone logic, but backend works in UTC mostly.
+                    // For simplicity in this demo, let's use the DB stored LateMinutes if available, else calculate.
+                    statDto.LateMinutes = att.LateMinutes; 
+                    
+                    if (statDto.LateMinutes == 0)
+                    {
+                        // Fallback calculation if LateMinutes wasn't saved properly
+                        var expectedStartUtc = session.SessionDate.Date.Add(session.StartTime).AddHours(-7); // Assuming GMT+7
+                        if (att.CheckinTime.Value > expectedStartUtc)
+                        {
+                            statDto.LateMinutes = (int)(att.CheckinTime.Value - expectedStartUtc).TotalMinutes;
+                        }
+                    }
+
+                    if (statDto.LateMinutes <= 10)
+                    {
+                        statDto.PenaltyPercentage = 0;
+                        statDto.AttendanceStatus = "OK";
+                    }
+                    else if (statDto.LateMinutes <= 30)
+                    {
+                        statDto.PenaltyPercentage = 25;
+                        statDto.AttendanceStatus = "LATE";
+                    }
+                    else
+                    {
+                        statDto.PenaltyPercentage = 100;
+                        statDto.AttendanceStatus = "MISSED"; // Effectively missed
+                    }
+                }
+                else
+                {
+                    // Not checked in
+                    var expectedEndUtc = session.SessionDate.Date.Add(session.EndTime).AddHours(-7);
+                    if (DateTime.UtcNow > expectedEndUtc)
+                    {
+                        // Past session, no checkin
+                        statDto.PenaltyPercentage = 100;
+                        statDto.AttendanceStatus = "MISSED";
+                    }
+                    else
+                    {
+                        statDto.AttendanceStatus = "UPCOMING";
+                    }
+                }
+
+                if (validSessionStatuses.Contains(status))
+                {
+                    totalCountableSessions++;
+                    if (statDto.HasCheckedIn)
+                    {
+                        checkedInCount++;
+                    }
+                }
+
+                if (status == "COMPLETED") result.CompletedSessions++;
+
+                result.Sessions.Add(statDto);
+            }
+
+            result.AttendanceRate = totalCountableSessions == 0 ? 0 : (int)Math.Round((double)checkedInCount / totalCountableSessions * 100);
+
+            // Sort descending by date
+            result.Sessions = result.Sessions.OrderByDescending(s => s.SessionDate).ThenByDescending(s => s.StartTime).ToList();
+
+            return result;
         }
     }
 }

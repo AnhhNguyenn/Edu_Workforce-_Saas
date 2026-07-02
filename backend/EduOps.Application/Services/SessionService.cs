@@ -66,7 +66,7 @@ namespace EduOps.Application.Services
         public async Task<SessionDetailResponseDto> GetSessionByIdAsync(Guid id, Guid organizationId)
         {
             var repo = _unitOfWork.Repository<Session>();
-            var session = await repo.FirstOrDefaultAsync(s => s.Id == id && s.OrganizationId == organizationId, includeProperties: "Status,Class,Teacher,Assistant");
+            var session = await repo.FirstOrDefaultAsync(s => s.Id == id && s.OrganizationId == organizationId, includeProperties: "Status,SessionAssistants");
             if (session == null)
             {
                 throw new EduOps.Application.Exceptions.NotFoundException("Session", id);

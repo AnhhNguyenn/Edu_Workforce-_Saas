@@ -88,5 +88,16 @@ namespace EduOps.Api.Controllers
             await _profileService.UpdateProfileAsync(userId, request);
             return NoContent();
         }
+
+        [HttpGet("stats")]
+        public async Task<IActionResult> GetStats([FromQuery] int? month, [FromQuery] int? year)
+        {
+            var userId = _currentUserService.UserId;
+            if (userId == Guid.Empty)
+                return Unauthorized();
+
+            var result = await _profileService.GetStatsAsync(userId, month, year);
+            return Ok(result);
+        }
     }
 }

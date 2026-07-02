@@ -32,7 +32,6 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        [HasPermission("Users:READ")]
         public async Task<IActionResult> GetUsers([FromQuery] GetUserListQueryDto query)
         {
             query.PageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
@@ -48,7 +47,6 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet("{id}")]
-        [HasPermission("Users:READ")]
         public async Task<IActionResult> GetUser(Guid id)
         {
             var result = await _userService.GetUserByIdAsync(id);

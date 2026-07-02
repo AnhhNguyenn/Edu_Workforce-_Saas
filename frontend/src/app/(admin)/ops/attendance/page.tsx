@@ -67,10 +67,17 @@ export default function AttendancePage() {
     if (s.statusCode === 'CANCELED') return 'CANCELED';
     if (s.statusCode === 'COMPLETED') return 'COMPLETED';
     
+    const teacherAttendance = attendances?.find((a: any) => a.sessionId === s.id && a.userId === s.teacherId);
+    if (teacherAttendance?.checkoutTime) return 'COMPLETED';
+    
     // Only apply time-based logic if it's today
     const sDate = new Date(s.sessionDate).toLocaleDateString('en-CA');
     const todayStr = new Date().toLocaleDateString('en-CA');
-    if (sDate !== todayStr) return s.statusCode;
+    if (sDate !== todayStr) {
+      if (sDate < todayStr && !teacherAttendance) return 'ABSENT';
+      if (sDate < todayStr && teacherAttendance && !teacherAttendance.checkoutTime) return 'MISSING_CHECKOUT';
+      return s.statusCode;
+    }
 
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
@@ -82,8 +89,23 @@ export default function AttendancePage() {
     const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
 
     if (currentTotalMinutes < startMinutes) return 'SCHEDULED';
-    if (currentTotalMinutes > endMinutes) return 'MISSING';
+    if (currentTotalMinutes > endMinutes) {
+        if (!teacherAttendance) return 'ABSENT';
+        return 'MISSING_CHECKOUT';
+    }
     return 'ONGOING';
+  };
+
+  const getStatusDisplay = (status: string) => {
+    switch(status) {
+      case 'COMPLETED': return { label: 'Hoàn thành', variant: 'success' as const };
+      case 'ONGOING': return { label: 'Đang diễn ra', variant: 'warn' as const };
+      case 'ABSENT': return { label: 'Vắng mặt', variant: 'danger' as const };
+      case 'MISSING_CHECKOUT': return { label: 'Thiếu Check-out', variant: 'danger' as const };
+      case 'SCHEDULED': return { label: 'Sắp tới', variant: 'info' as const };
+      case 'CANCELED': return { label: 'Đã hủy', variant: 'secondary' as const };
+      default: return { label: status, variant: 'secondary' as const };
+    }
   };
 
   const computedSessions = todaySessions.map(s => ({...s, computedStatus: getRealTimeStatus(s)}));
@@ -96,10 +118,10 @@ export default function AttendancePage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-7">
-        <StatCard icon={<CheckCircle2 size={20} />} label="Ca học hôm nay" value={computedSessions.length.toString()} type="success" />
+        <StatCard icon={<CheckCircle2 size={20} />} label="Tổng ca học" value={computedSessions.length.toString()} type="success" />
         <StatCard icon={<Clock size={20} />} label="Đã hoàn thành" value={computedSessions.filter(s => s.computedStatus === 'COMPLETED').length.toString()} type="accent" />
-        <StatCard icon={<HelpCircle size={20} />} label="Chưa bắt đầu" value={computedSessions.filter(s => s.computedStatus === 'SCHEDULED').length.toString()} type="warn" />
-        <StatCard icon={<MapPin size={20} />} label="Đang diễn ra" value={computedSessions.filter(s => s.computedStatus === 'ONGOING').length.toString()} type="danger" />
+        <StatCard icon={<HelpCircle size={20} />} label="Đang & Sắp diễn ra" value={computedSessions.filter(s => s.computedStatus === 'ONGOING' || s.computedStatus === 'SCHEDULED').length.toString()} type="info" />
+        <StatCard icon={<MapPin size={20} />} label="Cần xử lý (Vắng/Thiếu CO)" value={computedSessions.filter(s => s.computedStatus === 'ABSENT' || s.computedStatus === 'MISSING_CHECKOUT').length.toString()} type="danger" />
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
@@ -182,12 +204,33 @@ export default function AttendancePage() {
                     </TableCell>
                     <TableCell>
                       {teacherAttendance ? (
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-1.5">
-                            <UserCheck size={14} className="text-emerald-500 shrink-0" />
-                            <span className="font-semibold text-slate-700 text-[13px]">{checkinStr}</span>
+                        <div className="flex items-start gap-3">
+                          {teacherAttendance.checkinImageUrl && (
+                            <a href={teacherAttendance.checkinImageUrl} target="_blank" rel="noreferrer" className="shrink-0 group relative block">
+                              <img src={teacherAttendance.checkinImageUrl} alt="Selfie" className="w-10 h-10 object-cover rounded-md border border-slate-200 shadow-sm group-hover:opacity-80 transition-opacity" loading="lazy" />
+                            </a>
+                          )}
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <UserCheck size={14} className="text-emerald-500 shrink-0" />
+                              <span className="font-semibold text-slate-700 text-[13px]">{checkinStr}</span>
+                            </div>
+                            {(teacherAttendance.lateMinutes > 0 || teacherAttendance.earlyCheckoutMinutes > 0) && (
+                              <div className="flex flex-wrap gap-2 items-center text-[11px] font-medium ml-5">
+                                {teacherAttendance.lateMinutes > 0 && (
+                                  <span className="text-red-500 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-red-500"></span> Trễ {teacherAttendance.lateMinutes}p</span>
+                                )}
+                                {teacherAttendance.earlyCheckoutMinutes > 0 && (
+                                  <span className="text-orange-500 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-orange-500"></span> Về sớm {teacherAttendance.earlyCheckoutMinutes}p</span>
+                                )}
+                              </div>
+                            )}
+                            {teacherAttendance.note && (
+                              <div className="text-[11px] text-slate-500 italic mt-0.5 max-w-[200px] truncate" title={teacherAttendance.note}>
+                                <span className="font-semibold text-slate-600">Ghi chú:</span> {teacherAttendance.note}
+                              </div>
+                            )}
                           </div>
-                          {teacherAttendance.lateMinutes > 0 && <span className="text-[11px] text-red-500 font-medium ml-5 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-red-500"></span> Đi trễ {teacherAttendance.lateMinutes} phút</span>}
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5 text-slate-400 italic text-[13px]">
@@ -196,9 +239,14 @@ export default function AttendancePage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={s.computedStatus === 'COMPLETED' ? 'success' : s.computedStatus === 'ONGOING' ? 'warn' : s.computedStatus === 'MISSING' ? 'secondary' : 'info'} className="shadow-sm">
-                        {s.computedStatus === 'COMPLETED' ? 'Đã xong' : s.computedStatus === 'ONGOING' ? 'Đang diễn ra' : s.computedStatus === 'MISSING' ? 'Chưa báo cáo' : 'Sắp tới'}
-                      </Badge>
+                      {(() => {
+                        const display = getStatusDisplay(s.computedStatus);
+                        return (
+                          <Badge variant={display.variant} className="shadow-sm">
+                            {display.label}
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
                       {isAuthorized && (
@@ -228,14 +276,15 @@ export default function AttendancePage() {
   );
 }
 
-function StatCard({ icon, label, value, type }: { icon: React.ReactNode, label: string, value: string, type: 'accent' | 'success' | 'warn' | 'danger' }) {
-  const colors = {
+function StatCard({ icon, label, value, type }: { icon: React.ReactNode, label: string, value: string, type: 'accent' | 'success' | 'warn' | 'danger' | 'info' }) {
+  const colors: Record<string, { bg: string, text: string, circle: string }> = {
     accent: { bg: 'bg-edu-accentLight', text: 'text-edu-accent', circle: 'after:bg-edu-accent' },
     success: { bg: 'bg-edu-successLight', text: 'text-edu-success', circle: 'after:bg-edu-success' },
     warn: { bg: 'bg-edu-warnLight', text: 'text-edu-warn', circle: 'after:bg-edu-warn' },
     danger: { bg: 'bg-edu-dangerLight', text: 'text-edu-danger', circle: 'after:bg-edu-danger' },
+    info: { bg: 'bg-blue-50', text: 'text-blue-500', circle: 'after:bg-blue-500' },
   };
-  const c = colors[type];
+  const c = colors[type] || colors.accent;
 
   return (
     <div className={`bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-edu-border hover:-translate-y-0.5 hover:shadow-md transition-all relative overflow-hidden after:content-[''] after:absolute after:-top-5 after:-right-5 after:w-20 after:h-20 after:rounded-full after:opacity-10 ${c.circle}`}>

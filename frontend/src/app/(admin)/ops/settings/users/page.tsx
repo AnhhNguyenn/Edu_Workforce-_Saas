@@ -10,8 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { UserModal } from "./_components/UserModal";
+import { useMySubscription } from "@/hooks/queries/useSubscriptions";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function UsersSettingsPage() {
+  const { data: sub, isLoading: subLoading, isError: subError } = useMySubscription();
+  const setUpgradeModalOpen = useAppStore(state => state.setUpgradeModalOpen);
+  const isLocked = sub?.planName?.toLowerCase().includes("basic") || sub?.planName?.toLowerCase().includes("free") || subError;
+
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,6 +94,23 @@ export default function UsersSettingsPage() {
       alert(error.response?.data?.message || "Có lỗi xảy ra");
     }
   };
+
+  if (isLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-4">
+        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+          <Lock className="text-gray-400" size={32} />
+        </div>
+        <h2 className="text-2xl font-bold text-edu-fg mb-2">Tính năng bị khóa</h2>
+        <p className="text-edu-muted text-center max-w-md mb-8">
+          Quản lý người dùng nâng cao không khả dụng ở gói Basic. Vui lòng nâng cấp gói dịch vụ để mở khóa tính năng này.
+        </p>
+        <Button onClick={() => setUpgradeModalOpen(true)} className="bg-edu-accent hover:bg-edu-accentDark text-white px-8">
+          Nâng cấp ngay
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-7">

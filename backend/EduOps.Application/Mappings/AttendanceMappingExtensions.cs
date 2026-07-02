@@ -20,7 +20,8 @@ namespace EduOps.Application.Mappings
                 StatusCode = a.Status?.Code ?? string.Empty,
                 LateMinutes = a.LateMinutes,
                 EarlyCheckoutMinutes = a.EarlyCheckoutMinutes,
-                Note = a.Note
+                Note = a.Note,
+                CheckinImageUrl = a.CheckinImageUrl
             };
         }
     }

@@ -10,8 +10,15 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { RoleModal } from "./_components/RoleModal";
 import { AssignPermissionsModal, Permission } from "./_components/AssignPermissionsModal";
 import { ConfirmActionModal } from "@/components/ui/ConfirmActionModal";
+import { useMySubscription } from "@/hooks/queries/useSubscriptions";
+import { useAppStore } from "@/store/useAppStore";
+import { Lock } from "lucide-react";
 
 export default function RolesSettingsPage() {
+  const { data: sub, isLoading: subLoading, isError: subError } = useMySubscription();
+  const setUpgradeModalOpen = useAppStore(state => state.setUpgradeModalOpen);
+  const isLocked = sub?.planName?.toLowerCase().includes("basic") || sub?.planName?.toLowerCase().includes("free") || subError;
+
   const [roles, setRoles] = useState<any[]>([]);
   const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,6 +94,23 @@ export default function RolesSettingsPage() {
       setIsDeleting(false);
     }
   };
+
+  if (isLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-4">
+        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+          <Lock className="text-gray-400" size={32} />
+        </div>
+        <h2 className="text-2xl font-bold text-edu-fg mb-2">Tính năng bị khóa</h2>
+        <p className="text-edu-muted text-center max-w-md mb-8">
+          Quản lý phân quyền nâng cao không khả dụng ở gói Basic. Vui lòng nâng cấp gói dịch vụ để mở khóa tính năng này.
+        </p>
+        <Button onClick={() => setUpgradeModalOpen(true)} className="bg-edu-accent hover:bg-edu-accentDark text-white px-8">
+          Nâng cấp ngay
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-7">

@@ -233,7 +233,11 @@ export function Topbar() {
                 <button 
                   onClick={() => {
                     setMenuOpen(false);
-                    router.push('/ops/settings#thong-tin-chung');
+                    if (userRole === 'CENTER_ADMIN') {
+                      router.push('/ops/settings#thong-tin-chung');
+                    } else {
+                      router.push('/me/profile');
+                    }
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                 >

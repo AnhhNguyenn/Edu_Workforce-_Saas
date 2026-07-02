@@ -23,7 +23,15 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<PagedResult<AuditLogResponseDto>>> GetTenantLogs([FromQuery] string type = "audit", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 50)
+        public async Task<ActionResult<PagedResult<AuditLogResponseDto>>> GetTenantLogs(
+            [FromQuery] string type = "audit", 
+            [FromQuery] int pageNumber = 1, 
+            [FromQuery] int pageSize = 50,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null,
+            [FromQuery] string? action = null,
+            [FromQuery] string? keyword = null
+        )
         {
             var orgId = _currentUserService.OrganizationId;
             var role = _currentUserService.Role;
@@ -37,7 +45,7 @@ namespace EduOps.Api.Controllers
                 return BadRequest("Tài khoản Super Admin cần chọn một Organization cụ thể để xem Audit Log.");
             }
 
-            var result = await _auditLogService.GetTenantAuditLogsAsync(orgId.Value, pageNumber, pageSize, type);
+            var result = await _auditLogService.GetTenantAuditLogsAsync(orgId.Value, pageNumber, pageSize, type, startDate, endDate, action, keyword);
             return Ok(result);
         }
     }

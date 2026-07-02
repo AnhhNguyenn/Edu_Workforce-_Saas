@@ -43,7 +43,16 @@ namespace EduOps.Application.Services
             await _unitOfWork.CommitAsync();
         }
 
-        public async Task<PagedResult<AuditLogResponseDto>> GetTenantAuditLogsAsync(Guid organizationId, int pageNumber = 1, int pageSize = 100, string? type = null)
+        public async Task<PagedResult<AuditLogResponseDto>> GetTenantAuditLogsAsync(
+            Guid organizationId, 
+            int pageNumber = 1, 
+            int pageSize = 100, 
+            string? type = null,
+            DateTime? startDate = null,
+            DateTime? endDate = null,
+            string? action = null,
+            string? keyword = null
+        )
         {
             var query = _unitOfWork.Repository<AuditLog>()
                 .GetQueryable()
@@ -57,6 +66,35 @@ namespace EduOps.Application.Services
             else
             {
                 query = query.Where(x => x.EntityType != "Security");
+            }
+
+            if (startDate.HasValue)
+            {
+                var start = startDate.Value.ToUniversalTime();
+                query = query.Where(x => x.CreatedAt >= start);
+            }
+
+            if (endDate.HasValue)
+            {
+                var end = endDate.Value.ToUniversalTime();
+                query = query.Where(x => x.CreatedAt <= end);
+            }
+
+            if (!string.IsNullOrEmpty(action) && action != "all")
+            {
+                query = query.Where(x => x.Action.ToLower() == action.ToLower());
+            }
+
+            if (!string.IsNullOrEmpty(keyword))
+            {
+                var keywordLower = keyword.ToLower();
+                var matchingUserIds = await _unitOfWork.Repository<User>().GetQueryable()
+                    .IgnoreQueryFilters()
+                    .Where(u => u.OrganizationId == organizationId && (u.FullName.ToLower().Contains(keywordLower) || u.Email.ToLower().Contains(keywordLower)))
+                    .Select(u => u.Id)
+                    .ToListAsync();
+                
+                query = query.Where(x => matchingUserIds.Contains(x.UserId));
             }
 
             query = query.OrderByDescending(x => x.CreatedAt);
