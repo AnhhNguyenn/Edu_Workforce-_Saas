@@ -52,7 +52,7 @@ namespace EduOps.Application.Services
                 (!query.StartDate.HasValue || s.SessionDate >= query.StartDate.Value.Date.ToUniversalTime()) &&
                 (!query.EndDate.HasValue || s.SessionDate <= query.EndDate.Value.Date.ToUniversalTime()) &&
                 (string.IsNullOrEmpty(query.SearchKeyword) || s.LessonTitle.ToLower().Contains(query.SearchKeyword.ToLower())),
-                query.PageNumber, query.PageSize, includeProperties: "Status,SessionAssistants");
+                query.PageNumber, query.PageSize, includeProperties: "Status,SessionAssistants,SessionTeachers");
 
             return new PagedResult<SessionListResponseDto>
             {
@@ -66,7 +66,7 @@ namespace EduOps.Application.Services
         public async Task<SessionDetailResponseDto> GetSessionByIdAsync(Guid id, Guid organizationId)
         {
             var repo = _unitOfWork.Repository<Session>();
-            var session = await repo.FirstOrDefaultAsync(s => s.Id == id && s.OrganizationId == organizationId, includeProperties: "Status,SessionAssistants");
+            var session = await repo.FirstOrDefaultAsync(s => s.Id == id && s.OrganizationId == organizationId, includeProperties: "Status,SessionAssistants,SessionTeachers");
             if (session == null)
             {
                 throw new EduOps.Application.Exceptions.NotFoundException("Session", id);
@@ -74,7 +74,7 @@ namespace EduOps.Application.Services
             return session.ToDetailResponseDto();
         }
 
-        public async Task CheckConflictAsync(Guid organizationId, Guid? teacherId, List<Guid>? assistantIds, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime, Guid? excludeSessionId = null, Guid? excludeGroupId = null)
+        public async Task CheckConflictAsync(Guid organizationId, List<Guid>? teacherIds, List<Guid>? assistantIds, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime, Guid? excludeSessionId = null, Guid? excludeGroupId = null)
         {
             var repo = _unitOfWork.Repository<Session>();
             var targetDate = sessionDate.Date.ToUniversalTime();
@@ -86,7 +86,8 @@ namespace EduOps.Application.Services
                 (!excludeGroupId.HasValue || s.GroupId == null || s.GroupId != excludeGroupId.Value) &&
                 s.SessionDate == targetDate &&
                 s.Status != null && s.Status.Code != "CANCELLED" &&
-                ((teacherId.HasValue && s.TeacherId == teacherId.Value) ||
+                ((teacherIds != null && teacherIds.Any() && s.SessionTeachers.Any(st => teacherIds.Contains(st.TeacherId))) ||
+                 (teacherIds != null && teacherIds.Any() && s.TeacherId.HasValue && teacherIds.Contains(s.TeacherId.Value)) ||
                  (assistantIds != null && assistantIds.Any() && s.SessionAssistants.Any(sa => assistantIds.Contains(sa.AssistantId))) ||
                  (assistantIds != null && assistantIds.Any() && s.AssistantId.HasValue && assistantIds.Contains(s.AssistantId.Value))) &&
                 ((startTime >= s.StartTime && startTime < s.EndTime) ||
@@ -96,9 +97,15 @@ namespace EduOps.Application.Services
 
             if (exists)
             {
-                _logger.LogWarning($"Conflict detected for Session: Teacher {teacherId} at {startTime}");
+                _logger.LogWarning($"Conflict detected for Session: Teachers {string.Join(",", teacherIds ?? new List<Guid>())} at {startTime}");
                 throw new BadRequestException("Conflict detected: Teacher or Assistant is already assigned to another session at this time.");
             }
+        }
+
+        public Task CheckConflictAsync(Guid organizationId, Guid? teacherId, List<Guid>? assistantIds, DateTime sessionDate, TimeSpan startTime, TimeSpan endTime, Guid? excludeSessionId = null, Guid? excludeGroupId = null)
+        {
+            var teacherIds = teacherId.HasValue ? new List<Guid> { teacherId.Value } : null;
+            return CheckConflictAsync(organizationId, teacherIds, assistantIds, sessionDate, startTime, endTime, excludeSessionId, excludeGroupId);
         }
 
         public async Task<SessionDetailResponseDto> CreateSessionAsync(Guid organizationId, CreateSessionRequestDto request)
@@ -115,12 +122,19 @@ namespace EduOps.Application.Services
                 if (!await _unitOfWork.Repository<School>().AnyAsync(s => s.Id == schoolId && s.OrganizationId == organizationId))
                     throw new BadRequestException("Cơ sở không tồn tại hoặc đã bị xóa.");
 
-                var userRepo = _unitOfWork.Repository<User>();
-                if (request.TeacherId.HasValue)
+                 var userRepo = _unitOfWork.Repository<User>();
+                var teacherIdsToUse = request.TeacherIds != null && request.TeacherIds.Any()
+                    ? request.TeacherIds
+                    : (request.TeacherId.HasValue ? new List<Guid> { request.TeacherId.Value } : new List<Guid>());
+
+                if (teacherIdsToUse.Any())
                 {
-                    var teacher = await userRepo.FirstOrDefaultAsync(u => u.Id == request.TeacherId.Value, includeProperties: "Role");
-                    if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role?.Code != "TEACHER")
-                        throw new BadRequestException("Giáo viên không hợp lệ hoặc không tồn tại.");
+                    foreach (var tId in teacherIdsToUse)
+                    {
+                        var teacher = await userRepo.FirstOrDefaultAsync(u => u.Id == tId, includeProperties: "Role");
+                        if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role?.Code != "TEACHER")
+                            throw new BadRequestException("Giáo viên không hợp lệ hoặc không tồn tại.");
+                    }
                 }
 
                 if (request.AssistantIds != null && request.AssistantIds.Any())
@@ -134,7 +148,7 @@ namespace EduOps.Application.Services
                 }
 
                 var repo = _unitOfWork.Repository<Session>();
-                await CheckConflictAsync(organizationId, request.TeacherId, request.AssistantIds, request.SessionDate, request.StartTime, request.EndTime);
+                await CheckConflictAsync(organizationId, teacherIdsToUse, request.AssistantIds, request.SessionDate, request.StartTime, request.EndTime);
 
                 var session = new Session
                 {
@@ -142,7 +156,8 @@ namespace EduOps.Application.Services
                     ClassId = request.ClassId,
                     GroupId = request.GroupId,
                     SchoolId = schoolId,
-                    TeacherId = request.TeacherId,
+                    TeacherId = teacherIdsToUse.Any() ? teacherIdsToUse.First() : (Guid?)null,
+                    SessionTeachers = teacherIdsToUse.Select(tId => new SessionTeacher { TeacherId = tId }).ToList(),
                     AssistantId = request.AssistantIds?.FirstOrDefault(),
                     SessionAssistants = request.AssistantIds?.Select(aId => new SessionAssistant { AssistantId = aId }).ToList() ?? new List<SessionAssistant>(),
                     LessonTitle = request.LessonTitle,
@@ -161,14 +176,17 @@ namespace EduOps.Application.Services
                 await repo.AddAsync(session);
                 await _unitOfWork.CommitAsync();
 
-                if (request.TeacherId.HasValue)
+                if (teacherIdsToUse.Any())
                 {
-                    await _notificationService.CreateAndSendAsync(
-                        request.TeacherId.Value,
-                        "Lịch dạy đột xuất",
-                        $"Bạn được phân công dạy một buổi mới: {request.LessonTitle} vào ngày {request.SessionDate:dd/MM/yyyy}.",
-                        "SYSTEM"
-                    );
+                    foreach (var tId in teacherIdsToUse)
+                    {
+                        await _notificationService.CreateAndSendAsync(
+                            tId,
+                            "Lịch dạy đột xuất",
+                            $"Bạn được phân công dạy một buổi mới: {request.LessonTitle} vào ngày {request.SessionDate:dd/MM/yyyy}.",
+                            "SYSTEM"
+                        );
+                    }
                 }
 
                 if (request.AssistantIds != null && request.AssistantIds.Any())
@@ -235,6 +253,7 @@ namespace EduOps.Application.Services
                         GroupId = groupId,
                         SchoolId = request.SchoolId ?? Guid.Empty,
                         TeacherId = request.TeacherId,
+                        TeacherIds = request.TeacherIds,
                         AssistantIds = request.AssistantIds,
                         LessonTitle = request.LessonTitle,
                         RoomName = request.RoomName,
@@ -260,19 +279,42 @@ namespace EduOps.Application.Services
         {
             // Làm sạch dữ liệu từ Frontend: Loại bỏ Guid.Empty nếu có (Frontend thường gửi 00000000-0000-0000-0000-000000000000 thay vì null)
             if (request.TeacherId == Guid.Empty) request.TeacherId = null;
+            if (request.TeacherIds != null)
+            {
+                request.TeacherIds = request.TeacherIds.Where(tid => tid != Guid.Empty).ToList();
+            }
             if (request.AssistantIds != null)
             {
                 request.AssistantIds = request.AssistantIds.Where(aid => aid != Guid.Empty).ToList();
             }
 
             var userRepo = _unitOfWork.Repository<User>();
+            var teacherRepo = _unitOfWork.Repository<SessionTeacher>();
+
+            // Lấy danh sách giáo viên hiện tại của session gốc
+            var originalTeachers = (await teacherRepo.FindAsync(st => st.SessionId == id)).ToList();
+            var originalTeacherIds = originalTeachers.Where(st => st.DeletedAt == null).Select(st => st.TeacherId).ToList();
+
+            // Nếu request gửi lên TeacherIds thì dùng, nếu không thì fallback về single TeacherId hoặc giữ nguyên
+            var fallbackTeacherIds = request.TeacherId.HasValue ? new List<Guid> { request.TeacherId.Value } : new List<Guid>();
+            var requestTeacherIds = request.TeacherIds ?? (request.TeacherId.HasValue ? fallbackTeacherIds : null);
+
+            bool teachersChanged = false;
+            if (requestTeacherIds != null)
+            {
+                teachersChanged = originalTeacherIds.Count != requestTeacherIds.Count || originalTeacherIds.Except(requestTeacherIds).Any();
+            }
+            var teacherIdsToUse = requestTeacherIds ?? originalTeacherIds;
 
             // Validate Giáo viên
-            if (request.TeacherId.HasValue)
+            if (teacherIdsToUse.Any())
             {
-                var teacher = await userRepo.FirstOrDefaultAsync(u => u.Id == request.TeacherId.Value, includeProperties: "Role");
-                if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role?.Code != "TEACHER")
-                    throw new BadRequestException("Giáo viên không hợp lệ hoặc không tồn tại.");
+                foreach (var tId in teacherIdsToUse)
+                {
+                    var teacher = await userRepo.FirstOrDefaultAsync(u => u.Id == tId, includeProperties: "Role");
+                    if (teacher == null || teacher.OrganizationId != organizationId || teacher.Role?.Code != "TEACHER")
+                        throw new BadRequestException("Giáo viên không hợp lệ hoặc không tồn tại.");
+                }
             }
 
             // Validate Trợ giảng
@@ -344,20 +386,20 @@ namespace EduOps.Application.Services
             }
             var assistantIdsToUse = request.AssistantIds ?? originalAssistantIds;
 
-            bool timeOrStaffChanged = originalSession.TeacherId != request.TeacherId || assistantsChanged ||
+            bool timeOrStaffChanged = teachersChanged || assistantsChanged ||
                                       originalSession.SessionDate.Date != request.SessionDate.Date ||
                                       originalSession.StartTime != request.StartTime || originalSession.EndTime != request.EndTime;
 
             if (timeOrStaffChanged)
             {
-                await CheckConflictAsync(organizationId, request.TeacherId, assistantIdsToUse, request.SessionDate, request.StartTime, request.EndTime, id, originalSession.GroupId);
+                await CheckConflictAsync(organizationId, teacherIdsToUse, assistantIdsToUse, request.SessionDate, request.StartTime, request.EndTime, id, originalSession.GroupId);
             }
 
             // Cập nhật các session hiện tại
             foreach (var session in groupSessions)
             {
                 session.GroupId = currentGroupId;
-                session.TeacherId = request.TeacherId;
+                session.TeacherId = teacherIdsToUse.Any() ? teacherIdsToUse.First() : (Guid?)null;
                 session.LessonTitle = request.LessonTitle;
                 session.RoomName = request.RoomName;
                 session.Notes = request.Notes;
@@ -369,6 +411,26 @@ namespace EduOps.Application.Services
                 session.StartTime = request.StartTime;
                 session.EndTime = request.EndTime;
                 
+                if (requestTeacherIds != null)
+                {
+                    // Cập nhật SessionTeachers cho từng session hiện tại
+                    var sessionTeachers = (await teacherRepo.FindAsync(st => st.SessionId == session.Id)).ToList();
+                    foreach (var st in sessionTeachers.Where(st => st.DeletedAt == null))
+                    {
+                        st.DeletedAt = DateTime.UtcNow;
+                    }
+                    if (teacherIdsToUse.Any())
+                    {
+                        var newTeachers = teacherIdsToUse.Select(tid => new SessionTeacher
+                        {
+                            SessionId = session.Id,
+                            TeacherId = tid,
+                            OrganizationId = organizationId
+                        }).ToList();
+                        await teacherRepo.AddRangeAsync(newTeachers);
+                    }
+                }
+
                 if (request.AssistantIds != null)
                 {
                     session.AssistantId = request.AssistantIds.Any() ? request.AssistantIds.First() : (Guid?)null;
@@ -399,7 +461,7 @@ namespace EduOps.Application.Services
                 {
                     ClassId = classIdToAdd,
                     SchoolId = request.SchoolId,
-                    TeacherId = request.TeacherId,
+                    TeacherId = teacherIdsToUse.Any() ? teacherIdsToUse.First() : (Guid?)null,
                     GroupId = currentGroupId,
                     LessonTitle = request.LessonTitle,
                     RoomName = request.RoomName,
@@ -415,6 +477,18 @@ namespace EduOps.Application.Services
                     StatusId = scheduledStatus?.Id
                 };
                 
+                if (teacherIdsToUse.Any())
+                {
+                    foreach (var tid in teacherIdsToUse)
+                    {
+                        newSession.SessionTeachers.Add(new SessionTeacher
+                        {
+                            TeacherId = tid,
+                            OrganizationId = organizationId
+                        });
+                    }
+                }
+
                 if (request.AssistantIds != null && request.AssistantIds.Any())
                 {
                     newSession.AssistantId = request.AssistantIds.First();
@@ -1327,7 +1401,7 @@ namespace EduOps.Application.Services
                 throw new BadRequestException("Phải cung cấp danh sách ca học.");
 
             var repo = _unitOfWork.Repository<Session>();
-            var sessionsResult = await repo.FindAsync(s => s.OrganizationId == organizationId && request.SessionIds.Contains(s.Id), includeProperties: "SessionAssistants");
+            var sessionsResult = await repo.FindAsync(s => s.OrganizationId == organizationId && request.SessionIds.Contains(s.Id), includeProperties: "SessionAssistants,SessionTeachers");
             var sessions = sessionsResult.ToList();
 
             var updatedSessions = new List<SessionDetailResponseDto>();
@@ -1338,13 +1412,24 @@ namespace EduOps.Application.Services
                 if (request.AssistantId.HasValue) assistantIds.Add(request.AssistantId.Value);
                 else assistantIds = session.SessionAssistants.Select(sa => sa.AssistantId).ToList();
 
-                var teacherId = request.TeacherId ?? session.TeacherId;
+                var teacherIds = new List<Guid>();
+                if (request.TeacherId.HasValue) teacherIds.Add(request.TeacherId.Value);
+                else teacherIds = session.SessionTeachers.Select(st => st.TeacherId).ToList();
 
-                await CheckConflictAsync(organizationId, teacherId, assistantIds, session.SessionDate, session.StartTime, session.EndTime, session.Id, session.GroupId);
+                await CheckConflictAsync(organizationId, teacherIds, assistantIds, session.SessionDate, session.StartTime, session.EndTime, session.Id, session.GroupId);
 
                 if (request.TeacherId.HasValue)
                 {
-                    session.TeacherId = request.TeacherId;
+                    session.SessionTeachers.Clear();
+                    if (request.TeacherId.Value != Guid.Empty)
+                    {
+                        session.SessionTeachers.Add(new SessionTeacher { TeacherId = request.TeacherId.Value });
+                        session.TeacherId = request.TeacherId;
+                    }
+                    else
+                    {
+                        session.TeacherId = null;
+                    }
                 }
 
                 if (request.AssistantId.HasValue)

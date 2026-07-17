@@ -42,6 +42,7 @@ export const useSubmitTeacherReport = (sessionId: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['report', sessionId] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     }
   });
 };
@@ -55,6 +56,7 @@ export const useSubmitAssistantReport = (sessionId: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['report', sessionId] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     }
   });
 };
@@ -96,6 +98,7 @@ export const useReports = (pageNumber = 1, pageSize = 20) => {
     queryFn: async () => {
       const response = await apiClient.get<PagedResult<ReportDto>>(`/reports?pageNumber=${pageNumber}&pageSize=${pageSize}`);
       return response.data;
-    }
+    },
+    refetchInterval: 5000
   });
 };

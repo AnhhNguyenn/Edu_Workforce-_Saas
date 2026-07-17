@@ -123,8 +123,13 @@ function SessionCard({ session, attendance, className, schoolName, teacherName, 
     statusConfig = { text: now >= sessionEndTime ? 'Đang dạy (Lố giờ)' : 'Đang dạy', colorClass: 'bg-blue-100 text-blue-700', pulse: true };
   } else if (!hasCheckedIn && now >= sessionEndTime) {
     statusConfig = { text: 'Vắng / Đã qua', colorClass: 'bg-red-100 text-red-600', pulse: false };
-  } else if (!hasCheckedIn && now >= sessionStartTime && now < sessionEndTime) {
-    statusConfig = { text: 'Trễ Check-in', colorClass: 'bg-yellow-100 text-yellow-700', pulse: true };
+  } else if (!hasCheckedIn && now >= new Date(sessionStartTime.getTime() - 5 * 60 * 1000) && now < sessionEndTime) {
+    const startTimePlus3 = new Date(sessionStartTime.getTime() + 3 * 60 * 1000);
+    if (now <= startTimePlus3) {
+      statusConfig = { text: 'Chờ Check-in', colorClass: 'bg-green-100 text-green-700', pulse: true };
+    } else {
+      statusConfig = { text: 'Trễ Check-in', colorClass: 'bg-yellow-100 text-yellow-700', pulse: true };
+    }
   }
 
   const formatTime = (isoString?: string) => {

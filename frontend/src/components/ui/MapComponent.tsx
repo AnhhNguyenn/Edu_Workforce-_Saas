@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { useEffect, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents, Circle } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix leaflet default icon issue in Next.js
@@ -16,6 +16,7 @@ const customIcon = new L.Icon({
 interface MapComponentProps {
   lat: number;
   lng: number;
+  radius?: number;
   onChange: (lat: number, lng: number) => void;
 }
 
@@ -50,16 +51,27 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null;
 }
 
-export default function MapComponent({ lat, lng, onChange }: MapComponentProps) {
+export default function MapComponent({ lat, lng, radius = 200, onChange }: MapComponentProps) {
   const position = { lat, lng };
+  const mapKey = useMemo(() => Math.random().toString(), []);
 
   return (
-    <MapContainer center={[lat, lng]} zoom={13} style={{ height: '100%', width: '100%', borderRadius: '0.5rem', zIndex: 0 }}>
+    <MapContainer key={mapKey} center={[lat, lng]} zoom={13} style={{ height: '100%', width: '100%', borderRadius: '0.5rem', zIndex: 0 }}>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapUpdater center={[lat, lng]} />
+      <Circle
+        center={[lat, lng]}
+        radius={radius}
+        pathOptions={{
+          color: '#3b82f6',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.15,
+          weight: 1.5
+        }}
+      />
       <LocationMarker 
         position={position} 
         setPosition={(pos: any) => onChange(pos.lat, pos.lng)} 

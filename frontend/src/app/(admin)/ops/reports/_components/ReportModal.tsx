@@ -82,12 +82,12 @@ export function ReportModal({ isOpen, onClose, session }: ReportModalProps) {
             </div>
 
             {/* Teacher Report */}
-            {(report.lessonTaught || report.progress || report.teacherComment || report.specialStudents) && (
-              <div className="space-y-3">
-                <h3 className="text-md font-bold text-slate-800 flex items-center gap-2 border-b pb-2">
-                  <User className="text-blue-500" size={18} />
-                  Báo cáo của Giáo viên
-                </h3>
+            <div className="space-y-3">
+              <h3 className="text-md font-bold text-slate-800 flex items-center gap-2 border-b pb-2">
+                <User className="text-blue-500" size={18} />
+                Báo cáo của Giáo viên
+              </h3>
+              {report.lessonTaught || report.progress || report.teacherComment || report.specialStudents || report.ratingForAssistant ? (
                 <div className="grid grid-cols-1 gap-4">
                   {report.lessonTaught && (
                     <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100">
@@ -113,28 +113,62 @@ export function ReportModal({ isOpen, onClose, session }: ReportModalProps) {
                       <div className="text-sm text-slate-700 whitespace-pre-wrap">{report.specialStudents}</div>
                     </div>
                   )}
+                  {report.ratingForAssistant !== undefined && report.ratingForAssistant !== null && (
+                    <div className="bg-teal-50/30 p-3 rounded-lg border border-teal-100">
+                      <div className="text-xs font-semibold text-teal-800 uppercase mb-1 flex items-center gap-1">
+                        Đánh giá Trợ giảng: <span className="text-amber-500 font-bold ml-1">★ {report.ratingForAssistant}/5</span>
+                      </div>
+                      {report.feedbackForAssistant && (
+                        <div className="text-sm text-slate-600 italic mt-1 font-medium">Góp ý: "{report.feedbackForAssistant}"</div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-sm text-slate-400 italic bg-slate-50 p-3 rounded-lg border border-dashed border-slate-200 text-center">
+                  Giáo viên chưa nộp báo cáo giảng dạy.
+                </div>
+              )}
+            </div>
 
             {/* Assistant Report */}
-            {report.assistantNote && (
+            {(session.assistantId || (session.assistantIds && session.assistantIds.length > 0)) && (
               <div className="space-y-3 pt-4 border-t border-slate-100">
                 <h3 className="text-md font-bold text-slate-800 flex items-center gap-2 border-b pb-2">
                   <Users className="text-teal-500" size={18} />
                   Báo cáo của Trợ giảng
                 </h3>
-                <div className="bg-teal-50/30 p-3 rounded-lg border border-teal-100">
-                  <div className="text-xs font-semibold text-teal-800 uppercase mb-1">Nhận xét của Trợ giảng</div>
-                  <div className="text-sm text-slate-700 whitespace-pre-wrap">{report.assistantNote}</div>
-                </div>
+                {report.assistantNote || report.ratingForTeacher || report.feedbackForTeacher ? (
+                  <div className="grid grid-cols-1 gap-4">
+                    {report.assistantNote && (
+                      <div className="bg-teal-50/30 p-3 rounded-lg border border-teal-100">
+                        <div className="text-xs font-semibold text-teal-800 uppercase mb-1">Nhận xét của Trợ giảng</div>
+                        <div className="text-sm text-slate-700 whitespace-pre-wrap">{report.assistantNote}</div>
+                      </div>
+                    )}
+                    {report.ratingForTeacher !== undefined && report.ratingForTeacher !== null && (
+                      <div className="bg-blue-50/30 p-3 rounded-lg border border-blue-100">
+                        <div className="text-xs font-semibold text-blue-800 uppercase mb-1 flex items-center gap-1">
+                          Đánh giá Giáo viên: <span className="text-amber-500 font-bold ml-1">★ {report.ratingForTeacher}/5</span>
+                        </div>
+                        {report.feedbackForTeacher && (
+                          <div className="text-sm text-slate-600 italic mt-1 font-medium">Góp ý: "{report.feedbackForTeacher}"</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-400 italic bg-slate-50 p-3 rounded-lg border border-dashed border-slate-200 text-center">
+                    Trợ giảng chưa nộp báo cáo.
+                  </div>
+                )}
               </div>
             )}
 
             {/* Media */}
             {renderMedia()}
 
-            <div className="text-xs text-slate-400 text-right pt-4">
+            <div className="text-xs text-slate-400 text-right pt-4 border-t border-slate-100">
               Nộp lúc: {report.submittedAt ? new Date(report.submittedAt).toLocaleString('vi-VN') : 'Không rõ'}
             </div>
           </div>

@@ -33,6 +33,7 @@ namespace EduOps.Infrastructure.Data
         public DbSet<Session> Sessions { get; set; }
         public DbSet<SessionDetail> SessionDetails { get; set; }
         public DbSet<SessionAssistant> SessionAssistants { get; set; }
+        public DbSet<SessionTeacher> SessionTeachers { get; set; }
 
         // --- ATTENDANCE & REPORT ---
         public DbSet<Attendance> Attendances { get; set; }

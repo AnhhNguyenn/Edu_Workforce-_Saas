@@ -22,7 +22,8 @@ export const useMyAttendances = () => {
     queryFn: async () => {
       const response = await apiClient.get<any>('/attendances/me');
       return response.data;
-    }
+    },
+    refetchInterval: 5000, // Real-time poll every 5 seconds
   });
 };
 
@@ -96,6 +97,19 @@ export const useSubmitStudentAttendances = (sessionId: string) => {
     mutationFn: async (data: StudentAttendanceSubmitDto) => {
       const response = await apiClient.post(`/attendances/sessions/${sessionId}/students`, data);
       return response.data;
+    }
+  });
+};
+
+export const useConfirmExplanation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (attendanceId: string) => {
+      const response = await apiClient.patch(`/attendances/${attendanceId}/confirm-explanation`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['today-attendances'] });
     }
   });
 };

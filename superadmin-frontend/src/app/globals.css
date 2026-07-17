@@ -113,3 +113,9 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Hide Edge/IE default reveal password button */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}

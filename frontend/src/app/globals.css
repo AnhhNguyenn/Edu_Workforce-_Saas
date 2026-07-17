@@ -93,3 +93,40 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Hide Edge/IE default reveal password button */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+/* Custom styles for React DatePicker & TimePicker */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+.react-datepicker {
+  font-family: inherit !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+}
+.react-datepicker__header {
+  background-color: white !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  border-top-left-radius: 1rem !important;
+  border-top-right-radius: 1rem !important;
+}
+.react-datepicker__time-container {
+  width: 100px !important;
+}
+.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box {
+  width: 100% !important;
+  border-radius: 0 0 1rem 1rem !important;
+}
+.react-datepicker__time-list-item--selected {
+  background-color: #2563EB !important;
+}
+.react-datepicker__time-list-item:hover {
+  background-color: #F1F5F9 !important;
+  color: #2563EB !important;
+}

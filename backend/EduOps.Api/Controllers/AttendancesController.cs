@@ -81,5 +81,13 @@ namespace EduOps.Api.Controllers
             await _attendanceService.SubmitStudentAttendancesAsync(sessionId, _currentUserService.OrganizationId ?? Guid.Empty, userId, _currentUserService.Role, request);
             return Ok();
         }
+
+        [HttpPatch("{id}/confirm-explanation")]
+        [HasPermission("Attendances:Manage")]
+        public async Task<IActionResult> ConfirmExplanation(Guid id)
+        {
+            await _attendanceService.ConfirmExplanationAsync(id);
+            return Ok();
+        }
     }
 }

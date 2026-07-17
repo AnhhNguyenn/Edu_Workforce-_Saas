@@ -11,10 +11,11 @@ import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import { Loader2, CalendarPlus, Clock, PenBox, Calendar, Trash2, MoreVertical, User, MapPin, X, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, Sun, Moon, Users, Search, GraduationCap, Building2, FileSpreadsheet, UploadCloud } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { useProfile } from '@/hooks/queries/useProfile';
 import { useConfirm } from '@/providers/ConfirmProvider';
 
@@ -219,6 +220,7 @@ export default function SchedulesPage() {
     classId: '',
     classIds: [] as string[],
     teacherId: '',
+    teacherIds: [] as string[],
     assistantIds: [] as string[],
     lessonTitle: '',
     roomName: '',
@@ -239,6 +241,7 @@ export default function SchedulesPage() {
   const { data: profile } = useProfile();
   const { data: customFields } = useCustomFields();
   const [extraDataValues, setExtraDataValues] = useState<Record<string, string>>({});
+  const [timeError, setTimeError] = useState(false);
   const isAuthorized = profile?.role === 'SUPER_ADMIN' || profile?.role === 'CENTER_ADMIN';
 
   const getClassTheme = (classId: string) => {
@@ -335,6 +338,45 @@ export default function SchedulesPage() {
     return 'evening';
   };
 
+  const groupOverlappingSessions = (sessions: any[]) => {
+    const groups: any[][] = [];
+    const sorted = [...sessions].sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    sorted.forEach(session => {
+      const sShifts = getShiftsForSession(session.startTime, session.endTime);
+      const isMultiShift = sShifts.length > 1;
+
+      // If it is NOT a multi-shift session (only 1 shift), it must be in its own group (stacked vertically)
+      if (!isMultiShift) {
+        groups.push([session]);
+        return;
+      }
+
+      // If it is a multi-shift session, try to group it with an existing group of overlapping multi-shift sessions
+      let added = false;
+      for (let i = groups.length - 1; i >= 0; i--) {
+        const group = groups[i];
+        
+        // Ensure all sessions in this group are also multi-shift sessions
+        const allMultiShift = group.every(s => getShiftsForSession(s.startTime, s.endTime).length > 1);
+        if (!allMultiShift) continue;
+
+        const overlaps = group.some(s => {
+          return s.startTime < session.endTime && session.startTime < s.endTime;
+        });
+        if (overlaps) {
+          group.push(session);
+          added = true;
+          break;
+        }
+      }
+      if (!added) {
+        groups.push([session]);
+      }
+    });
+    return groups;
+  };
+
   const shiftStats = { morning: 0, afternoon: 0, evening: 0 };
   const sessionsMatrix: Record<string, Record<string, any[]>> = {};
 
@@ -408,6 +450,42 @@ export default function SchedulesPage() {
     shiftStats.afternoon += sessionsMatrix[dStr].afternoon.length;
     shiftStats.evening += sessionsMatrix[dStr].evening.length;
   });
+
+  const gridTemplateCols = useMemo(() => {
+    const cols = ['80px'];
+    let totalMinWidth = 80;
+
+    daysOfWeek.forEach((day) => {
+      const dateStr = day.toLocaleDateString('en-CA');
+      let maxParallel = 1;
+      SHIFTS.forEach((shift) => {
+        const cellSessions = sessionsMatrix[dateStr]?.[shift.id] || [];
+        const groups = groupOverlappingSessions(cellSessions);
+        groups.forEach(g => {
+          if (g.length > maxParallel) {
+            maxParallel = g.length;
+          }
+        });
+      });
+
+      if (maxParallel === 1) {
+        cols.push('minmax(140px, 1fr)');
+        totalMinWidth += 140;
+      } else if (maxParallel === 2) {
+        cols.push('minmax(280px, 1.5fr)');
+        totalMinWidth += 280;
+      } else {
+        cols.push(`minmax(${maxParallel * 130 + 20}px, ${maxParallel * 0.7}fr)`);
+        totalMinWidth += (maxParallel * 130 + 20);
+      }
+    });
+
+    return {
+      template: cols.join(' '),
+      innerTemplate: cols.slice(1).join(' '),
+      totalMinWidth: `${totalMinWidth}px`
+    };
+  }, [daysOfWeek, sessionsMatrix]);
 
   const checkConflict = (classIds: string[], teacherId: string | null | undefined, assistantId: string | null | undefined, sessionDate: string, startTime: string, endTime: string, excludeSessionId?: string, excludeGroupId?: string | null) => {
     if (!sessions?.items) return null;
@@ -593,10 +671,19 @@ export default function SchedulesPage() {
       toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
       return;
     }
+    if (sessionForm.startTime && sessionForm.endTime) {
+      if (sessionForm.startTime >= sessionForm.endTime) {
+        toast.error('Giờ bắt đầu không được lớn hơn hoặc bằng giờ kết thúc');
+        setTimeError(true);
+        return;
+      }
+    }
+    setTimeError(false);
     try {
       const payload = {
         ...sessionForm,
-        teacherId: sessionForm.teacherId === '' ? null : sessionForm.teacherId,
+        teacherId: sessionForm.teacherIds.length > 0 ? sessionForm.teacherIds[0] : null,
+        teacherIds: sessionForm.teacherIds.length === 0 ? [] : sessionForm.teacherIds,
         assistantIds: sessionForm.assistantIds.length === 0 ? [] : sessionForm.assistantIds,
         extraData: Object.keys(extraDataValues).length > 0 ? JSON.stringify(extraDataValues) : null,
         startTime: sessionForm.startTime.length === 5 ? sessionForm.startTime + ':00' : sessionForm.startTime,
@@ -611,6 +698,7 @@ export default function SchedulesPage() {
         await batchCreateSession.mutateAsync({
           classIds: sessionForm.classIds,
           teacherId: payload.teacherId,
+          teacherIds: payload.teacherIds,
           assistantIds: payload.assistantIds,
           lessonTitle: payload.lessonTitle,
           roomName: payload.roomName,
@@ -785,7 +873,7 @@ export default function SchedulesPage() {
 
             <Button onClick={() => {
                 setSessionForm({
-                  classId: '', classIds: [], teacherId: '', assistantIds: [], lessonTitle: '', roomName: '', notes: '',
+                  classId: '', classIds: [], teacherId: '', teacherIds: [], assistantIds: [], lessonTitle: '', roomName: '', notes: '',
                   sessionDate: new Date(currentDay).toLocaleDateString('en-CA'),
                   startTime: '08:00', endTime: '10:00',
                   actualStudentCount: null, localTeachingAssistant: '', lessonProgress: '', extraData: '',
@@ -793,6 +881,7 @@ export default function SchedulesPage() {
                 });
                 setExtraDataValues({});
                 setModalMode('create');
+                setTimeError(false);
                 setIsModalOpen(true);
               }}
             >
@@ -998,12 +1087,12 @@ export default function SchedulesPage() {
         {/* Matrix Board */}
         <div className="flex-1 w-full min-w-0 flex flex-col min-h-0 overflow-hidden bg-white border border-slate-100 rounded-3xl shadow-sm">
           <div className={`flex flex-col flex-1 min-h-0 overflow-x-auto hide-scrollbar transition-all duration-150 ${isTransitioning ? 'opacity-0 scale-[0.98]' : 'opacity-100 scale-100'}`}>
-            <div className="flex flex-col flex-1 min-h-0" style={{minWidth: viewMode === 'week' ? '1000px' : '800px'}}>
+            <div className="flex flex-col flex-1 min-h-0" style={{minWidth: viewMode === 'week' ? gridTemplateCols.totalMinWidth : '800px'}}>
 
             {viewMode === 'week' ? (
               <>
                 {/* Header Row: Days of the week */}
-                <div className="grid shrink-0 border-b border-slate-200 bg-white" style={{gridTemplateColumns: '80px repeat(7, minmax(140px, 1fr))'}}>
+                <div className="grid shrink-0 border-b border-slate-200 bg-white" style={{gridTemplateColumns: gridTemplateCols.template}}>
                   <div className="border-r border-slate-100 bg-slate-50/50 sticky left-0 z-30" />
                   {daysOfWeek.map((day, idx) => {
                     const dateStr = day.toLocaleDateString('en-CA');
@@ -1019,11 +1108,11 @@ export default function SchedulesPage() {
                 </div>
 
                 {/* Matrix Body: Week View */}
-                <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar flex flex-col bg-slate-50/30">
+                <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar flex flex-col bg-slate-50/30 min-w-full">
                   {isLoading ? (
                     <div className="flex-1 flex flex-col items-center justify-center"><Loader2 className="animate-spin text-[#2563EB] mb-4 h-10 w-10" /><span className="text-slate-500 font-medium">Đang tải lịch điều phối...</span></div>
                   ) : (
-                    <div className="flex flex-col flex-1 min-h-full">
+                    <div className="flex flex-col flex-1 min-h-full min-w-full">
                       {(() => {
                         const maxCardsAcrossAllShifts = Math.max(
                           0,
@@ -1040,11 +1129,15 @@ export default function SchedulesPage() {
                         const globalRowFlexClass = maxCardsAcrossAllShifts > 1 ? 'flex-auto shrink-0' : 'flex-1';
 
                         return SHIFTS.map(shift => (
-                          <div key={shift.id} className={`flex ${globalRowFlexClass} border-b border-slate-200 last:border-b-0`}>
+                          <div 
+                            key={shift.id} 
+                            className={`grid ${globalRowFlexClass} border-b border-slate-200 last:border-b-0`}
+                            style={{gridTemplateColumns: gridTemplateCols.template}}
+                          >
                           
                           {/* Shift Row Header */}
                           <div 
-                            className="w-[80px] shrink-0 border-r border-slate-200 bg-white flex flex-col items-center justify-center py-4 min-h-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] z-10 relative transition-colors hover:bg-slate-50 cursor-crosshair"
+                            className="border-r border-slate-200 bg-white flex flex-col items-center justify-center py-4 min-h-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] z-20 sticky left-0 transition-colors hover:bg-slate-50 cursor-crosshair"
                             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('bg-blue-50/50'); }}
                             onDragLeave={(e) => { e.currentTarget.classList.remove('bg-blue-50/50'); }}
                             onDrop={(e) => { e.stopPropagation(); e.currentTarget.classList.remove('bg-blue-50/50'); handleDropOnShiftHeader(e, shift.id); }}
@@ -1058,7 +1151,7 @@ export default function SchedulesPage() {
                           </div>
 
                           {/* Day Cells for this shift */}
-                          <div className="grow grid" style={{gridTemplateColumns: 'repeat(7, minmax(140px, 1fr))'}}>
+                          <div className="grid" style={{gridTemplateColumns: gridTemplateCols.innerTemplate, gridColumn: '2 / span 7'}}>
                             {daysOfWeek.map((day, idx) => {
                               const dateStr = day.toLocaleDateString('en-CA');
                               const cellSessions = sessionsMatrix[dateStr]?.[shift.id] || [];
@@ -1077,62 +1170,66 @@ export default function SchedulesPage() {
                                       <span className="text-[12px] font-medium text-slate-300">Trống</span>
                                     </div>
                                   ) : (
-                                    cellSessions.sort((a, b) => a.startTime.localeCompare(b.startTime)).map(session => (
-                                      <div
-                                        key={session.id}
-                                        draggable={isAuthorized}
-                                        onDragStart={(e) => { e.dataTransfer.setData('type', 'session'); e.dataTransfer.setData('sessionData', JSON.stringify(session)); e.dataTransfer.setData('application/x-eduops-session', 'true'); }}
-                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDropOnCell(e, dateStr, shift.id, session); }}
-                                        onClick={() => setSelectedSessionInfo(session)}
-                                        className={`h-fit shrink-0 bg-white border rounded-xl p-2.5 shadow-sm cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:shadow-md transition-all group ${session.theme.border} ${session.theme.hover}`}
-                                      >
-                                        {/* TOP */}
-                                        <div className="flex items-center justify-between mb-2">
-                                          <span className={`font-bold text-[13px] uppercase ${session.theme.text}`}>{session.className}</span>
-                                          <MoreVertical size={14} className={`${session.theme.textLight} opacity-0 group-hover:opacity-100 transition-opacity`} />
-                                        </div>
-                                        {session.schoolName && (
-                                          <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 mb-1.5 truncate" title={session.schoolName}>
-                                            <MapPin size={10} className="shrink-0" />
-                                            <span className="truncate">{session.schoolName}</span>
-                                          </div>
-                                        )}
-                                        
-                                        {/* MIDDLE */}
-                                        <div className={`text-[12px] font-semibold mb-2 leading-tight ${session.theme.textLight}`}>
-                                          {session.lessonTitle || 'Lý thuyết'}
-                                        </div>
-                                        <div className="flex flex-col gap-1.5 mb-2.5">
-                                          <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-md w-fit">
-                                            <Clock size={12} className="text-slate-400" />
-                                            <span className="text-[11px] font-bold text-slate-600">
-                                              {session.startTime.substring(0,5)} - {session.endTime.substring(0,5)}
-                                            </span>
-                                          </div>
-                                          <div className="flex items-center justify-between gap-1 mt-0.5">
-                                            <div className={`flex items-center gap-1.5 text-[11px] font-medium ${session.theme.textLight} px-1 truncate`}>
-                                              <MapPin size={12} className="shrink-0" />
-                                              <span className="truncate">{session.roomName || 'Chưa xếp phòng'}</span>
+                                    groupOverlappingSessions(cellSessions).map((group, groupIdx) => (
+                                      <div key={groupIdx} className="flex flex-row gap-2 w-full min-w-0">
+                                        {group.map(session => (
+                                          <div
+                                            key={session.id}
+                                            draggable={isAuthorized}
+                                            onDragStart={(e) => { e.dataTransfer.setData('type', 'session'); e.dataTransfer.setData('sessionData', JSON.stringify(session)); e.dataTransfer.setData('application/x-eduops-session', 'true'); }}
+                                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDropOnCell(e, dateStr, shift.id, session); }}
+                                            onClick={() => setSelectedSessionInfo(session)}
+                                            className={`flex-1 min-w-0 h-fit bg-white border rounded-xl shadow-sm cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:shadow-md transition-all group ${session.theme.border} ${session.theme.hover} ${group.length > 1 ? 'p-2' : 'p-2.5'}`}
+                                          >
+                                            {/* TOP */}
+                                            <div className="flex items-center justify-between mb-2">
+                                              <span className={`font-bold text-[13px] uppercase truncate ${session.theme.text}`}>{session.className}</span>
+                                              <MoreVertical size={14} className={`${session.theme.textLight} opacity-0 group-hover:opacity-100 transition-opacity shrink-0`} />
                                             </div>
-                                            <div className={`flex items-center gap-1 text-[11px] font-bold ${session.theme.textLight} px-1 shrink-0 bg-slate-50/50 rounded-md py-0.5`} title="Sĩ số thực tế">
-                                              <Users size={11} className="shrink-0" />
-                                              <span>{session.studentsCount || 0}</span>
+                                            {session.schoolName && (
+                                              <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 mb-1.5 truncate" title={session.schoolName}>
+                                                <MapPin size={10} className="shrink-0" />
+                                                <span className="truncate">{session.schoolName}</span>
+                                              </div>
+                                            )}
+                                            
+                                            {/* MIDDLE */}
+                                            <div className={`text-[12px] font-semibold mb-2 leading-tight truncate ${session.theme.textLight}`} title={session.lessonTitle || 'Lý thuyết'}>
+                                              {session.lessonTitle || 'Lý thuyết'}
                                             </div>
-                                          </div>
-                                        </div>
+                                            <div className="flex flex-col gap-1.5 mb-2.5">
+                                              <div className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-md w-fit max-w-full">
+                                                <Clock size={11} className="text-slate-400 shrink-0" />
+                                                <span className="text-[10px] sm:text-[11px] font-bold text-slate-600 whitespace-nowrap">
+                                                  {session.startTime.substring(0,5)} - {session.endTime.substring(0,5)}
+                                                </span>
+                                              </div>
+                                              <div className="flex items-center justify-between gap-1 mt-0.5">
+                                                <div className={`flex items-center gap-1.5 text-[11px] font-medium ${session.theme.textLight} px-1 truncate`}>
+                                                  <MapPin size={12} className="shrink-0" />
+                                                  <span className="truncate">{session.roomName || 'Chưa xếp'}</span>
+                                                </div>
+                                                <div className={`flex items-center gap-1 text-[11px] font-bold ${session.theme.textLight} px-1 shrink-0 bg-slate-50/50 rounded-md py-0.5`} title="Sĩ số thực tế">
+                                                  <Users size={11} className="shrink-0" />
+                                                  <span>{session.studentsCount || 0}</span>
+                                                </div>
+                                              </div>
+                                            </div>
 
-                                        {/* BOTTOM */}
-                                        <div className="flex flex-col gap-1.5 pt-2.5 border-t border-slate-100">
-                                          <div className={`flex items-center gap-2 text-[11px] font-medium ${session.theme.textLight}`}>
-                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${session.theme.iconBg} text-white`}><User size={9} /></div>
-                                            <span className="truncate">{session.teacherName !== 'Chưa xếp' ? session.teacherName : 'Chưa xếp GV'}</span>
+                                            {/* BOTTOM */}
+                                            <div className="flex flex-col gap-1.5 pt-2.5 border-t border-slate-100">
+                                              <div className={`flex items-center gap-2 text-[11px] font-medium ${session.theme.textLight} truncate`}>
+                                                <div className={`w-4 h-4 rounded-full flex items-center justify-center ${session.theme.iconBg} text-white shrink-0`}><User size={9} /></div>
+                                                <span className="truncate">{session.teacherName !== 'Chưa xếp' ? session.teacherName : 'Chưa xếp GV'}</span>
+                                              </div>
+                                              <div className={`flex items-center gap-2 text-[11px] font-medium ${session.theme.textLight} truncate`}>
+                                                <div className={`w-4 h-4 rounded-full flex items-center justify-center ${session.theme.iconBg} text-white opacity-80 shrink-0`}><Users size={9} /></div>
+                                                <span className="truncate">{session.assistantName !== 'Chưa xếp' ? session.assistantName : 'Chưa xếp TG'}</span>
+                                              </div>
+                                            </div>
                                           </div>
-                                          <div className={`flex items-center gap-2 text-[11px] font-medium ${session.theme.textLight}`}>
-                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${session.theme.iconBg} text-white opacity-80`}><Users size={9} /></div>
-                                            <span className="truncate">{session.assistantName !== 'Chưa xếp' ? session.assistantName : 'Chưa xếp TG'}</span>
-                                          </div>
-                                        </div>
+                                        ))}
                                       </div>
                                     ))
                                   )}
@@ -1182,11 +1279,11 @@ export default function SchedulesPage() {
                 </div>
 
                 {/* Matrix Body: Day View */}
-                <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar flex flex-col bg-slate-50/30">
+                <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar flex flex-col bg-slate-50/30 min-w-full">
                   {isLoading ? (
                     <div className="flex-1 flex flex-col items-center justify-center"><Loader2 className="animate-spin text-[#2563EB] mb-4 h-10 w-10" /><span className="text-slate-500 font-medium">Đang tải lịch điều phối...</span></div>
                   ) : (
-                    <div className="flex flex-col flex-1 min-h-full">
+                    <div className="flex flex-col flex-1 min-h-full min-w-full">
                       {(() => {
                         // First calculate dayRows for all days to find global max
                         const allDaysData = daysOfWeek.map((day) => {
@@ -1201,7 +1298,7 @@ export default function SchedulesPage() {
                                ...rawSession,
                                className,
                                schoolName,
-                               teacherName: allTeachers?.items?.find((t: any) => t.id === rawSession.teacherId)?.fullName || 'Chưa xếp',
+                               teacherName: (rawSession.teacherIds && rawSession.teacherIds.length > 0) ? rawSession.teacherIds.map((id: string) => allTeachers?.items?.find((t: any) => t.id === id)?.fullName || 'Chưa xếp').join(', ') : (allTeachers?.items?.find((t: any) => t.id === rawSession.teacherId)?.fullName || 'Chưa xếp'),
                                assistantName: (rawSession.assistantIds && rawSession.assistantIds.length > 0) ? rawSession.assistantIds.map((id: string) => allAssistants?.items?.find((a: any) => a.id === id)?.fullName || 'Chưa xếp').join(', ') : 'Chưa xếp',
                                theme: getClassTheme(rawSession.classId)
                              };
@@ -1235,10 +1332,14 @@ export default function SchedulesPage() {
                           const dayName = day.getDay() === 0 ? 'Chủ Nhật' : `Thứ ${day.getDay() + 1}`;
 
                           return (
-                            <div key={dateStr} className={`flex ${globalRowFlexClass} border-b border-slate-200 last:border-b-0`}>
+                            <div 
+                              key={dateStr} 
+                              className={`grid ${globalRowFlexClass} border-b border-slate-200 last:border-b-0`}
+                              style={{gridTemplateColumns: '120px repeat(3, minmax(200px, 1fr))'}}
+                            >
                             
                             {/* Day Row Header */}
-                            <div className={`w-[120px] shrink-0 border-r border-slate-200 flex flex-col items-center justify-center py-4 min-h-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] z-20 relative ${isToday ? 'bg-[#EFF6FF]' : 'bg-white'}`}>
+                            <div className={`border-r border-slate-200 flex flex-col items-center justify-center py-4 min-h-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] z-20 sticky left-0 ${isToday ? 'bg-[#EFF6FF]' : 'bg-white'}`}>
                               <span className={`font-bold text-[15px] ${isToday ? 'text-[#2563EB]' : 'text-slate-800'}`}>{dayName}</span>
                               <span className={`text-[12px] font-medium mt-1 ${isToday ? 'text-[#1D4ED8]' : 'text-slate-400'}`}>
                                 {day.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
@@ -1246,7 +1347,7 @@ export default function SchedulesPage() {
                             </div>
 
                             {/* Shift Cells for this day */}
-                            <div className="grow relative">
+                            <div className="relative" style={{gridColumn: '2 / span 3'}}>
                                <div className="absolute inset-0 grid" style={{gridTemplateColumns: 'repeat(3, minmax(200px, 1fr))'}}>
                                   {SHIFTS.map(shift => (
                                      <div 
@@ -1470,6 +1571,7 @@ export default function SchedulesPage() {
                     classIds: selectedSessionInfo.classIds || [selectedSessionInfo.classId || ''],
                     classId: '',
                     teacherId: selectedSessionInfo.teacherId || '',
+                    teacherIds: selectedSessionInfo.teacherIds || (selectedSessionInfo.teacherId ? [selectedSessionInfo.teacherId] : []),
                     assistantIds: selectedSessionInfo.assistantIds || [],
                     lessonTitle: selectedSessionInfo.lessonTitle || '',
                     roomName: selectedSessionInfo.roomName || '',
@@ -1491,6 +1593,7 @@ export default function SchedulesPage() {
                     setExtraDataValues({});
                   }
                   setModalMode('edit');
+                  setTimeError(false);
                   setEditingSessionId(selectedSessionInfo.id);
                   setIsModalOpen(true);
                 }}
@@ -1539,7 +1642,7 @@ export default function SchedulesPage() {
             <Clock className="text-blue-500 mt-0.5" size={18} />
             <div>
               Ngày: <b className="text-slate-900">{new Date(sessionForm.sessionDate || new Date()).toLocaleDateString('vi-VN')}</b><br />
-              Thời gian: <b className="text-blue-700">{sessionForm.startTime}</b> đến <b className="text-blue-700">{sessionForm.endTime}</b>
+              Thời gian: <b className="text-blue-700">{sessionForm.startTime?.substring(0, 5)}</b> đến <b className="text-blue-700">{sessionForm.endTime?.substring(0, 5)}</b>
             </div>
           </div>
 
@@ -1555,12 +1658,11 @@ export default function SchedulesPage() {
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Giáo viên</label>
-              <Select
+              <MultiSelect
                 options={teachers?.items?.filter((t: any) => t.statusCode === 'ACTIVE').map((t: any) => ({ value: t.id, label: t.fullName })) || []}
                 placeholder="Chọn giáo viên..."
-                className="focus:border-blue-500 focus:ring-blue-500/20"
-                value={sessionForm.teacherId}
-                onChange={(val) => setSessionForm({ ...sessionForm, teacherId: val })}
+                value={sessionForm.teacherIds}
+                onChange={(val) => setSessionForm({ ...sessionForm, teacherIds: val })}
               />
             </div>
             <div>
@@ -1605,32 +1707,32 @@ export default function SchedulesPage() {
           <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Giờ bắt đầu</label>
-              <DatePicker
+              <TimePicker
                 selected={sessionForm.startTime ? new Date(`2000-01-01T${sessionForm.startTime.length === 5 ? sessionForm.startTime + ':00' : sessionForm.startTime}`) : null}
-                onChange={(date) => setSessionForm({ ...sessionForm, startTime: date ? date.toTimeString().split(' ')[0].substring(0, 5) : '' })}
-                showTimeSelect
-                showTimeSelectOnly
-                timeIntervals={15}
-                timeCaption="Giờ"
-                dateFormat="HH:mm"
-                placeholderText="Chọn giờ..."
-                className="w-full h-11 focus:border-blue-500 focus:ring-blue-500/20"
-                wrapperClassName="w-full"
+                onChange={(date) => {
+                  const newTime = date ? date.toTimeString().split(' ')[0].substring(0, 5) : '';
+                  setSessionForm({ ...sessionForm, startTime: newTime });
+                  if (timeError && newTime && sessionForm.endTime && newTime < sessionForm.endTime) {
+                    setTimeError(false);
+                  }
+                }}
+                placeholderText="Chọn giờ bắt đầu..."
+                className={`w-full h-11 ${timeError ? '!border-red-500 !focus:border-red-500 focus:ring-red-500/10' : ''}`}
               />
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Giờ kết thúc</label>
-              <DatePicker
+              <TimePicker
                 selected={sessionForm.endTime ? new Date(`2000-01-01T${sessionForm.endTime.length === 5 ? sessionForm.endTime + ':00' : sessionForm.endTime}`) : null}
-                onChange={(date) => setSessionForm({ ...sessionForm, endTime: date ? date.toTimeString().split(' ')[0].substring(0, 5) : '' })}
-                showTimeSelect
-                showTimeSelectOnly
-                timeIntervals={15}
-                timeCaption="Giờ"
-                dateFormat="HH:mm"
-                placeholderText="Chọn giờ..."
-                className="w-full h-11 focus:border-blue-500 focus:ring-blue-500/20"
-                wrapperClassName="w-full"
+                onChange={(date) => {
+                  const newTime = date ? date.toTimeString().split(' ')[0].substring(0, 5) : '';
+                  setSessionForm({ ...sessionForm, endTime: newTime });
+                  if (timeError && sessionForm.startTime && newTime && sessionForm.startTime < newTime) {
+                    setTimeError(false);
+                  }
+                }}
+                placeholderText="Chọn giờ kết thúc..."
+                className={`w-full h-11 ${timeError ? '!border-red-500 !focus:border-red-500 focus:ring-red-500/10' : ''}`}
               />
             </div>
           </div>

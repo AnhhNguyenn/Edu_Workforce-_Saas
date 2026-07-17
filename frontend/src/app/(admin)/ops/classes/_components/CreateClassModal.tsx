@@ -58,6 +58,7 @@ export default function CreateClassModal({ onClose }: CreateClassModalProps) {
       isOpen={true}
       onClose={onClose}
       title="Mở lớp mới"
+      overflowVisible={true}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>Hủy</Button>

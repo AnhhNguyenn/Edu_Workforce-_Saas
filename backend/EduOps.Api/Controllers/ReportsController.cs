@@ -11,7 +11,6 @@ namespace EduOps.Api.Controllers
 {
     [Route("api/reports")]
     [ApiController]
-    [HasPermission("Reports:Manage")]
     [EduOps.Api.Filters.FeatureGate("ENABLE_REPORTING")]
     public class ReportsController : ControllerBase
     {
@@ -25,6 +24,7 @@ namespace EduOps.Api.Controllers
         }
 
         [HttpGet]
+        [HasPermission("Reports:Manage")]
         public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
             var orgIdClaim = User.FindFirst("OrganizationId")?.Value;

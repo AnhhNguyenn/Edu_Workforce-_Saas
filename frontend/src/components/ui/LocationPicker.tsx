@@ -16,12 +16,13 @@ const MapComponent = dynamic(() => import('./MapComponent'), {
 interface LocationPickerProps {
   lat?: number | null;
   lng?: number | null;
+  radius?: number;
   onChange: (lat: number, lng: number) => void;
   onAddressChange?: (address: string) => void;
   className?: string;
 }
 
-export default function LocationPicker({ lat, lng, onChange, onAddressChange, className = "h-64" }: LocationPickerProps) {
+export default function LocationPicker({ lat, lng, radius, onChange, onAddressChange, className = "h-64" }: LocationPickerProps) {
   // Mặc định là Hà Nội nếu chưa có tọa độ
   const defaultLat = lat || 21.028511;
   const defaultLng = lng || 105.804817;
@@ -59,8 +60,11 @@ export default function LocationPicker({ lat, lng, onChange, onAddressChange, cl
     }
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearch = async (e?: React.FormEvent | React.KeyboardEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!searchQuery.trim()) return;
 
     setIsSearching(true);
@@ -97,7 +101,7 @@ export default function LocationPicker({ lat, lng, onChange, onAddressChange, cl
   return (
     <div className={`w-full rounded-xl border border-edu-border shadow-sm overflow-hidden relative shrink-0 min-h-[300px] ${className}`}>
       <div className="absolute top-2 left-[52px] right-2 sm:right-auto sm:w-[350px] z-[400]">
-        <form onSubmit={handleSearch} className="flex gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-xl shadow-md border border-gray-100">
+        <div className="flex gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-xl shadow-md border border-gray-100">
            <div className="flex-1 flex items-center pl-2 min-w-0">
              <Search size={16} className="text-edu-muted" />
              <input 
@@ -106,10 +110,18 @@ export default function LocationPicker({ lat, lng, onChange, onAddressChange, cl
                className="flex-1 px-2 py-1.5 text-sm outline-none bg-transparent"
                value={searchQuery}
                onChange={(e) => setSearchQuery(e.target.value)}
+               onKeyDown={(e) => {
+                 if (e.key === 'Enter') {
+                   e.preventDefault();
+                   e.stopPropagation();
+                   handleSearch(e);
+                 }
+               }}
              />
            </div>
            <button 
-             type="submit" 
+             type="button" 
+             onClick={() => handleSearch()}
              disabled={isSearching || !searchQuery.trim()}
              className="bg-edu-accent text-white px-4 py-1.5 rounded-md text-sm hover:bg-edu-accent/90 disabled:opacity-50 flex items-center justify-center transition-colors shrink-0"
            >
@@ -137,9 +149,9 @@ export default function LocationPicker({ lat, lng, onChange, onAddressChange, cl
            >
              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10H22"/><path d="M12 12v10"/><path d="M12 12 2.1 7.1"/><path d="M12 12l9.9-4.9"/></svg>
            </button>
-        </form>
+        </div>
       </div>
-      <MapComponent lat={defaultLat} lng={defaultLng} onChange={handleLocationChange} />
+      <MapComponent lat={defaultLat} lng={defaultLng} radius={radius} onChange={handleLocationChange} />
       <div className="absolute bottom-2 left-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-md shadow-sm z-[400] text-xs text-center text-edu-fg font-medium pointer-events-none">
         Click vào bản đồ để thả ghim vị trí cơ sở
       </div>

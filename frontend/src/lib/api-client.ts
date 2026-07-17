@@ -75,8 +75,17 @@ apiClient.interceptors.response.use(
           const { signOut } = await import("next-auth/react");
           await signOut({ callbackUrl: '/login' });
         } else if (session && (session as any).accessToken) {
-          cachedToken = (session as any).accessToken;
+          const currentToken = (session as any).accessToken;
           const originalRequest = error.config;
+          const authHeader = originalRequest.headers.Authorization;
+          
+          if (authHeader && authHeader === `Bearer ${currentToken}`) {
+            const { signOut } = await import("next-auth/react");
+            await signOut({ callbackUrl: '/login' });
+            return Promise.reject(error);
+          }
+          
+          cachedToken = currentToken;
           originalRequest.headers.Authorization = `Bearer ${cachedToken}`;
           return axios(originalRequest);
         } else {

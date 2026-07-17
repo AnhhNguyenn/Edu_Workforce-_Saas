@@ -4,17 +4,43 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Camera, RefreshCcw, AlertTriangle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
+import { toast } from 'react-hot-toast';
+
+function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 interface AttendanceActionModalProps {
   isOpen: boolean;
   onClose: () => void;
   type: 'checkin' | 'checkout';
   session: any;
+  school?: any;
   onSubmit: (photoBase64: string | null, reason: string | null) => void;
   isLoading: boolean;
   isOutOfRange?: boolean;
+  setIsOutOfRange?: (val: boolean) => void;
 }
 
-export function AttendanceActionModal({ isOpen, onClose, type, session, onSubmit, isLoading, isOutOfRange = false }: AttendanceActionModalProps) {
+export function AttendanceActionModal({ 
+  isOpen, 
+  onClose, 
+  type, 
+  session, 
+  school, 
+  onSubmit, 
+  isLoading, 
+  isOutOfRange = false,
+  setIsOutOfRange
+}: AttendanceActionModalProps) {
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [managerInformed, setManagerInformed] = useState<string>('no');
@@ -22,17 +48,71 @@ export function AttendanceActionModal({ isOpen, onClose, type, session, onSubmit
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [rechecking, setRechecking] = useState(false);
+
+  const handleRecheckLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt không hỗ trợ GPS");
+      return;
+    }
+
+    setRechecking(true);
+    const toastId = toast.loading("Đang kiểm tra lại vị trí...");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        toast.dismiss(toastId);
+        setRechecking(false);
+        const { latitude, longitude } = pos.coords;
+
+        if (school?.latitude && school?.longitude) {
+          const dist = getDistanceInMeters(
+            latitude,
+            longitude,
+            Number(school.latitude),
+            Number(school.longitude)
+          );
+          const radius = school.attendanceRadius || 200;
+          if (dist <= radius) {
+            setIsOutOfRange?.(false);
+            toast.success("Vị trí hợp lệ! Bạn đã ở trong cơ sở.");
+          } else {
+            toast.error(`Bạn vẫn đang ngoài cơ sở (cách ${Math.round(dist)}m, giới hạn ${radius}m)`);
+          }
+        } else {
+          setIsOutOfRange?.(false);
+          toast.success("Vị trí hợp lệ!");
+        }
+      },
+      (err) => {
+        toast.dismiss(toastId);
+        setRechecking(false);
+        toast.error("Không thể lấy vị trí GPS: " + err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   // Tính toán thời gian
   const now = new Date();
-  const startTime = session?.startTime ? new Date(`${session.sessionDate.split('T')[0]}T${session.startTime}`) : now;
-  const endTime = session?.endTime ? new Date(`${session.sessionDate.split('T')[0]}T${session.endTime}`) : now;
+  const sessionDateObj = session?.sessionDate ? new Date(session.sessionDate) : now;
+  const year = sessionDateObj.getFullYear();
+  const month = String(sessionDateObj.getMonth() + 1).padStart(2, '0');
+  const date = String(sessionDateObj.getDate()).padStart(2, '0');
+  const localDateStr = `${year}-${month}-${date}`;
+
+  const startTime = session?.startTime ? new Date(`${localDateStr}T${session.startTime}`) : now;
+  const endTime = session?.endTime ? new Date(`${localDateStr}T${session.endTime}`) : now;
   
-  const isLateCheckin = type === 'checkin' && (now.getTime() - startTime.getTime()) > 5 * 60 * 1000;
-  const isEarlyCheckout = type === 'checkout' && (endTime.getTime() - now.getTime()) > 0;
-  const isLateCheckout = type === 'checkout' && (now.getTime() - endTime.getTime()) > 5 * 60 * 1000;
+  const lateCheckinMinutes = Math.floor((now.getTime() - startTime.getTime()) / (60 * 1000));
+  const earlyCheckoutMinutes = Math.floor((endTime.getTime() - now.getTime()) / (60 * 1000));
+  const lateCheckoutMinutes = Math.floor((now.getTime() - endTime.getTime()) / (60 * 1000));
+
+  const isLateCheckin = type === 'checkin' && lateCheckinMinutes > 3;
+  const isEarlyCheckout = type === 'checkout' && earlyCheckoutMinutes > 0;
+  const isLateCheckout = type === 'checkout' && lateCheckoutMinutes > 15;
   
-  const requiresReason = isLateCheckin || isEarlyCheckout || isLateCheckout || isOutOfRange;
+  const requiresReason = isLateCheckin || isEarlyCheckout || isLateCheckout;
 
   const startCamera = useCallback(async () => {
     try {
@@ -67,9 +147,20 @@ export function AttendanceActionModal({ isOpen, onClose, type, session, onSubmit
   }, [stream]);
 
   useEffect(() => {
-    if (isOpen && type === 'checkin') {
+    if (isOpen && navigator.geolocation) {
+      // Khởi động ngầm (warm up) phần cứng GPS của thiết bị để có tọa độ chính xác cao nhất ngay khi mở modal
+      navigator.geolocation.getCurrentPosition(
+        () => {},
+        () => {},
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && type === 'checkin' && !photoBase64) {
       startCamera();
-    } else {
+    } else if (!isOpen) {
       stopCamera();
       // Reset state on close
       setPhotoBase64(null);
@@ -77,18 +168,41 @@ export function AttendanceActionModal({ isOpen, onClose, type, session, onSubmit
       setManagerInformed('no');
     }
     return () => stopCamera();
-  }, [isOpen, type, startCamera, stopCamera]);
+  }, [isOpen, type, photoBase64, startCamera, stopCamera]);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      
+      // Giới hạn kích thước tối đa 640px để giảm tải dung lượng ảnh giúp upload siêu tốc
+      const maxDim = 640;
+      let width = video.videoWidth;
+      let height = video.videoHeight;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (ctx) {
+        // Lật mặt ảnh đối với camera trước (Mirror)
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        // Compress image to base64 jpeg
+        
+        // Reset transform
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+        // Nén ảnh sang base64 jpeg
         const base64 = canvas.toDataURL('image/jpeg', 0.6);
         setPhotoBase64(base64);
         stopCamera();
@@ -98,7 +212,6 @@ export function AttendanceActionModal({ isOpen, onClose, type, session, onSubmit
 
   const retakePhoto = () => {
     setPhotoBase64(null);
-    startCamera();
   };
 
     const handleSubmit = () => {
@@ -112,7 +225,7 @@ export function AttendanceActionModal({ isOpen, onClose, type, session, onSubmit
     onSubmit(photoBase64, finalReason);
   };
 
-  const isSubmitDisabled = isLoading || (type === 'checkin' && !photoBase64) || (requiresReason && !reason.trim());
+  const isSubmitDisabled = isLoading || (type === 'checkin' && !photoBase64) || isOutOfRange || (requiresReason && !reason.trim());
 
   const modalFooter = (
     <div className="flex justify-end gap-2">
@@ -144,6 +257,28 @@ export function AttendanceActionModal({ isOpen, onClose, type, session, onSubmit
             : 'Xác nhận hoàn thành ca dạy và Check-out.'}
         </p>
         
+        {isOutOfRange && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-800 text-sm flex flex-col gap-2 font-medium mb-2">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0 text-red-600" />
+              <span>Bạn đang ở ngoài phạm vi cơ sở trường học. Vui lòng di chuyển vào trong khu vực cơ sở để thực hiện {type === 'checkin' ? 'Check-in' : 'Check-out'}.</span>
+            </div>
+            <div className="flex justify-end">
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRecheckLocation}
+                disabled={rechecking}
+                className="bg-white border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 py-1 px-3 text-xs flex items-center gap-1.5 h-8 rounded-lg"
+              >
+                {rechecking ? <Loader2 size={12} className="animate-spin" /> : null}
+                Kiểm tra lại vị trí
+              </Button>
+            </div>
+          </div>
+        )}
+        
         {/* Camera Section for Check-in */}
         {type === 'checkin' && (
           <div className="flex flex-col gap-2">
@@ -153,7 +288,7 @@ export function AttendanceActionModal({ isOpen, onClose, type, session, onSubmit
                 <img src={photoBase64} alt="Captured" className="w-full h-auto object-cover" />
               ) : (
                 <>
-                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto object-cover" />
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto object-cover -scale-x-100" />
                   <canvas ref={canvasRef} className="hidden" />
                 </>
               )}
@@ -193,9 +328,9 @@ export function AttendanceActionModal({ isOpen, onClose, type, session, onSubmit
               <AlertTriangle size={16} className="mt-0.5 shrink-0" />
               <span className="text-sm font-medium">
                 {isOutOfRange && 'Bạn đang ở ngoài phạm vi cơ sở trường học. '}
-                {isLateCheckin && 'Bạn đang Check-in trễ hơn 5 phút so với giờ bắt đầu.'}
-                {isEarlyCheckout && 'Bạn đang Check-out sớm trước khi kết thúc ca.'}
-                {isLateCheckout && 'Bạn đang Check-out trễ (ngoài giờ).'}
+                {isLateCheckin && `Bạn đang Check-in trễ ${lateCheckinMinutes} phút so với giờ bắt đầu.`}
+                {isEarlyCheckout && `Bạn đang Check-out sớm ${earlyCheckoutMinutes} phút trước khi kết thúc ca.`}
+                {isLateCheckout && `Bạn đang Check-out trễ ${lateCheckoutMinutes} phút so với giờ kết thúc ca.`}
               </span>
             </div>
             

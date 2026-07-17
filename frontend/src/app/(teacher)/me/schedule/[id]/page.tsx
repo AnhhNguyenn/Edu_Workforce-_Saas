@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSessionDetail } from '@/hooks/queries/useSessions';
+import { useClasses } from '@/hooks/queries/useClasses';
+import { useSchools } from '@/hooks/queries/useSchools';
 import { ArrowLeft, MapPin, Loader2, CheckCircle2 } from 'lucide-react';
 import { useProfile } from '@/hooks/queries/useProfile';
 import { useCheckIn, useCheckOut, useMyAttendances, useSubmitStudentAttendances } from '@/hooks/queries/useAttendances';
@@ -22,6 +24,12 @@ export default function SessionWorkspacePage() {
   const { data: session, isLoading: isSessionLoading } = useSessionDetail(id);
   const { data: attendances } = useMyAttendances();
   const { data: report } = useSessionReport(id);
+  
+  const { data: classesData } = useClasses('', undefined, undefined, 1, 1000);
+  const { data: schoolsData } = useSchools();
+
+  const cls = classesData?.items?.find(c => c.id === session?.classId);
+  const school = schoolsData?.items?.find(sch => sch.id === (cls as any)?.schoolId);
 
   const [activeTab, setActiveTab] = useState<'CHECKIN' | 'ATTENDANCE' | 'REPORT'>('CHECKIN');
 
@@ -31,11 +39,22 @@ export default function SessionWorkspacePage() {
   const attendanceList = attendances?.items || (Array.isArray(attendances) ? attendances : []);
   const myAttendance = attendanceList.find((a: any) => a.sessionId === id);
   const isCheckedIn = !!myAttendance;
-  const isCheckedOut = !!myAttendance?.checkOutTime;
+  const isCheckedOut = !!myAttendance?.checkoutTime;
 
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [actionType, setActionType] = useState<'checkin' | 'checkout'>('checkin');
   const [isOutOfRange, setIsOutOfRange] = useState(false);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      // Warm up GPS as soon as teacher opens the schedule details page
+      navigator.geolocation.getCurrentPosition(
+        () => {},
+        () => {},
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    }
+  }, []);
 
   if (isSessionLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-edu-accent" size={32} /></div>;
@@ -66,9 +85,18 @@ export default function SessionWorkspacePage() {
             onSuccess: () => {
               toast.success("Check-in thành công!");
               setActionModalOpen(false);
+              setIsOutOfRange(false);
               setActiveTab('ATTENDANCE'); // Auto move to next tab
             },
-            onError: (err: any) => toast.error(err.response?.data?.message || "Lỗi check-in")
+            onError: (err: any) => {
+              const msg = err.response?.data?.Message || err.response?.data?.message;
+              if (msg === "OUT_OF_RANGE") {
+                setIsOutOfRange(true);
+                toast.error("Bạn đang ngoài cơ sở. Vui lòng ghi rõ lý do giải trình.");
+              } else {
+                toast.error(msg || "Lỗi check-in");
+              }
+            }
           });
         } else {
           checkOutMutation.mutate(payload, {
@@ -78,7 +106,7 @@ export default function SessionWorkspacePage() {
               setIsOutOfRange(false);
             },
             onError: (err: any) => {
-              const msg = err.response?.data?.message;
+              const msg = err.response?.data?.Message || err.response?.data?.message;
               if (msg === "OUT_OF_RANGE") {
                 setIsOutOfRange(true);
                 toast.error("Bạn đang ngoài cơ sở. Vui lòng ghi rõ lý do giải trình.");
@@ -90,7 +118,7 @@ export default function SessionWorkspacePage() {
         }
       },
       (err) => toast.error("Không thể lấy vị trí GPS: " + err.message),
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -117,7 +145,14 @@ export default function SessionWorkspacePage() {
   const isPastEndTime = now > sessionEndTime;
   const isPastEndOfDay = now > endOfDay;
 
+  const [sHours, sMinutes] = (session.startTime || '00:00').split(':').map(Number);
+  const sessionStartTime = new Date(session.sessionDate);
+  sessionStartTime.setHours(sHours, sMinutes, 0, 0);
+
   const isCheckinLocked = !isCheckedIn && isPastEndTime;
+  const isTooEarlyToCheckin = !isCheckedIn && now < new Date(sessionStartTime.getTime() - 5 * 60 * 1000);
+  const allowedCheckinTime = new Date(sessionStartTime.getTime() - 5 * 60 * 1000);
+  const allowedTimeStr = allowedCheckinTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   const isCheckoutLocked = isCheckedIn && !isCheckedOut && isPastEndOfDay;
 
   return (
@@ -168,6 +203,17 @@ export default function SessionWorkspacePage() {
                 <>
                   <h3 className="font-bold text-xl text-edu-warn">Vắng mặt / Đã qua</h3>
                   <p className="text-sm text-edu-muted">Ca học đã kết thúc và bạn chưa Check-in. Hệ thống đã khóa ca này.</p>
+                </>
+              ) : isTooEarlyToCheckin ? (
+                <>
+                  <h3 className="font-bold text-xl text-slate-500">Chưa đến giờ Check-in</h3>
+                  <p className="text-sm text-edu-muted px-4">Bạn chỉ có thể thực hiện Check-in trước giờ học tối đa 5 phút (từ lúc {allowedTimeStr}).</p>
+                  <button
+                    disabled
+                    className="w-full max-w-xs py-4 rounded-xl text-white font-bold text-lg bg-slate-300 cursor-not-allowed flex justify-center mt-4"
+                  >
+                    CHECK-IN CA HỌC
+                  </button>
                 </>
               ) : (
                 <>
@@ -291,9 +337,11 @@ export default function SessionWorkspacePage() {
         onClose={() => setActionModalOpen(false)}
         type={actionType}
         session={session}
+        school={school}
         onSubmit={handleModalSubmit}
         isLoading={checkInMutation.isPending || checkOutMutation.isPending}
         isOutOfRange={isOutOfRange}
+        setIsOutOfRange={setIsOutOfRange}
       />
     </div>
   );
@@ -388,6 +436,19 @@ function SessionReportTab({ sessionId, profile, isLocked, existingReport }: { se
   if (isLocked) return <div className="text-center py-10 text-edu-muted">Vui lòng Check-in trước khi viết báo cáo.</div>;
 
   const handleSubmit = () => {
+    const handleMutationError = (err: any) => {
+      const status = err.response?.status;
+      let friendlyMsg = "Đã có lỗi xảy ra khi gửi báo cáo. Vui lòng thử lại sau.";
+      if (status === 403) {
+        friendlyMsg = "Bạn không có quyền gửi báo cáo cho ca học này (chưa được phân công).";
+      } else if (status === 409) {
+        friendlyMsg = "Báo cáo của ca học này đã tồn tại hoặc dữ liệu bị trùng lặp.";
+      } else if (status === 400) {
+        friendlyMsg = err.response?.data?.message || "Thông tin gửi lên không hợp lệ.";
+      }
+      toast.error(friendlyMsg);
+    };
+
     if (isTeacher) {
       teacherMutation.mutate({
         lessonTaught: formData.lessonTaught,
@@ -396,7 +457,8 @@ function SessionReportTab({ sessionId, profile, isLocked, existingReport }: { se
         ratingForAssistant: formData.rating,
         feedbackForAssistant: formData.feedback
       }, {
-        onSuccess: () => toast.success("Đã gửi báo cáo Giáo viên!")
+        onSuccess: () => toast.success("Đã gửi báo cáo Giáo viên!"),
+        onError: handleMutationError
       });
     } else {
       assistantMutation.mutate({
@@ -404,7 +466,8 @@ function SessionReportTab({ sessionId, profile, isLocked, existingReport }: { se
         ratingForTeacher: formData.rating,
         feedbackForTeacher: formData.feedback
       }, {
-        onSuccess: () => toast.success("Đã gửi báo cáo Trợ giảng!")
+        onSuccess: () => toast.success("Đã gửi báo cáo Trợ giảng!"),
+        onError: handleMutationError
       });
     }
   };

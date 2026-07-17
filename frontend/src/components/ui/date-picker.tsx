@@ -6,6 +6,7 @@ import { vi } from 'date-fns/locale/vi';
 import { format, setMonth, setYear } from 'date-fns';
 import { Calendar, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import 'react-day-picker/style.css';
+import { Portal } from './portal';
 
 export interface DatePickerProps {
   selected?: Date | null;
@@ -149,11 +150,18 @@ export function DatePicker({
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [displayMonth, setDisplayMonth] = useState(selected || new Date());
+  const [openDirection, setOpenDirection] = useState<'down' | 'up'>('down');
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const clickedInsideInput = containerRef.current && containerRef.current.contains(target);
+      const clickedInsideDropdown = dropdownRef.current && dropdownRef.current.contains(target);
+
+      if (!clickedInsideInput && !clickedInsideDropdown) {
         setIsOpen(false);
       }
     };
@@ -166,6 +174,41 @@ export function DatePicker({
   useEffect(() => {
     if (selected) setDisplayMonth(selected);
   }, [selected]);
+
+  const updatePosition = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const dropdownHeight = dropdownRef.current ? dropdownRef.current.offsetHeight : 330;
+
+      if (spaceBelow < dropdownHeight + 10 && spaceAbove > spaceBelow) {
+        setOpenDirection('up');
+        setCoords({
+          top: rect.top - dropdownHeight - 6,
+          left: rect.left,
+        });
+      } else {
+        setOpenDirection('down');
+        setCoords({
+          top: rect.bottom + 6,
+          left: rect.left,
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+    }
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isOpen]);
 
   return (
     <div ref={containerRef} className={`relative w-full ${wrapperClassName}`}>
@@ -185,58 +228,67 @@ export function DatePicker({
 
       {/* Dropdown Calendar */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-white rounded-xl border border-gray-200 shadow-xl">
-          <div className="pt-3 px-1">
-            <CustomCaption displayMonth={displayMonth} onMonthChange={setDisplayMonth} />
-          </div>
-          <DayPicker
-            mode="single"
-            selected={selected || undefined}
-            onSelect={(date) => {
-              onChange(date || null);
-              setIsOpen(false);
+        <Portal>
+          <div 
+            ref={dropdownRef}
+            className="fixed z-[9999] bg-white rounded-xl border border-gray-200 shadow-xl"
+            style={{
+              top: `${coords.top}px`,
+              left: `${coords.left}px`,
             }}
-            month={displayMonth}
-            onMonthChange={setDisplayMonth}
-            locale={vi}
-            fromDate={minDate}
-            toDate={maxDate}
-            hideNavigation
-            classNames={{
-              root: 'px-3 pb-3',
-              months: 'flex flex-col',
-              month_caption: 'hidden',
-              nav: 'hidden',
-              weekdays: 'flex',
-              weekday: 'w-9 text-center text-xs font-semibold text-gray-400 py-1',
-              weeks: '',
-              week: 'flex',
-              day: 'w-9 h-9 flex items-center justify-center text-sm rounded-lg cursor-pointer transition-all duration-150 hover:bg-blue-50 hover:text-blue-600',
-              day_button: 'w-full h-full flex items-center justify-center rounded-lg',
-              selected: '!bg-blue-600 !text-white !font-bold hover:!bg-blue-700',
-              today: 'font-bold text-blue-600 ring-1 ring-blue-200 rounded-lg',
-              outside: 'text-gray-300',
-              disabled: 'text-gray-200 cursor-not-allowed hover:bg-transparent',
-            }}
-          />
-          {selected && (
-            <div className="flex items-center justify-between px-4 pb-3 pt-0 border-t border-gray-100">
-              <span className="text-xs text-gray-400">
-                {format(selected, 'EEEE, dd/MM/yyyy', { locale: vi })}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(null);
-                  setIsOpen(false);
-                }}
-                className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors"
-              >
-                Xóa
-              </button>
+          >
+            <div className="pt-3 px-1">
+              <CustomCaption displayMonth={displayMonth} onMonthChange={setDisplayMonth} />
             </div>
-          )}
-        </div>
+            <DayPicker
+              mode="single"
+              selected={selected || undefined}
+              onSelect={(date) => {
+                onChange(date || null);
+                setIsOpen(false);
+              }}
+              month={displayMonth}
+              onMonthChange={setDisplayMonth}
+              locale={vi}
+              fromDate={minDate}
+              toDate={maxDate}
+              hideNavigation
+              classNames={{
+                root: 'px-3 pb-3',
+                months: 'flex flex-col',
+                month_caption: 'hidden',
+                nav: 'hidden',
+                weekdays: 'flex',
+                weekday: 'w-9 text-center text-xs font-semibold text-gray-400 py-1',
+                weeks: '',
+                week: 'flex',
+                day: 'w-9 h-9 flex items-center justify-center text-sm rounded-lg cursor-pointer transition-all duration-150 hover:bg-blue-50 hover:text-blue-600',
+                day_button: 'w-full h-full flex items-center justify-center rounded-lg',
+                selected: '!bg-blue-600 !text-white !font-bold hover:!bg-blue-700',
+                today: 'font-bold text-blue-600 ring-1 ring-blue-200 rounded-lg',
+                outside: 'text-gray-300',
+                disabled: 'text-gray-200 cursor-not-allowed hover:bg-transparent',
+              }}
+            />
+            {selected && (
+              <div className="flex items-center justify-between px-4 pb-3 pt-0 border-t border-gray-100">
+                <span className="text-xs text-gray-400">
+                  {format(selected, 'EEEE, dd/MM/yyyy', { locale: vi })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(null);
+                    setIsOpen(false);
+                  }}
+                  className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors"
+                >
+                  Xóa
+                </button>
+              </div>
+            )}
+          </div>
+        </Portal>
       )}
     </div>
   );

@@ -53,7 +53,7 @@ namespace EduOps.Application.Services
 
                 if (distance > school.SchoolDetail.AttendanceRadius)
                 {
-                    throw new BadRequestException($"Bạn đang ở ngoài khu vực cho phép Check-in. Khoảng cách: {Math.Round(distance)}m, Bán kính tối đa: {school.SchoolDetail.AttendanceRadius}m.");
+                    throw new BadRequestException("OUT_OF_RANGE");
                 }
             }
 
@@ -66,13 +66,24 @@ namespace EduOps.Application.Services
             }
 
             var now = DateTime.UtcNow;
+            
+            // Fix múi giờ Việt Nam (UTC+7) để tái tạo chính xác thời gian bắt đầu ca dạy dạng UTC
+            var localDate = session.SessionDate.AddHours(7).Date;
+            var localStartTime = localDate.Add(session.StartTime);
+            var sessionStartTimeUtc = localStartTime.AddHours(-7);
+
+            // Check if too early (more than 5 minutes before start time)
+            if (now < sessionStartTimeUtc.AddMinutes(-5))
+            {
+                var allowedTimeStr = session.StartTime.Add(TimeSpan.FromMinutes(-5)).ToString(@"hh\:mm");
+                throw new BadRequestException($"Chưa đến giờ Check-in. Bạn chỉ có thể Check-in từ lúc {allowedTimeStr}.");
+            }
 
             // Calculate lateness
-            var sessionStartTimeUtc = session.SessionDate.Date.Add(session.StartTime);
             var lateMinutes = 0;
 
             string statusCode = "PRESENT";
-            var lateThreshold = school.SchoolDetail?.LateThresholdMinutes ?? 15;
+            var lateThreshold = school.SchoolDetail?.LateThresholdMinutes ?? 3;
             if (now > sessionStartTimeUtc.AddMinutes(lateThreshold))
             {
                 lateMinutes = (int)(now - sessionStartTimeUtc).TotalMinutes;
@@ -156,7 +167,11 @@ namespace EduOps.Application.Services
             if (session == null) throw new NotFoundException("Session", request.SessionId);
 
             var now = DateTime.UtcNow;
-            var sessionEndTimeUtc = session.SessionDate.Date.Add(session.EndTime);
+            
+            // Fix múi giờ Việt Nam (UTC+7) để tái tạo chính xác thời gian kết thúc ca dạy dạng UTC
+            var localDate = session.SessionDate.AddHours(7).Date;
+            var localEndTime = localDate.Add(session.EndTime);
+            var sessionEndTimeUtc = localEndTime.AddHours(-7);
             var schoolRepo = _unitOfWork.Repository<School>();
             var school = await schoolRepo.FirstOrDefaultAsync(s => s.Id == session.SchoolId, ignoreQueryFilters: true, includeProperties: "SchoolDetail");
             if (school == null) throw new NotFoundException("School", session.SchoolId);
@@ -168,11 +183,7 @@ namespace EduOps.Application.Services
 
                 if (distance > school.SchoolDetail.AttendanceRadius)
                 {
-                    // Nếu Client có cờ Force (vd thông qua việc có chuỗi [Ngoài cơ sở] trong Note) thì cho phép
-                    if (request.Note == null || !request.Note.Contains("[Ngoài cơ sở]"))
-                    {
-                        throw new BadRequestException("OUT_OF_RANGE");
-                    }
+                    throw new BadRequestException("OUT_OF_RANGE");
                 }
             }
 
@@ -437,6 +448,25 @@ namespace EduOps.Application.Services
             }
 
             return result.OrderByDescending(x => x.AttendanceRate).ThenByDescending(x => x.TotalSessions).ToList();
+        }
+
+        public async Task ConfirmExplanationAsync(Guid id)
+        {
+            var attendanceRepo = _unitOfWork.Repository<Attendance>();
+            var attendance = await attendanceRepo.FirstOrDefaultAsync(a => a.Id == id);
+            if (attendance == null) throw new NotFoundException("Attendance", id);
+
+            if (string.IsNullOrEmpty(attendance.Note))
+            {
+                attendance.Note = "[Quản lý đã xác nhận]";
+            }
+            else if (!attendance.Note.Contains("[Quản lý đã xác nhận]"))
+            {
+                attendance.Note = "[Quản lý đã xác nhận] " + attendance.Note;
+            }
+
+            attendanceRepo.Update(attendance);
+            await _unitOfWork.CommitAsync();
         }
     }
 }

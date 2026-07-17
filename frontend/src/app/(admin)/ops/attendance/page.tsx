@@ -66,19 +66,20 @@ export default function AttendancePage() {
   const getRealTimeStatus = (s: any) => {
     if (s.statusCode === 'CANCELED') return 'CANCELED';
     if (s.statusCode === 'COMPLETED') return 'COMPLETED';
-    
-    const teacherAttendance = attendances?.find((a: any) => a.sessionId === s.id && a.userId === s.teacherId);
-    if (teacherAttendance?.checkoutTime) return 'COMPLETED';
-    
-    // Only apply time-based logic if it's today
+
+    const assignedTeacherIds = (s.teacherIds && s.teacherIds.length > 0) ? s.teacherIds : (s.teacherId ? [s.teacherId] : []);
+    const assignedAssistantIds = (s.assistantIds && s.assistantIds.length > 0) ? s.assistantIds : (s.assistantId ? [s.assistantId] : []);
+    const assignedStaffIds = [...assignedTeacherIds, ...assignedAssistantIds];
+
+    if (assignedStaffIds.length === 0) return s.statusCode;
+
+    // Lấy tất cả lượt điểm danh của ca học này
+    const sessionAttendances = attendances?.filter((a: any) => a.sessionId === s.id) || [];
+
+    // Chỉ áp dụng tính toán nếu đang diễn ra hoặc đã kết thúc
     const sDate = new Date(s.sessionDate).toLocaleDateString('en-CA');
     const todayStr = new Date().toLocaleDateString('en-CA');
-    if (sDate !== todayStr) {
-      if (sDate < todayStr && !teacherAttendance) return 'ABSENT';
-      if (sDate < todayStr && teacherAttendance && !teacherAttendance.checkoutTime) return 'MISSING_CHECKOUT';
-      return s.statusCode;
-    }
-
+    
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
     
@@ -88,20 +89,83 @@ export default function AttendancePage() {
     const endParts = (s.endTime || '23:59').split(':');
     const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
 
-    if (currentTotalMinutes < startMinutes) return 'SCHEDULED';
-    if (currentTotalMinutes > endMinutes) {
-        if (!teacherAttendance) return 'ABSENT';
-        return 'MISSING_CHECKOUT';
+    const isPastStart = sDate < todayStr || (sDate === todayStr && currentTotalMinutes >= startMinutes);
+    const isPastEnd = sDate < todayStr || (sDate === todayStr && currentTotalMinutes > endMinutes);
+
+    if (!isPastStart) return 'SCHEDULED';
+
+    // Kiểm tra chi tiết từng nhân sự
+    const teacherIssues: string[] = [];
+    const assistantIssues: string[] = [];
+
+    let hasTeacherAttended = false;
+    let hasAssistantAttended = false;
+
+    // Kiểm tra Giáo viên
+    assignedTeacherIds.forEach(uid => {
+      const att = sessionAttendances.find((a: any) => a.userId === uid);
+      if (!att) {
+        if (isPastStart) teacherIssues.push('Chưa Check-in');
+      } else {
+        hasTeacherAttended = true;
+        if (isPastEnd && !att.checkoutTime) {
+          teacherIssues.push('Chưa Check-out');
+        }
+      }
+    });
+
+    // Kiểm tra Trợ giảng
+    assignedAssistantIds.forEach(uid => {
+      const att = sessionAttendances.find((a: any) => a.userId === uid);
+      if (!att) {
+        if (isPastStart) assistantIssues.push('Chưa Check-in');
+      } else {
+        hasAssistantAttended = true;
+        if (isPastEnd && !att.checkoutTime) {
+          assistantIssues.push('Chưa Check-out');
+        }
+      }
+    });
+
+    const totalIssuesCount = teacherIssues.length + assistantIssues.length;
+
+    // Nếu không có lỗi nào
+    if (totalIssuesCount === 0) {
+      if (isPastEnd) return 'COMPLETED';
+      return 'ONGOING';
+    }
+
+    // Nếu đã kết thúc giờ học mà không một ai check-in
+    if (isPastEnd && !hasTeacherAttended && !hasAssistantAttended) {
+      return 'ABSENT';
+    }
+
+    // Tạo nhãn chi tiết lỗi
+    const labels: string[] = [];
+    if (teacherIssues.length > 0) {
+      labels.push(`GV ${teacherIssues.join('/')}`);
+    }
+    if (assistantIssues.length > 0) {
+      labels.push(`TG ${assistantIssues.join('/')}`);
+    }
+
+    const issueText = labels.join(' | ');
+    if (isPastEnd) {
+      return `ISSUE:${issueText}`;
     }
     return 'ONGOING';
   };
 
   const getStatusDisplay = (status: string) => {
+    if (status.startsWith('ISSUE:')) {
+      const label = status.replace('ISSUE:', '');
+      return { label, variant: 'danger' as const };
+    }
+
     switch(status) {
       case 'COMPLETED': return { label: 'Hoàn thành', variant: 'success' as const };
       case 'ONGOING': return { label: 'Đang diễn ra', variant: 'warn' as const };
       case 'ABSENT': return { label: 'Vắng mặt', variant: 'danger' as const };
-      case 'MISSING_CHECKOUT': return { label: 'Thiếu Check-out', variant: 'danger' as const };
       case 'SCHEDULED': return { label: 'Sắp tới', variant: 'info' as const };
       case 'CANCELED': return { label: 'Đã hủy', variant: 'secondary' as const };
       default: return { label: status, variant: 'secondary' as const };
@@ -121,7 +185,7 @@ export default function AttendancePage() {
         <StatCard icon={<CheckCircle2 size={20} />} label="Tổng ca học" value={computedSessions.length.toString()} type="success" />
         <StatCard icon={<Clock size={20} />} label="Đã hoàn thành" value={computedSessions.filter(s => s.computedStatus === 'COMPLETED').length.toString()} type="accent" />
         <StatCard icon={<HelpCircle size={20} />} label="Đang & Sắp diễn ra" value={computedSessions.filter(s => s.computedStatus === 'ONGOING' || s.computedStatus === 'SCHEDULED').length.toString()} type="info" />
-        <StatCard icon={<MapPin size={20} />} label="Cần xử lý (Vắng/Thiếu CO)" value={computedSessions.filter(s => s.computedStatus === 'ABSENT' || s.computedStatus === 'MISSING_CHECKOUT').length.toString()} type="danger" />
+        <StatCard icon={<MapPin size={20} />} label="Cần xử lý (Vắng/Thiếu ca)" value={computedSessions.filter(s => s.computedStatus === 'ABSENT' || s.computedStatus.startsWith('ISSUE:')).length.toString()} type="danger" />
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-edu-border overflow-hidden">
@@ -169,9 +233,13 @@ export default function AttendancePage() {
                   const firstClass = classes?.items?.find((c: any) => s.classIds?.includes(c.id));
                   const schoolName = schools?.items?.find((sch: any) => sch.id === firstClass?.schoolId)?.name || '---';
 
-                  const teacherAttendance = attendances?.find((a: any) => a.sessionId === s.id && a.userId === s.teacherId);
-                  const formatTime = (timeStr?: string) => timeStr ? new Date(timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---';
-                  const checkinStr = teacherAttendance ? `${formatTime(teacherAttendance.checkinTime)} / ${formatTime(teacherAttendance.checkoutTime)}` : 'Chưa ghi nhận';
+                  const assignedTeacherIds = (s.teacherIds && s.teacherIds.length > 0) ? s.teacherIds : (s.teacherId ? [s.teacherId] : []);
+                  const assignedAssistantIds = (s.assistantIds && s.assistantIds.length > 0) ? s.assistantIds : (s.assistantId ? [s.assistantId] : []);
+                  
+                  const assignedStaff = [
+                    ...assignedTeacherIds.map(id => ({ id, role: 'TEACHER' })),
+                    ...assignedAssistantIds.map(id => ({ id, role: 'ASSISTANT' }))
+                  ];
                   
                   return (
                   <TableRow key={s.id} className="hover:bg-slate-50/70 transition-all duration-200 border-b-slate-100">
@@ -203,40 +271,71 @@ export default function AttendancePage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {teacherAttendance ? (
-                        <div className="flex items-start gap-3">
-                          {teacherAttendance.checkinImageUrl && (
-                            <a href={teacherAttendance.checkinImageUrl} target="_blank" rel="noreferrer" className="shrink-0 group relative block">
-                              <img src={teacherAttendance.checkinImageUrl} alt="Selfie" className="w-10 h-10 object-cover rounded-md border border-slate-200 shadow-sm group-hover:opacity-80 transition-opacity" loading="lazy" />
-                            </a>
-                          )}
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1.5">
-                              <UserCheck size={14} className="text-emerald-500 shrink-0" />
-                              <span className="font-semibold text-slate-700 text-[13px]">{checkinStr}</span>
+                      <div className="flex flex-col gap-2.5">
+                        {assignedStaff.map((staff, idx) => {
+                          const staffObj = staff.role === 'TEACHER'
+                            ? teachers?.items?.find((t: any) => t.id === staff.id)
+                            : assistants?.items?.find((a: any) => a.id === staff.id);
+                          const staffName = staffObj?.fullName || (staff.role === 'TEACHER' ? 'Giáo viên' : 'Trợ giảng');
+                          const staffRoleLabel = staff.role === 'TEACHER' ? 'GV' : 'TG';
+                          const staffRoleColor = staff.role === 'TEACHER' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-teal-50 text-teal-700 border-teal-100';
+
+                          const staffAttendance = attendances?.find((a: any) => a.sessionId === s.id && a.userId === staff.id);
+                          const formatTime = (timeStr?: string) => timeStr ? new Date(timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---';
+                          const checkinStr = staffAttendance ? `${formatTime(staffAttendance.checkinTime)} / ${formatTime(staffAttendance.checkoutTime)}` : 'Chưa check-in';
+
+                          return (
+                            <div key={staff.id + '-' + idx} className="flex items-start gap-2.5 text-[13px]">
+                              <span className={`inline-flex items-center justify-center px-1.5 py-0.5 border text-[10px] font-bold rounded shrink-0 ${staffRoleColor}`}>
+                                {staffRoleLabel}
+                              </span>
+
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-slate-700">{staffName}</span>
+                                {staffAttendance ? (
+                                  <div className="flex items-start gap-2 mt-1">
+                                    {staffAttendance.checkinImageUrl && (
+                                      <a href={staffAttendance.checkinImageUrl} target="_blank" rel="noreferrer" className="shrink-0 group relative block">
+                                        <img src={staffAttendance.checkinImageUrl} alt="Selfie" className="w-8 h-8 object-cover rounded border border-slate-200 shadow-sm group-hover:opacity-80 transition-opacity" loading="lazy" />
+                                      </a>
+                                    )}
+                                    <div className="flex flex-col gap-0.5">
+                                      <div className="flex items-center gap-1">
+                                        <UserCheck size={12} className="text-emerald-500 shrink-0" />
+                                        <span className="font-medium text-slate-600 text-[12px]">{checkinStr}</span>
+                                      </div>
+                                      {(staffAttendance.lateMinutes > 0 || staffAttendance.earlyCheckoutMinutes > 0) && (
+                                        <div className="flex flex-wrap gap-1.5 items-center text-[10px] font-medium">
+                                          {staffAttendance.lateMinutes > 0 && (
+                                            <span className="text-red-500 flex items-center gap-0.5"><span className="w-1 h-1 rounded-full bg-red-500"></span> Trễ {staffAttendance.lateMinutes}p</span>
+                                          )}
+                                          {staffAttendance.earlyCheckoutMinutes > 0 && (
+                                            <span className="text-orange-500 flex items-center gap-0.5"><span className="w-1 h-1 rounded-full bg-orange-500"></span> Về sớm {staffAttendance.earlyCheckoutMinutes}p</span>
+                                          )}
+                                        </div>
+                                      )}
+                                      {staffAttendance.note && (
+                                        <div className="text-[10px] text-slate-400 italic max-w-[180px] truncate" title={staffAttendance.note}>
+                                          <span className="font-medium text-slate-500">Ghi chú:</span> {staffAttendance.note}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-red-500 text-[12px] font-medium flex items-center gap-1 mt-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                                    Chưa check-in
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            {(teacherAttendance.lateMinutes > 0 || teacherAttendance.earlyCheckoutMinutes > 0) && (
-                              <div className="flex flex-wrap gap-2 items-center text-[11px] font-medium ml-5">
-                                {teacherAttendance.lateMinutes > 0 && (
-                                  <span className="text-red-500 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-red-500"></span> Trễ {teacherAttendance.lateMinutes}p</span>
-                                )}
-                                {teacherAttendance.earlyCheckoutMinutes > 0 && (
-                                  <span className="text-orange-500 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-orange-500"></span> Về sớm {teacherAttendance.earlyCheckoutMinutes}p</span>
-                                )}
-                              </div>
-                            )}
-                            {teacherAttendance.note && (
-                              <div className="text-[11px] text-slate-500 italic mt-0.5 max-w-[200px] truncate" title={teacherAttendance.note}>
-                                <span className="font-semibold text-slate-600">Ghi chú:</span> {teacherAttendance.note}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-slate-400 italic text-[13px]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Chưa ghi nhận
-                        </div>
-                      )}
+                          );
+                        })}
+
+                        {assignedStaff.length === 0 && (
+                          <span className="text-slate-400 italic text-[13px]">Không có nhân sự</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {(() => {

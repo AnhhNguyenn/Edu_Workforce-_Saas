@@ -5,6 +5,7 @@ import { useSchools } from '@/hooks/queries/useSchools';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useUsers } from '@/hooks/queries/useUsers';
 import { useSessions } from '@/hooks/queries/useSessions';
+import { useReports } from '@/hooks/queries/useReports';
 import { Search, ChevronDown, ChevronRight, Building2, GraduationCap, User, Calendar, ClipboardCheck, AlertCircle, Users, Loader2, BookOpen, UserCheck, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -29,8 +30,9 @@ export default function CenterAdminReportsPage() {
   const { data: teachers, isLoading: isLoadingTeachers } = useUsers('TEACHER', '', 1, 1000);
   const { data: assistants, isLoading: isLoadingAssistants } = useUsers('ASSISTANT', '', 1, 1000);
   const { data: sessions, isLoading: isLoadingSessions } = useSessions();
+  const { data: reportsData, isLoading: isLoadingReports } = useReports(1, 1000);
 
-  const isLoading = isLoadingSchools || isLoadingClasses || isLoadingTeachers || isLoadingAssistants || isLoadingSessions;
+  const isLoading = isLoadingSchools || isLoadingClasses || isLoadingTeachers || isLoadingAssistants || isLoadingSessions || isLoadingReports;
 
   const toggleSchool = (id: string) => setExpandedSchools(prev => ({ ...prev, [id]: !prev[id] }));
   const toggleClass = (id: string) => setExpandedClasses(prev => ({ ...prev, [id]: !prev[id] }));
@@ -38,10 +40,12 @@ export default function CenterAdminReportsPage() {
   const toggleUser = (id: string) => setExpandedUsers(prev => ({ ...prev, [id]: !prev[id] }));
 
   // Build Hierarchy
+  // Build Hierarchy
   const hierarchy = useMemo(() => {
     if (!schools?.items || !classes?.items || !sessions?.items) return [];
 
     let filteredSessions = sessions.items;
+    const reportsList = reportsData?.items || [];
 
     // Tab Filtering
     const today = new Date();
@@ -68,24 +72,37 @@ export default function CenterAdminReportsPage() {
         return sDateStr >= startStr && sDateStr <= endStr;
       });
     } else if (activeTab === 'discipline') {
-      // Dummy logic for discipline: only sessions with notes containing specific keywords?
-      // Or just empty for now as it's a placeholder
       filteredSessions = [];
     }
 
     // Apply Real Time Status
     const getRealTimeStatus = (s: any) => {
       if (s.statusCode === 'CANCELED') return 'CANCELED';
-      if (s.statusCode === 'COMPLETED') return 'COMPLETED';
+      
+      const rep = reportsList.find((r: any) => r.sessionId === s.id);
+      if (rep && (rep.statusCode === 'SUBMITTED' || rep.statusCode === 'FINALIZED' || rep.status === 'SUBMITTED' || rep.status === 'FINALIZED')) {
+        return 'COMPLETED';
+      }
+      if (rep && (rep.statusCode === 'DRAFT' || rep.status === 'DRAFT')) {
+        return 'DRAFT';
+      }
+
       const sDate = new Date(s.sessionDate).toLocaleDateString('en-CA');
       const todayStr = new Date().toLocaleDateString('en-CA');
-      if (sDate !== todayStr) return s.statusCode;
+
       const now = new Date();
       const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+
       const startParts = (s.startTime || '00:00').split(':');
       const startMinutes = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
+
       const endParts = (s.endTime || '23:59').split(':');
       const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
+
+      if (sDate < todayStr) return 'MISSING';
+      if (sDate > todayStr) return 'SCHEDULED';
+
+      // date is today
       if (currentTotalMinutes < startMinutes) return 'SCHEDULED';
       if (currentTotalMinutes > endMinutes) return 'MISSING';
       return 'ONGOING';
@@ -110,7 +127,7 @@ export default function CenterAdminReportsPage() {
     groupsMap.forEach(g => groupedSessions.push(g));
 
     return groupedSessions.sort((a: any, b: any) => (a.startTime || '').localeCompare(b.startTime || ''));
-  }, [schools, classes, sessions, teachers, assistants, activeTab]);
+  }, [schools, classes, sessions, reportsData, activeTab]);
 
   return (
     <div className="w-full h-full space-y-6">
@@ -188,6 +205,11 @@ export default function CenterAdminReportsPage() {
                   const teacherName = teachers?.items?.find((t: any) => t.id === s.teacherId)?.fullName || 'Chưa xếp giáo viên';
                   const assistantName = (s.assistantIds && s.assistantIds.length > 0) ? s.assistantIds.map((id: string) => assistants?.items?.find((a: any) => a.id === id)?.fullName || 'Chưa xếp').join(', ') : null;
                   
+                  const rep = reportsData?.items?.find((r: any) => r.sessionId === s.id);
+                  const lessonTaught = rep?.lessonTaught || s.lessonTitle || '';
+                  const progress = rep?.progress || s.lessonProgress || '';
+                  const noteText = rep?.teacherComment || rep?.assistantNote || s.notes || '';
+
                   return (
                     <TableRow key={s.id} className="hover:bg-slate-50/70 transition-all duration-200 border-b-slate-100">
                       <TableCell className="py-3">
@@ -235,11 +257,11 @@ export default function CenterAdminReportsPage() {
                         <div className="flex flex-col gap-1.5 max-w-[220px]">
                           <div className="flex items-start gap-1.5 text-slate-700 text-sm">
                             <BookOpen size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                            <span className="font-medium whitespace-normal line-clamp-2">{s.lessonTitle || <span className="text-slate-400 italic">Chưa cập nhật chủ đề</span>}</span>
+                            <span className="font-medium whitespace-normal line-clamp-2">{lessonTaught || <span className="text-slate-400 italic">Chưa cập nhật chủ đề</span>}</span>
                           </div>
-                          {s.lessonProgress && (
+                          {progress && (
                             <div className="text-sm text-slate-600 bg-slate-50 border border-slate-100 px-2 py-1 rounded ml-5 whitespace-normal line-clamp-2">
-                              {s.lessonProgress}
+                              {progress}
                             </div>
                           )}
                         </div>
@@ -247,8 +269,8 @@ export default function CenterAdminReportsPage() {
 
                       <TableCell className="py-3">
                         <div className="max-w-[200px] whitespace-normal">
-                          {s.notes ? (
-                            <span className="text-[13px] text-slate-600 line-clamp-3">{s.notes}</span>
+                          {noteText ? (
+                            <span className="text-[13px] text-slate-600 line-clamp-3">{noteText}</span>
                           ) : (
                             <span className="text-[13px] text-slate-400 italic">---</span>
                           )}
@@ -256,8 +278,8 @@ export default function CenterAdminReportsPage() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge variant={s.computedStatus === 'COMPLETED' ? 'success' : s.computedStatus === 'ONGOING' ? 'warn' : s.computedStatus === 'MISSING' ? 'secondary' : 'info'} className="shadow-sm">
-                          {s.computedStatus === 'COMPLETED' ? 'Đã xong' : s.computedStatus === 'ONGOING' ? 'Đang diễn ra' : s.computedStatus === 'MISSING' ? 'Chưa báo cáo' : 'Sắp tới'}
+                        <Badge variant={s.computedStatus === 'COMPLETED' ? 'success' : s.computedStatus === 'DRAFT' ? 'info' : s.computedStatus === 'ONGOING' ? 'warn' : s.computedStatus === 'MISSING' ? 'danger' : 'secondary'} className="shadow-sm">
+                          {s.computedStatus === 'COMPLETED' ? 'Đã báo cáo' : s.computedStatus === 'DRAFT' ? 'Bản nháp' : s.computedStatus === 'ONGOING' ? 'Đang diễn ra' : s.computedStatus === 'MISSING' ? 'Chưa báo cáo' : 'Sắp tới'}
                         </Badge>
                       </TableCell>
 

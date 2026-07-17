@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from './switch';
 import { Portal } from './portal';
 import { DatePicker } from './date-picker';
+import { TimePicker } from './time-picker';
 
 interface ImportScheduleModalProps {
   onClose: () => void;
@@ -502,7 +503,7 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-sm font-medium mb-1 text-slate-700">Từ giờ</label>
-                      <DatePicker 
+                      <TimePicker
                         selected={
                           editingSession.startTime ? (() => {
                             const [h, m] = editingSession.startTime.split(':');
@@ -513,16 +514,13 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
                           if (!date) return;
                           setEditingSession({ ...editingSession, startTime: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:00` });
                         }}
-                        showTimeSelect
-                        showTimeSelectOnly
-                        timeIntervals={15}
-                        dateFormat="HH:mm"
                         placeholderText="00:00"
+                        className="w-full h-10"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1 text-slate-700">Đến</label>
-                      <DatePicker 
+                      <TimePicker
                         selected={
                           editingSession.endTime ? (() => {
                             const [h, m] = editingSession.endTime.split(':');
@@ -533,11 +531,8 @@ export function ImportScheduleModal({ onClose }: ImportScheduleModalProps) {
                           if (!date) return;
                           setEditingSession({ ...editingSession, endTime: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:00` });
                         }}
-                        showTimeSelect
-                        showTimeSelectOnly
-                        timeIntervals={15}
-                        dateFormat="HH:mm"
                         placeholderText="00:00"
+                        className="w-full h-10"
                       />
                     </div>
                   </div>

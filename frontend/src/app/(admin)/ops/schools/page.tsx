@@ -52,7 +52,7 @@ export default function SchoolsPage() {
   const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null);
   const { confirm } = useConfirm();
 
-  const { register, control, handleSubmit, reset, setValue, formState: { errors } } = useForm<SchoolFormValues>({
+  const { register, control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<SchoolFormValues>({
     resolver: zodResolver(schoolSchema),
     defaultValues: {
       name: '',
@@ -62,6 +62,8 @@ export default function SchoolsPage() {
       longitude: 105.804817
     }
   });
+
+  const attendanceRadius = watch('attendanceRadius') || 200;
 
   const filteredSchools = schools?.items?.filter(s => {
     if (gpsFilter === 'HAS_GPS') return s.latitude && s.longitude;
@@ -269,6 +271,7 @@ export default function SchoolsPage() {
                         <LocationPicker 
                           lat={lat!} 
                           lng={lng!} 
+                          radius={attendanceRadius}
                           onChange={(newLat, newLng) => {
                             setLat(newLat);
                             setLng(newLng);

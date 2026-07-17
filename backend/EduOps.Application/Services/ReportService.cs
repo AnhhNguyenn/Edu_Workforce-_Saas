@@ -29,7 +29,7 @@ namespace EduOps.Application.Services
         private async Task<Report> GetOrCreateReportAsync(Guid sessionId)
         {
             var reportRepo = _unitOfWork.Repository<Report>();
-            var report = await reportRepo.FirstOrDefaultAsync(r => r.SessionId == sessionId);
+            var report = await reportRepo.FirstOrDefaultAsync(r => r.SessionId == sessionId, includeProperties: "ReportDetail");
 
             if (report == null)
             {
@@ -60,10 +60,24 @@ namespace EduOps.Application.Services
         {
             var report = await GetOrCreateReportAsync(sessionId);
 
-            if (report.TeacherId != teacherId)
+            var isAssigned = await _unitOfWork.Repository<SessionTeacher>()
+                .AnyAsync(st => st.SessionId == sessionId && st.TeacherId == teacherId && st.DeletedAt == null);
+
+            if (!isAssigned)
+            {
+                var session = await _unitOfWork.Repository<Session>().FirstOrDefaultAsync(s => s.Id == sessionId);
+                if (session?.TeacherId == teacherId)
+                {
+                    isAssigned = true;
+                }
+            }
+
+            if (!isAssigned)
                 throw new ForbiddenException("Only the assigned teacher can submit this part of the report.");
 
-            if (report.ReportDetail == null) report.ReportDetail = new EduOps.Domain.Entities.ReportDetail();
+            report.TeacherId = teacherId;
+
+            if (report.ReportDetail == null) report.ReportDetail = new EduOps.Domain.Entities.ReportDetail { ReportId = report.Id };
             report.ReportDetail.LessonTaught = request.LessonTaught;
             report.ReportDetail.Progress = request.Progress;
             report.ReportDetail.TeacherComment = request.TeacherComment;
@@ -85,10 +99,24 @@ namespace EduOps.Application.Services
         {
             var report = await GetOrCreateReportAsync(sessionId);
 
-            if (report.AssistantId != assistantId)
+            var isAssigned = await _unitOfWork.Repository<SessionAssistant>()
+                .AnyAsync(sa => sa.SessionId == sessionId && sa.AssistantId == assistantId && sa.DeletedAt == null);
+
+            if (!isAssigned)
+            {
+                var session = await _unitOfWork.Repository<Session>().FirstOrDefaultAsync(s => s.Id == sessionId);
+                if (session?.AssistantId == assistantId)
+                {
+                    isAssigned = true;
+                }
+            }
+
+            if (!isAssigned)
                 throw new ForbiddenException("Only the assigned assistant can submit this part of the report.");
 
-            if (report.ReportDetail == null) report.ReportDetail = new EduOps.Domain.Entities.ReportDetail();
+            report.AssistantId = assistantId;
+
+            if (report.ReportDetail == null) report.ReportDetail = new EduOps.Domain.Entities.ReportDetail { ReportId = report.Id };
             report.ReportDetail.AssistantNote = request.AssistantNote;
             report.ReportDetail.RatingForTeacher = request.RatingForTeacher;
             report.ReportDetail.FeedbackForTeacher = request.FeedbackForTeacher;

@@ -32,6 +32,7 @@ namespace EduOps.Domain.Entities
 
         public virtual SessionDetail? SessionDetail { get; set; }
         public virtual ICollection<SessionAssistant> SessionAssistants { get; set; } = new List<SessionAssistant>();
+        public virtual ICollection<SessionTeacher> SessionTeachers { get; set; } = new List<SessionTeacher>();
 
         public DateTime SessionDate { get; set; }
         public TimeSpan StartTime { get; set; }

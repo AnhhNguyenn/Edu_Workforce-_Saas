@@ -14,6 +14,7 @@ export interface SessionListResponseDto {
   statusCode?: string;
   teacherId?: string;
   teacherName?: string;
+  teacherIds?: string[];
   assistantIds?: string[];
   notes?: string;
   localTeachingAssistant?: string;
@@ -53,7 +54,8 @@ export const useSessions = (startDate?: string, endDate?: string) => {
         }
       });
       return response.data;
-    }
+    },
+    refetchInterval: 5000, // Real-time poll every 5 seconds
   });
 };
 
@@ -65,6 +67,7 @@ export const useSessionDetail = (id: string) => {
       return response.data;
     },
     enabled: !!id,
+    refetchInterval: 5000, // Real-time poll every 5 seconds
   });
 };
 
@@ -81,7 +84,7 @@ export const useCustomFields = () => {
 export const useCreateSession = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { classId: string; schoolId: string; teacherId?: string | null; assistantIds?: string[]; lessonTitle?: string | null; roomName?: string | null; notes?: string | null; sessionDate: string; startTime: string; endTime: string; actualStudentCount?: number | null; localTeachingAssistant?: string | null; lessonProgress?: string | null; extraData?: string | null; }) => {
+    mutationFn: async (data: { classId: string; schoolId: string; teacherId?: string | null; teacherIds?: string[]; assistantIds?: string[]; lessonTitle?: string | null; roomName?: string | null; notes?: string | null; sessionDate: string; startTime: string; endTime: string; actualStudentCount?: number | null; localTeachingAssistant?: string | null; lessonProgress?: string | null; extraData?: string | null; }) => {
       const response = await apiClient.post('/sessions', data);
       return response.data;
     },
@@ -94,7 +97,7 @@ export const useCreateSession = () => {
 export const useBatchCreateSession = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { classIds: string[]; teacherId?: string | null; assistantIds?: string[]; lessonTitle?: string | null; roomName?: string | null; notes?: string | null; sessionDate: string; startTime: string; endTime: string; actualStudentCount?: number | null; localTeachingAssistant?: string | null; lessonProgress?: string | null; extraData?: string | null; isRecurring?: boolean; recurringDaysOfWeek?: number[]; recurringEndDate?: string | null; }) => {
+    mutationFn: async (data: { classIds: string[]; teacherId?: string | null; teacherIds?: string[]; assistantIds?: string[]; lessonTitle?: string | null; roomName?: string | null; notes?: string | null; sessionDate: string; startTime: string; endTime: string; actualStudentCount?: number | null; localTeachingAssistant?: string | null; lessonProgress?: string | null; extraData?: string | null; isRecurring?: boolean; recurringDaysOfWeek?: number[]; recurringEndDate?: string | null; }) => {
       const response = await apiClient.post('/sessions/batch', data);
       return response.data;
     },

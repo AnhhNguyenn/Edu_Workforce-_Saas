@@ -8,6 +8,7 @@ namespace EduOps.Application.DTOs.Academic.Sessions.Requests
         public List<Guid> ClassIds { get; set; } = new List<Guid>();
         public Guid? SchoolId { get; set; }
         public Guid? TeacherId { get; set; }
+        public List<Guid>? TeacherIds { get; set; }
         public List<Guid>? AssistantIds { get; set; }
         public string LessonTitle { get; set; } = string.Empty;
         public string? RoomName { get; set; }

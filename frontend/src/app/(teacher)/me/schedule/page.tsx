@@ -75,6 +75,18 @@ export default function SchedulePage() {
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [actionType, setActionType] = useState<'checkin' | 'checkout'>('checkin');
   const [actionSession, setActionSession] = useState<any>(null);
+  const [isOutOfRange, setIsOutOfRange] = useState(false);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      // Warm up GPS as soon as teacher opens the schedule page
+      navigator.geolocation.getCurrentPosition(
+        () => {},
+        () => {},
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    }
+  }, []);
 
   const [reportSession, setReportSession] = useState<{ id: string, title: string } | null>(null);
 
@@ -113,16 +125,22 @@ export default function SchedulePage() {
             toast.success('Check-out thành công!');
           }
           setActionModalOpen(false);
+          setIsOutOfRange(false);
         } catch (error: any) {
           const errMsg = error.response?.data?.Message || error.response?.data?.message || `Lỗi khi ${actionType}`;
-          toast.error(errMsg);
+          if (errMsg === 'OUT_OF_RANGE') {
+            setIsOutOfRange(true);
+            toast.error("Bạn đang ngoài cơ sở. Vui lòng ghi rõ lý do giải trình.");
+          } else {
+            toast.error(errMsg);
+          }
         }
       },
       (error) => {
         toast.dismiss('geo');
         toast.error('Vui lòng cho phép quyền truy cập vị trí');
       },
-      { timeout: 10000, enableHighAccuracy: true }
+      { timeout: 10000, enableHighAccuracy: true, maximumAge: 0 }
     );
   };
 
@@ -229,7 +247,7 @@ export default function SchedulePage() {
                 assistantName={assistantNames || 'Không có TG'}
                 onClick={() => router.push(`/me/schedule/${s.id}`)}
                 onReport={() => setReportSession({ id: s.id, title: className })}
-                onAction={(type, sess) => { setActionType(type); setActionSession(sess); setActionModalOpen(true); }}
+                onAction={(type, sess) => { setActionType(type); setActionSession(sess); setIsOutOfRange(false); setActionModalOpen(true); }}
               />
             )
           })
@@ -251,16 +269,23 @@ export default function SchedulePage() {
         />
       )}
       {/* Attendance Action Modal */}
-      {actionSession && (
-        <AttendanceActionModal
-          isOpen={actionModalOpen}
-          onClose={() => setActionModalOpen(false)}
-          type={actionType}
-          session={actionSession}
-          onSubmit={handleModalSubmit}
-          isLoading={actionType === 'checkin' ? checkInMutation.isPending : checkOutMutation.isPending}
-        />
-      )}
+      {actionSession && (() => {
+        const actionSessionClass = classes.find(c => c.id === actionSession?.classId);
+        const actionSessionSchool = schools.find(sch => sch.id === (actionSessionClass as any)?.schoolId);
+        return (
+          <AttendanceActionModal
+            isOpen={actionModalOpen}
+            onClose={() => setActionModalOpen(false)}
+            type={actionType}
+            session={actionSession}
+            school={actionSessionSchool}
+            onSubmit={handleModalSubmit}
+            isLoading={actionType === 'checkin' ? checkInMutation.isPending : checkOutMutation.isPending}
+            isOutOfRange={isOutOfRange}
+            setIsOutOfRange={setIsOutOfRange}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -295,8 +320,13 @@ function SessionAgendaCard({ session, attendance, className, schoolName, teacher
     statusConfig = { text: now >= sessionEndTime ? 'Đang dạy (Lố giờ)' : 'Đang dạy', colorClass: 'bg-blue-100 text-blue-700', pulse: true };
   } else if (!hasCheckedIn && now >= sessionEndTime) {
     statusConfig = { text: 'Vắng / Đã qua', colorClass: 'bg-red-100 text-red-600', pulse: false };
-  } else if (!hasCheckedIn && now >= sessionStartTime && now < sessionEndTime) {
-    statusConfig = { text: 'Trễ Check-in', colorClass: 'bg-yellow-100 text-yellow-700', pulse: true };
+  } else if (!hasCheckedIn && now >= new Date(sessionStartTime.getTime() - 5 * 60 * 1000) && now < sessionEndTime) {
+    const startTimePlus3 = new Date(sessionStartTime.getTime() + 3 * 60 * 1000);
+    if (now <= startTimePlus3) {
+      statusConfig = { text: 'Chờ Check-in', colorClass: 'bg-green-100 text-green-700', pulse: true };
+    } else {
+      statusConfig = { text: 'Trễ Check-in', colorClass: 'bg-yellow-100 text-yellow-700', pulse: true };
+    }
   }
 
   const formatTime = (isoString?: string) => {

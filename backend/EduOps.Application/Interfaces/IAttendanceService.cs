@@ -14,5 +14,6 @@ namespace EduOps.Application.Interfaces
         Task<List<AttendanceStatDto>> GetAttendanceStatsAsync(Guid organizationId, int days);
         Task<List<StaffAttendanceStatDto>> GetStaffAttendanceStatsAsync(Guid organizationId, int? month, int? year);
         Task SubmitStudentAttendancesAsync(Guid sessionId, Guid organizationId, Guid userId, string role, StudentAttendanceSubmitDto request);
+        Task ConfirmExplanationAsync(Guid id);
     }
 }
