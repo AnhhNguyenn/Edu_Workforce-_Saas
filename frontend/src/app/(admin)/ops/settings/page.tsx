@@ -129,9 +129,7 @@ export default function SettingsPage() {
         setIsLoading(false);
       }
     };
-    if (status !== 'loading') {
-      fetchSettings();
-    }
+    fetchSettings();
   }, [status, userRole]);
 
   const handleSaveAiSettings = async () => {

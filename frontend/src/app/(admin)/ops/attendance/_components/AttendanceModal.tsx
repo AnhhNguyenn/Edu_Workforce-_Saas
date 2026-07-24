@@ -9,7 +9,8 @@ interface AttendanceModalProps {
 }
 
 export function AttendanceModal({ session, onClose }: AttendanceModalProps) {
-  const { data: attendances } = useTodayAttendances();
+  const sessionDateStr = session?.sessionDate ? new Date(session.sessionDate).toLocaleDateString('en-CA') : undefined;
+  const { data: attendances } = useTodayAttendances(sessionDateStr);
   const { data: teachers } = useUsers('TEACHER');
   const { data: assistants } = useUsers('ASSISTANT');
   const { mutate: confirmExplanation, isPending: isConfirming } = useConfirmExplanation();
@@ -18,8 +19,8 @@ export function AttendanceModal({ session, onClose }: AttendanceModalProps) {
   const assignedAssistantIds = (session.assistantIds && session.assistantIds.length > 0) ? session.assistantIds : (session.assistantId ? [session.assistantId] : []);
   
   const assignedStaff = [
-    ...assignedTeacherIds.map(id => ({ id, role: 'TEACHER' })),
-    ...assignedAssistantIds.map(id => ({ id, role: 'ASSISTANT' }))
+    ...assignedTeacherIds.map((id: string) => ({ id, role: 'TEACHER' })),
+    ...assignedAssistantIds.map((id: string) => ({ id, role: 'ASSISTANT' }))
   ];
   
   const formatTime = (timeStr?: string) => timeStr ? new Date(timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---';

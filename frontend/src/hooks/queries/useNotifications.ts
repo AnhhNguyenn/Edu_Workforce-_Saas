@@ -26,7 +26,8 @@ export const useNotifications = (pageNumber = 1, pageSize = 20) => {
         params: { pageNumber, pageSize }
       });
       return response.data;
-    }
+    },
+    refetchInterval: 3000
   });
 };
 

@@ -11,6 +11,9 @@ export interface ClassDto {
   status?: string;
   statusCode?: string;
   schoolId?: string;
+  academicYear?: string;
+  description?: string;
+  schoolName?: string;
 }
 
 export interface PagedResult<T> {

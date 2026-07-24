@@ -80,9 +80,15 @@ export interface ReportDto {
   attendanceCount?: number;
   absentCount?: number;
   status: string;
+  statusCode?: string;
   submittedAt?: string;
   teacherName?: string;
   className?: string;
+  lessonTaught?: string;
+  progress?: string;
+  teacherComment?: string;
+  assistantNote?: string;
+  specialStudents?: string;
 }
 
 export interface PagedResult<T> {

@@ -548,7 +548,7 @@ export function Topbar() {
                       const hasDiscount = plan.activeDiscountPercentage && plan.activeDiscountPercentage > 0;
                       
                       const basePrice = billingCycle === 'MONTHLY' ? plan.pricePerMonth : (plan.pricePerYear || plan.pricePerMonth * 12 * 0.8);
-                      const finalPrice = hasDiscount ? basePrice * (1 - plan.activeDiscountPercentage / 100) : basePrice;
+                      const finalPrice = (hasDiscount && plan.activeDiscountPercentage) ? basePrice * (1 - plan.activeDiscountPercentage / 100) : basePrice;
 
                       return (
                         <div 

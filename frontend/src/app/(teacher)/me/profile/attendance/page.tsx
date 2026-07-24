@@ -2,10 +2,11 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useProfileStats } from "@/hooks/queries/useProfile";
+import { Suspense } from "react";
 import { ChevronLeft, Loader2, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 
-export default function AttendanceStatsPage() {
+function AttendanceStatsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -121,5 +122,13 @@ export default function AttendanceStatsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AttendanceStatsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-[calc(100vh-200px)]"><Loader2 className="animate-spin text-edu-accent" size={32} /></div>}>
+      <AttendanceStatsContent />
+    </Suspense>
   );
 }

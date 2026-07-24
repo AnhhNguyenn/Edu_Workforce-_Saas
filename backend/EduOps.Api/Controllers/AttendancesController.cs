@@ -49,10 +49,10 @@ namespace EduOps.Api.Controllers
 
         [HttpGet("today")]
         [HasPermission("Attendances:Manage")]
-        public async Task<IActionResult> GetTodayAttendances()
+        public async Task<IActionResult> GetTodayAttendances([FromQuery] DateTime? date = null)
         {
             var orgId = _currentUserService.OrganizationId ?? Guid.Empty;
-            var result = await _attendanceService.GetTodayAttendancesAsync(orgId);
+            var result = await _attendanceService.GetTodayAttendancesAsync(orgId, date);
             return Ok(result);
         }
 

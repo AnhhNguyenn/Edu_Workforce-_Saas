@@ -39,7 +39,7 @@ namespace EduOps.Application.Services
 
             if (session.TeacherId != userId && session.AssistantId != userId)
             {
-                throw new ForbiddenException("You are not assigned to this session.");
+                throw new ForbiddenException("Bạn không được phân công dạy hoặc trợ giảng ca học này.");
             }
 
             var schoolRepo = _unitOfWork.Repository<School>();
@@ -62,7 +62,7 @@ namespace EduOps.Application.Services
 
             if (existingRecord != null && existingRecord.CheckinTime.HasValue)
             {
-                throw new BadRequestException("You have already checked in for this session.");
+                throw new BadRequestException("Bạn đã điểm danh (Check-in) cho ca dạy này rồi.");
             }
 
             var now = DateTime.UtcNow;
@@ -154,12 +154,12 @@ namespace EduOps.Application.Services
 
             if (record == null || !record.CheckinTime.HasValue)
             {
-                throw new BadRequestException("You must check in before checking out.");
+                throw new BadRequestException("Bạn cần phải Check-in vào ca dạy trước khi thực hiện Check-out.");
             }
 
             if (record.CheckoutTime.HasValue)
             {
-                throw new BadRequestException("You have already checked out.");
+                throw new BadRequestException("Bạn đã điểm danh ra ca (Check-out) cho ca dạy này rồi.");
             }
 
             var sessionRepo = _unitOfWork.Repository<Session>();
@@ -232,11 +232,12 @@ namespace EduOps.Application.Services
             };
         }
 
-        public async Task<List<AttendanceDto>> GetTodayAttendancesAsync(Guid organizationId)
+        public async Task<List<AttendanceDto>> GetTodayAttendancesAsync(Guid organizationId, DateTime? date = null)
         {
-            var todayUtc = DateTime.UtcNow.Date;
+            var targetDate = date?.Date ?? DateTime.UtcNow.Date;
+            var nextDay = targetDate.AddDays(1);
             var repo = _unitOfWork.Repository<Attendance>();
-            var attendances = await repo.FindAsync(a => a.OrganizationId == organizationId && a.CheckinTime >= todayUtc, includeProperties: "Status");
+            var attendances = await repo.FindAsync(a => a.OrganizationId == organizationId && a.CheckinTime >= targetDate && a.CheckinTime < nextDay, includeProperties: "Status");
 
             return attendances.Select(a => a.ToDto()).ToList();
         }

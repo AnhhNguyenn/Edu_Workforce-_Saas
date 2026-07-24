@@ -111,8 +111,8 @@ export default function SchedulePage() {
               sessionId: actionSession.id,
               latitude: position.coords.latitude,
               longitude: position.coords.longitude,
-              photoBase64: photoBase64,
-              note: reason
+              photoBase64: photoBase64 || undefined,
+              note: reason || undefined
             });
             toast.success('Check-in thành công!');
           } else {
@@ -120,7 +120,7 @@ export default function SchedulePage() {
               sessionId: actionSession.id,
               latitude: position.coords.latitude,
               longitude: position.coords.longitude,
-              note: reason
+              note: reason || undefined
             });
             toast.success('Check-out thành công!');
           }

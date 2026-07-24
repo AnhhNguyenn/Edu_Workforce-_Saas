@@ -131,22 +131,45 @@ namespace EduOps.Application.Services
 
             // 1. Fetch Users logic
             var userRepo = _unitOfWork.Repository<User>();
-            var usersQuery = await userRepo.FindAsync(u => u.StatusId != null); // All active-ish users
+            var usersQuery = (await userRepo.FindAsync(u => u.DeletedAt == null)).ToList();
 
-            // Filter by roles if specified
+            // Filter by roles / org / user if specified
             if (!string.IsNullOrWhiteSpace(entity.TargetRoles))
             {
-                var targetRoleCodes = entity.TargetRoles.Split(',').Select(r => r.Trim().ToUpper()).ToList();
-                var roleRepo = _unitOfWork.Repository<Role>();
-                var targetRoles = await roleRepo.FindAsync(r => targetRoleCodes.Contains(r.Code.ToUpper()));
-                var targetRoleIds = targetRoles.Select(r => r.Id).ToList();
+                var tokens = entity.TargetRoles.Split(',').Select(r => r.Trim()).Where(r => !string.IsNullOrEmpty(r)).ToList();
 
-                usersQuery = usersQuery.Where(u => u.RoleId.HasValue && targetRoleIds.Contains(u.RoleId.Value)).ToList();
+                var userToken = tokens.FirstOrDefault(t => t.StartsWith("USER:", StringComparison.OrdinalIgnoreCase));
+                var orgToken = tokens.FirstOrDefault(t => t.StartsWith("ORG:", StringComparison.OrdinalIgnoreCase));
+                var roleTokens = tokens
+                    .Where(t => !t.StartsWith("USER:", StringComparison.OrdinalIgnoreCase) && !t.StartsWith("ORG:", StringComparison.OrdinalIgnoreCase))
+                    .Select(t => t.ToUpper())
+                    .ToList();
+
+                if (userToken != null && Guid.TryParse(userToken.Substring(5), out var targetUserId))
+                {
+                    usersQuery = usersQuery.Where(u => u.Id == targetUserId).ToList();
+                }
+                else
+                {
+                    if (orgToken != null && Guid.TryParse(orgToken.Substring(4), out var targetOrgId))
+                    {
+                        usersQuery = usersQuery.Where(u => u.OrganizationId == targetOrgId).ToList();
+                    }
+
+                    if (roleTokens.Any())
+                    {
+                        var roleRepo = _unitOfWork.Repository<Role>();
+                        var targetRoles = await roleRepo.FindAsync(r => roleTokens.Contains(r.Code.ToUpper()));
+                        var targetRoleIds = targetRoles.Select(r => r.Id).ToList();
+
+                        usersQuery = usersQuery.Where(u => u.RoleId.HasValue && targetRoleIds.Contains(u.RoleId.Value)).ToList();
+                    }
+                }
             }
 
             // Calculate percentage
             var totalMatchingUsers = usersQuery.Count();
-            if (totalMatchingUsers == 0) throw new BadRequestException("No users match the broadcast criteria.");
+            if (totalMatchingUsers == 0) throw new BadRequestException("Không tìm thấy người dùng nào phù hợp với điều kiện phát sóng.");
 
             var numToSend = (int)Math.Ceiling(totalMatchingUsers * (entity.TargetPercentage / 100.0));
             

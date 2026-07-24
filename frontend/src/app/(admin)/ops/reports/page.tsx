@@ -1,35 +1,265 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSchools } from '@/hooks/queries/useSchools';
 import { useClasses } from '@/hooks/queries/useClasses';
 import { useUsers } from '@/hooks/queries/useUsers';
 import { useSessions } from '@/hooks/queries/useSessions';
 import { useReports } from '@/hooks/queries/useReports';
-import { Search, ChevronDown, ChevronRight, Building2, GraduationCap, User, Calendar, ClipboardCheck, AlertCircle, Users, Loader2, BookOpen, UserCheck, Clock } from 'lucide-react';
+import { Search, ChevronLeft, ChevronDown, ChevronRight, Building2, GraduationCap, User, Calendar, ClipboardCheck, AlertCircle, Users, Loader2, BookOpen, UserCheck, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { ReportModal } from './_components/ReportModal';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Select } from '@/components/ui/select';
+
+function getWeeksOfMonth(year: number, month: number) {
+  const weeks: { weekIndex: number; startDate: Date; endDate: Date; label: string }[] = [];
+  
+  const firstDay = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0);
+  
+  let currentStart = new Date(firstDay);
+  let weekIndex = 1;
+  
+  while (currentStart <= lastDay) {
+    const currentEnd = new Date(currentStart);
+    const dayOfWeek = currentEnd.getDay();
+    const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+    currentEnd.setDate(currentEnd.getDate() + daysUntilSunday);
+    
+    if (currentEnd > lastDay) {
+      currentEnd.setTime(lastDay.getTime());
+    }
+    
+    const startStr = currentStart.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    const endStr = currentEnd.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    
+    weeks.push({
+      weekIndex,
+      startDate: new Date(currentStart),
+      endDate: new Date(currentEnd),
+      label: `Tuần ${weekIndex} (${startStr} - ${endStr})`
+    });
+    
+    const nextStart = new Date(currentEnd);
+    nextStart.setDate(nextStart.getDate() + 1);
+    currentStart = nextStart;
+    weekIndex++;
+  }
+  
+  return weeks;
+}
+
+interface WeekPickerProps {
+  selectedYear: number;
+  selectedMonth: number;
+  selectedWeekIndex: number;
+  onChange: (year: number, month: number, weekIndex: number) => void;
+}
+
+function WeekPicker({
+  selectedYear,
+  selectedMonth,
+  selectedWeekIndex,
+  onChange,
+}: WeekPickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  const [tempYear, setTempYear] = useState(selectedYear);
+  const [tempMonth, setTempMonth] = useState(selectedMonth);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTempYear(selectedYear);
+      setTempMonth(selectedMonth);
+    }
+  }, [isOpen, selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isOpen]);
+
+  const weeksOfTemp = useMemo(() => {
+    return getWeeksOfMonth(tempYear, tempMonth);
+  }, [tempYear, tempMonth]);
+
+  const currentWeeks = useMemo(() => {
+    return getWeeksOfMonth(selectedYear, selectedMonth);
+  }, [selectedYear, selectedMonth]);
+
+  const selectedWeek = currentWeeks.find(w => w.weekIndex === selectedWeekIndex) || currentWeeks[0];
+  
+  const displayLabel = selectedWeek 
+    ? `Tuần ${selectedWeekIndex} (${selectedWeek.startDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} - ${selectedWeek.endDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })})`
+    : 'Chọn tuần...';
+
+  return (
+    <div ref={containerRef} className="relative w-full sm:w-64">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex h-10 w-full items-center justify-between gap-2 rounded-md border border-edu-border bg-white px-3.5 py-2 text-sm transition-all duration-200 outline-none hover:border-gray-300 focus:border-edu-accent focus:ring-4 focus:ring-edu-accentLight/50 text-edu-fg ${
+          isOpen ? 'border-edu-accent ring-4 ring-edu-accentLight/50' : ''
+        }`}
+      >
+        <div className="flex items-center gap-2 truncate">
+          <Calendar size={16} className="text-edu-muted flex-shrink-0" />
+          <span className="truncate font-semibold text-slate-700">{displayLabel}</span>
+        </div>
+        <ChevronDown size={16} className="text-edu-muted opacity-70 transition-transform duration-200" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 z-50 mt-1.5 w-80 overflow-hidden rounded-xl border border-edu-border bg-white p-4 shadow-xl animate-in fade-in-0 zoom-in-95">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-3">
+            <button
+              type="button"
+              onClick={() => setTempYear(prev => prev - 1)}
+              className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-sm font-bold text-slate-800">Năm {tempYear}</span>
+            <button
+              type="button"
+              onClick={() => setTempYear(prev => prev + 1)}
+              className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1.5 mb-4">
+            {Array.from({ length: 12 }, (_, i) => {
+              const m = i + 1;
+              const isSelected = tempMonth === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setTempMonth(m)}
+                  className={`py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    isSelected
+                      ? 'bg-edu-accent text-white'
+                      : 'text-slate-600 hover:bg-edu-accentLighter hover:text-edu-accent'
+                  }`}
+                >
+                  T{m}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="border-t border-gray-100 pt-3">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Chọn Tuần</div>
+            <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+              {weeksOfTemp.map((w) => {
+                const isSelected = selectedYear === tempYear && selectedMonth === tempMonth && selectedWeekIndex === w.weekIndex;
+                return (
+                  <button
+                    key={w.weekIndex}
+                    type="button"
+                    onClick={() => {
+                      onChange(tempYear, tempMonth, w.weekIndex);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-edu-accentLighter text-edu-accent font-bold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Tuần {w.weekIndex} ({w.startDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} - {w.endDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CenterAdminReportsPage() {
   const [activeTab, setActiveTab] = useState<'day' | 'week' | 'discipline'>('day');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
+  const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(new Date());
   
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
+  const [selectedWeekIndex, setSelectedWeekIndex] = useState<number>(1);
+
   // States for accordion expansion
   const [expandedSchools, setExpandedSchools] = useState<Record<string, boolean>>({});
   const [expandedClasses, setExpandedClasses] = useState<Record<string, boolean>>({});
   const [expandedRoles, setExpandedRoles] = useState<Record<string, boolean>>({});
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
 
+  const activeDayDate = selectedDayDate || new Date();
+  const selectedDateStrForDisplay = activeDayDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const currentWeeks = useMemo(() => {
+    return getWeeksOfMonth(selectedYear, selectedMonth);
+  }, [selectedYear, selectedMonth]);
+
+  // Set current week on load
+  useEffect(() => {
+    const today = new Date();
+    if (selectedYear === today.getFullYear() && selectedMonth === (today.getMonth() + 1)) {
+      const currentWeek = currentWeeks.find(w => today >= w.startDate && today <= w.endDate);
+      if (currentWeek) {
+        setSelectedWeekIndex(currentWeek.weekIndex);
+      }
+    }
+  }, [selectedYear, selectedMonth, currentWeeks]);
+
+  const activeWeek = useMemo(() => {
+    return currentWeeks.find(w => w.weekIndex === selectedWeekIndex) || currentWeeks[0];
+  }, [currentWeeks, selectedWeekIndex]);
+
+  const activeWeekStart = activeWeek?.startDate || new Date();
+  const activeWeekEnd = activeWeek?.endDate || new Date();
+
+  const getWeekRangeDisplay = () => {
+    const startDisplay = activeWeekStart.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const endDisplay = activeWeekEnd.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return `${startDisplay} - ${endDisplay}`;
+  };
+
+  const { queryStartDate, queryEndDate } = useMemo(() => {
+    if (activeTab === 'day') {
+      const dStr = activeDayDate.toLocaleDateString('en-CA');
+      return { queryStartDate: dStr, queryEndDate: dStr };
+    }
+    if (activeTab === 'week') {
+      return {
+        queryStartDate: activeWeekStart.toLocaleDateString('en-CA'),
+        queryEndDate: activeWeekEnd.toLocaleDateString('en-CA')
+      };
+    }
+    return { queryStartDate: undefined, queryEndDate: undefined };
+  }, [activeDayDate, activeWeekStart, activeWeekEnd, activeTab]);
+
   const { data: schools, isLoading: isLoadingSchools } = useSchools();
   const { data: classes, isLoading: isLoadingClasses } = useClasses(undefined, undefined, undefined, 1, 1000);
   const { data: teachers, isLoading: isLoadingTeachers } = useUsers('TEACHER', '', 1, 1000);
   const { data: assistants, isLoading: isLoadingAssistants } = useUsers('ASSISTANT', '', 1, 1000);
-  const { data: sessions, isLoading: isLoadingSessions } = useSessions();
+  const { data: sessions, isLoading: isLoadingSessions } = useSessions(queryStartDate, queryEndDate);
   const { data: reportsData, isLoading: isLoadingReports } = useReports(1, 1000);
 
   const isLoading = isLoadingSchools || isLoadingClasses || isLoadingTeachers || isLoadingAssistants || isLoadingSessions || isLoadingReports;
@@ -48,24 +278,15 @@ export default function CenterAdminReportsPage() {
     const reportsList = reportsData?.items || [];
 
     // Tab Filtering
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    
     if (activeTab === 'day') {
-      const todayStr = today.toLocaleDateString('en-CA');
+      const targetStr = activeDayDate.toLocaleDateString('en-CA');
       filteredSessions = filteredSessions.filter(s => {
         const sDateStr = new Date(s.sessionDate).toLocaleDateString('en-CA');
-        return sDateStr === todayStr;
+        return sDateStr === targetStr;
       });
     } else if (activeTab === 'week') {
-      const day = today.getDay();
-      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-      const weekStart = new Date(today.setDate(diff));
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      
-      const startStr = weekStart.toLocaleDateString('en-CA');
-      const endStr = weekEnd.toLocaleDateString('en-CA');
+      const startStr = activeWeekStart.toLocaleDateString('en-CA');
+      const endStr = activeWeekEnd.toLocaleDateString('en-CA');
       
       filteredSessions = filteredSessions.filter(s => {
         const sDateStr = new Date(s.sessionDate).toLocaleDateString('en-CA');
@@ -127,15 +348,36 @@ export default function CenterAdminReportsPage() {
     groupsMap.forEach(g => groupedSessions.push(g));
 
     return groupedSessions.sort((a: any, b: any) => (a.startTime || '').localeCompare(b.startTime || ''));
-  }, [schools, classes, sessions, reportsData, activeTab]);
+  }, [schools, classes, sessions, reportsData, activeTab, activeDayDate, activeWeekStart, activeWeekEnd]);
 
   return (
     <div className="w-full h-full space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold mb-1 text-edu-fg">Báo cáo buổi học (Admin)</h2>
-          <p className="text-edu-muted text-sm">Quản lý và theo dõi báo cáo giảng dạy theo từng cơ sở</p>
+          <p className="text-edu-muted text-sm">
+            {activeTab === 'day' && `Báo cáo giảng dạy ngày ${selectedDateStrForDisplay}`}
+            {activeTab === 'week' && `Báo cáo giảng dạy tuần ${getWeekRangeDisplay()}`}
+            {activeTab === 'discipline' && "Quản lý và theo dõi báo cáo giảng dạy theo từng cơ sở"}
+          </p>
         </div>
+        {activeTab === 'day' && (
+          <div className="w-full sm:w-48">
+            <DatePicker selected={activeDayDate} onChange={(date) => setSelectedDayDate(date)} />
+          </div>
+        )}
+        {activeTab === 'week' && (
+          <WeekPicker 
+            selectedYear={selectedYear}
+            selectedMonth={selectedMonth}
+            selectedWeekIndex={selectedWeekIndex}
+            onChange={(y, m, wIdx) => {
+              setSelectedYear(y);
+              setSelectedMonth(m);
+              setSelectedWeekIndex(wIdx);
+            }}
+          />
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -247,9 +489,15 @@ export default function CenterAdminReportsPage() {
                       </TableCell>
                       
                       <TableCell className="py-3">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-md shadow-sm font-bold text-sm">
-                          <Clock size={13} className="text-blue-500" />
-                          {s.startTime?.substring(0, 5)} - {s.endTime?.substring(0, 5)}
+                        <div className="flex flex-col gap-1.5 items-start">
+                          <div className="inline-flex items-center gap-1.5 text-slate-700 text-sm font-semibold">
+                            <Calendar size={14} className="text-blue-500" />
+                            {s.sessionDate ? new Date(s.sessionDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '---'}
+                          </div>
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-md shadow-sm font-bold text-sm">
+                            <Clock size={13} className="text-blue-500" />
+                            {s.startTime?.substring(0, 5)} - {s.endTime?.substring(0, 5)}
+                          </div>
                         </div>
                       </TableCell>
 
@@ -278,7 +526,7 @@ export default function CenterAdminReportsPage() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge variant={s.computedStatus === 'COMPLETED' ? 'success' : s.computedStatus === 'DRAFT' ? 'info' : s.computedStatus === 'ONGOING' ? 'warn' : s.computedStatus === 'MISSING' ? 'danger' : 'secondary'} className="shadow-sm">
+                        <Badge variant={s.computedStatus === 'COMPLETED' ? 'success' : s.computedStatus === 'DRAFT' ? 'info' : s.computedStatus === 'ONGOING' ? 'warn' : s.computedStatus === 'MISSING' ? 'danger' : 'muted'} className="shadow-sm">
                           {s.computedStatus === 'COMPLETED' ? 'Đã báo cáo' : s.computedStatus === 'DRAFT' ? 'Bản nháp' : s.computedStatus === 'ONGOING' ? 'Đang diễn ra' : s.computedStatus === 'MISSING' ? 'Chưa báo cáo' : 'Sắp tới'}
                         </Badge>
                       </TableCell>

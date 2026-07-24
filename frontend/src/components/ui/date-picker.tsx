@@ -23,6 +23,7 @@ export interface DatePickerProps {
   showMonthYearPicker?: boolean;
   showYearPicker?: boolean;
   wrapperClassName?: string;
+  displayValue?: string;
 }
 
 const MONTHS = [
@@ -147,6 +148,7 @@ export function DatePicker({
   minDate,
   maxDate,
   wrapperClassName = '',
+  displayValue,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [displayMonth, setDisplayMonth] = useState(selected || new Date());
@@ -181,18 +183,25 @@ export function DatePicker({
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
       const dropdownHeight = dropdownRef.current ? dropdownRef.current.offsetHeight : 330;
+      const dropdownWidth = dropdownRef.current ? dropdownRef.current.offsetWidth : 280;
+
+      const spaceRight = window.innerWidth - rect.left;
+      let leftPos = rect.left;
+      if (spaceRight < dropdownWidth + 10) {
+        leftPos = Math.max(10, rect.right - dropdownWidth);
+      }
 
       if (spaceBelow < dropdownHeight + 10 && spaceAbove > spaceBelow) {
         setOpenDirection('up');
         setCoords({
           top: rect.top - dropdownHeight - 6,
-          left: rect.left,
+          left: leftPos,
         });
       } else {
         setOpenDirection('down');
         setCoords({
           top: rect.bottom + 6,
-          left: rect.left,
+          left: leftPos,
         });
       }
     }
@@ -217,12 +226,12 @@ export function DatePicker({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`flex h-10 w-full items-center gap-2 rounded-md border border-edu-border bg-white px-3.5 py-2 text-sm transition-all duration-200 outline-none hover:border-gray-300 focus:border-edu-accent focus:ring-4 focus:ring-edu-accentLight/50 ${
-          !selected ? 'text-edu-muted' : 'text-edu-fg'
+          !(selected || displayValue) ? 'text-edu-muted' : 'text-edu-fg'
         } ${className}`}
       >
         <Calendar size={16} className="text-edu-muted flex-shrink-0" />
         <span className="truncate">
-          {selected ? format(selected, 'dd/MM/yyyy') : placeholderText}
+          {displayValue || (selected ? format(selected, 'dd/MM/yyyy') : placeholderText)}
         </span>
       </button>
 
@@ -250,8 +259,8 @@ export function DatePicker({
               month={displayMonth}
               onMonthChange={setDisplayMonth}
               locale={vi}
-              fromDate={minDate}
-              toDate={maxDate}
+              startMonth={minDate}
+              endMonth={maxDate}
               hideNavigation
               classNames={{
                 root: 'px-3 pb-3',

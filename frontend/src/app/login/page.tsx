@@ -394,7 +394,7 @@ function LoginContent() {
             </div>
 
             {/* Error Message */}
-            {(errorMsg || error) && (
+            {!isForgotPassword && (errorMsg || error) && (
               <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex flex-col items-center text-center">
                 <span className="text-sm text-red-600 font-medium">
                   {error || (errorMsg === 'CredentialsSignin' ? 'Email hoặc mật khẩu không chính xác' : 
@@ -456,17 +456,15 @@ function LoginContent() {
 
                 <div className="flex items-center pt-1">
                   <input
-                    id="remember"
-                    type="checkbox"
-                    className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded cursor-pointer"
-                    {...registerLogin('remember')}
+                     id="remember"
+                     type="checkbox"
+                     className="h-4 w-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300 rounded cursor-pointer"
+                     {...registerLogin('remember')}
                   />
                   <label htmlFor="remember" className="ml-3 block text-[13px] text-gray-700 font-semibold cursor-pointer">
                     Ghi nhớ đăng nhập
                   </label>
                 </div>
-
-                {error && <p className="text-red-500 text-[13px] font-medium text-center bg-red-50 p-2 rounded-lg">{error}</p>}
 
                 <Button 
                   type="submit" 

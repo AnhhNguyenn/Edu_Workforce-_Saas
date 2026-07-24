@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Send, RotateCcw, Info } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+
+export type ConfirmVariant = 'danger' | 'success' | 'primary' | 'warn';
 
 interface ConfirmActionModalProps {
   isOpen: boolean;
@@ -13,7 +15,8 @@ interface ConfirmActionModalProps {
   requireInput?: boolean;
   expectedInput?: string;
   isPending?: boolean;
-  variant?: 'danger' | 'warning' | 'info';
+  variant?: ConfirmVariant;
+  confirmText?: string;
 }
 
 export function ConfirmActionModal({
@@ -21,11 +24,12 @@ export function ConfirmActionModal({
   onClose,
   onConfirm,
   title = "Xác nhận hành động",
-  description = "Bạn có chắc chắn muốn thực hiện hành động này không? Hành động này không thể hoàn tác.",
+  description = "Bạn có chắc chắn muốn thực hiện hành động này không?",
   requireInput = false,
   expectedInput = "XAC NHAN",
   isPending = false,
-  variant = "danger"
+  variant = 'danger',
+  confirmText = 'Xác nhận'
 }: ConfirmActionModalProps) {
   const [inputValue, setInputValue] = useState('');
 
@@ -38,36 +42,30 @@ export function ConfirmActionModal({
 
   const getVariantStyles = () => {
     switch (variant) {
-      case 'warning':
+      case 'success':
         return {
-          icon: 'text-orange-500',
-          button: 'bg-orange-500 hover:bg-orange-600',
-          bg: 'bg-orange-50',
-          border: 'border-orange-100',
-          textDark: 'text-orange-900',
-          borderLight: 'border-orange-200',
-          focus: 'focus:border-orange-500 focus:ring-orange-500/20'
+          icon: <Send size={20} className="text-emerald-600" />,
+          titleClass: 'text-emerald-800',
+          buttonClass: 'bg-emerald-600 hover:bg-emerald-700 text-white'
         };
-      case 'info':
+      case 'primary':
         return {
-          icon: 'text-blue-600',
-          button: 'bg-[#2563EB] hover:bg-blue-700',
-          bg: 'bg-blue-50',
-          border: 'border-blue-100',
-          textDark: 'text-blue-900',
-          borderLight: 'border-blue-200',
-          focus: 'focus:border-blue-500 focus:ring-blue-500/20'
+          icon: <Info size={20} className="text-blue-600" />,
+          titleClass: 'text-blue-800',
+          buttonClass: 'bg-blue-600 hover:bg-blue-700 text-white'
+        };
+      case 'warn':
+        return {
+          icon: <RotateCcw size={20} className="text-amber-600" />,
+          titleClass: 'text-amber-800',
+          buttonClass: 'bg-amber-600 hover:bg-amber-700 text-white'
         };
       case 'danger':
       default:
         return {
-          icon: 'text-red-600',
-          button: 'bg-red-600 hover:bg-red-700',
-          bg: 'bg-red-50',
-          border: 'border-red-100',
-          textDark: 'text-red-900',
-          borderLight: 'border-red-200',
-          focus: 'focus:border-red-500 focus:ring-red-500/20'
+          icon: <AlertTriangle size={20} className="text-rose-600" />,
+          titleClass: 'text-rose-700',
+          buttonClass: 'bg-rose-600 hover:bg-rose-700 text-white'
         };
     }
   };
@@ -78,10 +76,9 @@ export function ConfirmActionModal({
     <Modal
       isOpen={isOpen}
       onClose={isPending ? () => {} : onClose}
-      zIndex="z-[999]"
       title={
-        <div className={`flex items-center gap-2 ${styles.icon}`}>
-          <AlertTriangle size={20} />
+        <div className={`flex items-center gap-2.5 ${styles.titleClass}`}>
+          {styles.icon}
           <span>{title}</span>
         </div>
       }
@@ -91,31 +88,30 @@ export function ConfirmActionModal({
             Hủy bỏ
           </Button>
           <Button 
-            className={`${styles.button} text-white gap-2 transition-colors disabled:opacity-50`}
+            className={`${styles.buttonClass} gap-2 font-semibold shadow-sm transition-all disabled:opacity-50`}
             onClick={handleConfirm}
             disabled={isConfirmDisabled}
           >
             {isPending && <Loader2 size={16} className="animate-spin" />}
-            {isPending ? 'Đang xử lý...' : 'Xác nhận'}
+            {isPending ? 'Đang xử lý...' : confirmText}
           </Button>
         </>
       }
     >
-      <div className="space-y-4 pt-2">
-        <p className="text-sm text-edu-fgSecondary">
+      <div className="space-y-4 pt-1">
+        <p className="text-sm text-slate-700 leading-relaxed">
           {description}
         </p>
 
         {requireInput && (
-          <div className={`${styles.bg} p-4 rounded-lg border ${styles.border}`}>
-            <label className={`block text-sm font-semibold ${styles.textDark} mb-2`}>
-              Để xác nhận, vui lòng gõ <span className={`font-bold bg-white px-1 py-0.5 rounded border ${styles.borderLight}`}>{expectedInput}</span> vào ô bên dưới:
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label className="block text-sm font-semibold text-slate-800 mb-2">
+              Để xác nhận, vui lòng gõ <span className="font-bold bg-white px-1.5 py-0.5 rounded border border-slate-300 text-slate-900">{expectedInput}</span> vào ô bên dưới:
             </label>
             <Input 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder={expectedInput}
-              className={`${styles.borderLight} ${styles.focus}`}
               disabled={isPending}
             />
           </div>

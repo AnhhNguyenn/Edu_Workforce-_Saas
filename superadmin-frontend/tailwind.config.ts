@@ -59,6 +59,7 @@ const config: Config = {
           fgSecondary: "#4A5E78",
           muted: "#8A9BB5",
           border: "#DDE6F0",
+          primary: "#2563EB",
           accent: "#2563EB",
           accentHover: "#1D4ED8",
           accentLight: "#EFF6FF",

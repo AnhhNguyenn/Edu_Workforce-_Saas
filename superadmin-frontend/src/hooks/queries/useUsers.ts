@@ -23,13 +23,14 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
-export const useUsers = (roleFilter?: string, searchKeyword?: string, pageNumber: number = 1, pageSize: number = 20) => {
+export const useUsers = (roleFilter?: string, searchKeyword?: string, pageNumber: number = 1, pageSize: number = 20, filterOrgId?: string) => {
   return useQuery({
-    queryKey: ['users', roleFilter, searchKeyword, pageNumber, pageSize],
+    queryKey: ['users', roleFilter, searchKeyword, pageNumber, pageSize, filterOrgId],
     queryFn: async () => {
       const response = await apiClient.get<PagedResult<UserDto>>('/users', {
         params: { 
           filterRoleCode: roleFilter,
+          filterOrgId: filterOrgId || undefined,
           searchKeyword: searchKeyword || undefined,
           pageNumber,
           pageSize

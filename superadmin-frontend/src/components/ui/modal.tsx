@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { cn } from './stat-card'; // Reuse cn from there for now, or move to lib/utils
 import { Portal } from './portal';
 
@@ -55,22 +56,22 @@ export function Modal({ isOpen, onClose, title, children, footer, className }: M
             className
           )}
         >
-          <div className="px-6 py-5 flex justify-between items-center border-b border-transparent">
+          <div className="px-6 py-4 flex justify-between items-center border-b border-edu-border bg-slate-50/50 rounded-t-2xl">
             <h3 className="text-[1.15rem] font-bold text-edu-fg">{title}</h3>
             <button 
               onClick={onClose}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-edu-muted hover:bg-edu-accentLight hover:text-edu-accent transition-colors"
             >
-              ✕
+              <X size={18} />
             </button>
           </div>
           
-          <div className="px-6 py-5">
+          <div className="p-6">
             {children}
           </div>
 
           {footer && (
-            <div className="px-6 py-5 flex justify-end gap-2.5 border-t border-transparent">
+            <div className="px-6 py-4 flex justify-end gap-2.5 border-t border-edu-border bg-slate-50/50 rounded-b-2xl">
               {footer}
             </div>
           )}

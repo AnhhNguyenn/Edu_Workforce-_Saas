@@ -14,11 +14,17 @@ import { useTodayAttendances } from "@/hooks/queries/useAttendances";
 import { useClasses } from "@/hooks/queries/useClasses";
 import { useUsers } from "@/hooks/queries/useUsers";
 import { useSchools } from "@/hooks/queries/useSchools";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export default function AttendancePage() {
-  const today = new Date().toISOString().split('T')[0];
-  const { data: sessions, isLoading: isLoadingSessions } = useSessions(today, today);
-  const { data: attendances, isLoading: isLoadingAttendances } = useTodayAttendances();
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+
+  const activeDate = selectedDate || new Date();
+  const dateStr = activeDate.toLocaleDateString('en-CA');
+  const selectedDateStrForDisplay = activeDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const { data: sessions, isLoading: isLoadingSessions } = useSessions(dateStr, dateStr);
+  const { data: attendances, isLoading: isLoadingAttendances } = useTodayAttendances(dateStr);
   const { data: classes } = useClasses();
   const { data: schools } = useSchools();
   const { data: teachers } = useUsers('TEACHER');
@@ -102,7 +108,7 @@ export default function AttendancePage() {
     let hasAssistantAttended = false;
 
     // Kiểm tra Giáo viên
-    assignedTeacherIds.forEach(uid => {
+    assignedTeacherIds.forEach((uid: string) => {
       const att = sessionAttendances.find((a: any) => a.userId === uid);
       if (!att) {
         if (isPastStart) teacherIssues.push('Chưa Check-in');
@@ -115,7 +121,7 @@ export default function AttendancePage() {
     });
 
     // Kiểm tra Trợ giảng
-    assignedAssistantIds.forEach(uid => {
+    assignedAssistantIds.forEach((uid: string) => {
       const att = sessionAttendances.find((a: any) => a.userId === uid);
       if (!att) {
         if (isPastStart) assistantIssues.push('Chưa Check-in');
@@ -167,8 +173,8 @@ export default function AttendancePage() {
       case 'ONGOING': return { label: 'Đang diễn ra', variant: 'warn' as const };
       case 'ABSENT': return { label: 'Vắng mặt', variant: 'danger' as const };
       case 'SCHEDULED': return { label: 'Sắp tới', variant: 'info' as const };
-      case 'CANCELED': return { label: 'Đã hủy', variant: 'secondary' as const };
-      default: return { label: status, variant: 'secondary' as const };
+      case 'CANCELED': return { label: 'Đã hủy', variant: 'muted' as const };
+      default: return { label: status, variant: 'muted' as const };
     }
   };
 
@@ -176,9 +182,14 @@ export default function AttendancePage() {
 
   return (
     <div className="w-full h-full space-y-7">
-      <div className="mb-7">
-        <h2 className="text-2xl font-bold mb-1 text-edu-fg">Điểm danh</h2>
-        <p className="text-edu-muted text-sm">Giám sát điểm danh tức thời hôm nay</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-7">
+        <div>
+          <h2 className="text-2xl font-bold mb-1 text-edu-fg">Điểm danh</h2>
+          <p className="text-edu-muted text-sm">Giám sát điểm danh ngày {selectedDateStrForDisplay}</p>
+        </div>
+        <div className="w-full sm:w-48">
+          <DatePicker selected={activeDate} onChange={(date) => setSelectedDate(date)} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-7">
@@ -208,7 +219,7 @@ export default function AttendancePage() {
             <EmptyState 
               icon={<CalendarOff size={32} />}
               title="Trống lịch học"
-              description="Không có ca học nào được xếp lịch trong hôm nay."
+              description={`Không có ca học nào được xếp lịch trong ngày ${selectedDateStrForDisplay}.`}
             />
           ) : (
             <Table className="w-full whitespace-nowrap">
@@ -237,8 +248,8 @@ export default function AttendancePage() {
                   const assignedAssistantIds = (s.assistantIds && s.assistantIds.length > 0) ? s.assistantIds : (s.assistantId ? [s.assistantId] : []);
                   
                   const assignedStaff = [
-                    ...assignedTeacherIds.map(id => ({ id, role: 'TEACHER' })),
-                    ...assignedAssistantIds.map(id => ({ id, role: 'ASSISTANT' }))
+                    ...assignedTeacherIds.map((id: string) => ({ id, role: 'TEACHER' })),
+                    ...assignedAssistantIds.map((id: string) => ({ id, role: 'ASSISTANT' }))
                   ];
                   
                   return (

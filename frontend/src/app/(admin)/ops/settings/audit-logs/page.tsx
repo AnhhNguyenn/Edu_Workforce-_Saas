@@ -62,7 +62,6 @@ export default function AuditLogsPage() {
     MonthsToAdd: "Thời hạn (Tháng)",
     PlanName: "Gói dịch vụ",
     PaymentMethod: "Phương thức TT",
-    StatusId: "Mã trạng thái",
     PaymentDate: "Ngày thanh toán",
     ReferenceCode: "Mã tham chiếu",
     FullName: "Họ và tên",

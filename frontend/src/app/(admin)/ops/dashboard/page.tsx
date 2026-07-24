@@ -9,7 +9,7 @@ import { useReports } from "@/hooks/queries/useReports";
 import { useSessions } from "@/hooks/queries/useSessions";
 import { useSchools } from "@/hooks/queries/useSchools";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Badge, BadgeVariant } from "@/components/ui/badge";
 import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function CenterAdminDashboard() {
@@ -174,21 +174,21 @@ export default function CenterAdminDashboard() {
                 const endTotal = endH * 60 + endM;
 
                 let displayStatus = 'Sắp học';
-                let badgeVariant: "default" | "destructive" | "outline" | "secondary" | "success" | "warn" | "info" | null | undefined = 'info';
+                let badgeVariant: BadgeVariant = 'info';
 
                 if (s.statusCode === 'COMPLETED') {
                   displayStatus = 'Đã xong';
                   badgeVariant = 'success';
                 } else if (s.statusCode === 'CANCELED') {
                   displayStatus = 'Đã hủy';
-                  badgeVariant = 'secondary';
+                  badgeVariant = 'muted';
                 } else if (s.statusCode === 'ONGOING') {
                   displayStatus = 'Đang diễn ra';
                   badgeVariant = 'warn';
                 } else {
                   if (currentMinutes > endTotal) {
                     displayStatus = 'Chưa báo cáo';
-                    badgeVariant = 'secondary';
+                    badgeVariant = 'muted';
                   } else if (currentMinutes >= startTotal && currentMinutes <= endTotal) {
                     displayStatus = 'Đang diễn ra';
                     badgeVariant = 'warn';

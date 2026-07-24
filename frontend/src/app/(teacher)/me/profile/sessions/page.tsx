@@ -2,10 +2,11 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useProfileStats } from "@/hooks/queries/useProfile";
+import { Suspense } from "react";
 import { ChevronLeft, Loader2, BarChart2, BookOpen, Clock, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 
-export default function SessionsStatsPage() {
+function SessionsStatsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -104,5 +105,13 @@ export default function SessionsStatsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SessionsStatsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-[calc(100vh-200px)]"><Loader2 className="animate-spin text-edu-accent" size={32} /></div>}>
+      <SessionsStatsContent />
+    </Suspense>
   );
 }

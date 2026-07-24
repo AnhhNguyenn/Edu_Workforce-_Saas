@@ -6,6 +6,9 @@ export interface AttendanceRequestDto {
   latitude?: number;
   longitude?: number;
   note?: string;
+  photoBase64?: string;
+  isMockLocation?: boolean;
+  deviceId?: string;
 }
 
 export interface StudentAttendanceSubmitDto {
@@ -20,7 +23,7 @@ export const useMyAttendances = () => {
   return useQuery({
     queryKey: ['my-attendances'],
     queryFn: async () => {
-      const response = await apiClient.get<any>('/attendances/me');
+      const response = await apiClient.get<any>('/attendances/me?pageSize=100');
       return response.data;
     },
     refetchInterval: 5000, // Real-time poll every 5 seconds
@@ -56,11 +59,13 @@ export const useStaffAttendanceStats = (month?: number | null, year?: number | n
   });
 };
 
-export const useTodayAttendances = () => {
+export const useTodayAttendances = (date?: string) => {
   return useQuery({
-    queryKey: ['today-attendances'],
+    queryKey: ['today-attendances', date],
     queryFn: async () => {
-      const response = await apiClient.get<any[]>('/attendances/today');
+      const response = await apiClient.get<any[]>('/attendances/today', {
+        params: { date }
+      });
       return response.data;
     }
   });
